@@ -22,6 +22,76 @@ function getRoleColor(role: string | null): string {
   return role ? (ROLE_COLORS[role] ?? 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-400'
 }
 
+// ── 課程浮動提示 ─────────────────────────────────────
+const COURSE_LABELS: { key: keyof OrgStudent; label: string }[] = [
+  { key: 'course_1', label: '一階' },
+  { key: 'course_2', label: '二階' },
+  { key: 'course_3', label: '三階' },
+  { key: 'course_4', label: '四階' },
+  { key: 'course_5', label: '五階' },
+  { key: 'course_wuyun', label: '五運' },
+  { key: 'life_numbers', label: '生命數字' },
+  { key: 'life_numbers_advanced', label: '生命數字實戰' },
+  { key: 'life_transform', label: '生命蛻變' },
+  { key: 'debt_release', label: '告別負債' },
+]
+
+interface TooltipPos { x: number; y: number }
+
+interface CourseTooltipProps {
+  student: OrgStudent
+  pos: TooltipPos
+}
+
+function CourseTooltip({ student, pos }: CourseTooltipProps) {
+  const courses = COURSE_LABELS.filter(({ key }) => !!student[key])
+  if (courses.length === 0) return null
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none"
+      style={{ left: pos.x + 12, top: pos.y - 8 }}
+    >
+      <div className="bg-white border border-slate-200 rounded-lg shadow-xl px-3 py-2 min-w-[140px] max-w-[220px]">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">課程紀錄</p>
+        <div className="flex flex-col gap-1">
+          {courses.map(({ key, label }) => (
+            <div key={key} className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-400 whitespace-nowrap">{label}</span>
+              <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap">{String(student[key])}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 學員名稱按鈕（含 Hover Tooltip 控制）────────────────
+interface StudentNameProps {
+  student: OrgStudent
+  onClick: () => void
+  className?: string
+}
+
+function StudentName({ student, onClick, className }: StudentNameProps) {
+  const [tooltipPos, setTooltipPos] = useState<TooltipPos | null>(null)
+
+  return (
+    <span className="relative">
+      <button
+        onClick={onClick}
+        onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => setTooltipPos(null)}
+        className={className}
+      >
+        {student.name}
+      </button>
+      {tooltipPos && <CourseTooltip student={student} pos={tooltipPos} />}
+    </span>
+  )
+}
+
 // ── 一般樹狀節點（展開/收合用） ─────────────────────────
 interface NodeProps {
   node: TreeNode
@@ -56,12 +126,11 @@ function OrgNode({ node, defaultExpanded, isLast, prefix, onFocus }: NodeProps) 
           <span className="w-4 flex-shrink-0" />
         )}
 
-        <button
+        <StudentName
+          student={student}
           onClick={() => onFocus(node)}
           className="text-xs text-slate-800 font-medium whitespace-nowrap hover:text-blue-600 hover:underline transition-colors"
-        >
-          {student.name}
-        </button>
+        />
 
         {student.role && (
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${getRoleColor(student.role)}`}>
@@ -123,18 +192,19 @@ function FocusedView({ path, onBreadcrumb, onFocus }: FocusedViewProps) {
               <span className="w-4 flex-shrink-0" />
 
               {isFocused ? (
-                // 聚焦節點：顯示高亮
-                <span className="text-xs font-bold text-blue-700 whitespace-nowrap bg-blue-50 px-1.5 py-0.5 rounded">
-                  {node.student.name}
-                </span>
+                // 聚焦節點：顯示高亮（也帶 tooltip）
+                <StudentName
+                  student={node.student}
+                  onClick={() => {}}
+                  className="text-xs font-bold text-blue-700 whitespace-nowrap bg-blue-50 px-1.5 py-0.5 rounded cursor-default"
+                />
               ) : (
                 // 祖先節點：可點擊跳回
-                <button
+                <StudentName
+                  student={node.student}
                   onClick={() => onBreadcrumb(i)}
                   className="text-xs text-slate-500 font-medium whitespace-nowrap hover:text-blue-600 hover:underline transition-colors"
-                >
-                  {node.student.name}
-                </button>
+                />
               )}
 
               {node.student.role && (

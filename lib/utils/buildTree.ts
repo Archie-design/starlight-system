@@ -6,6 +6,16 @@ export interface OrgStudent {
   role: string | null
   region: string | null
   introducer: string | null
+  course_1: string | null
+  course_2: string | null
+  course_3: string | null
+  course_4: string | null
+  course_5: string | null
+  course_wuyun: string | null
+  life_numbers: string | null
+  life_numbers_advanced: string | null
+  life_transform: string | null
+  debt_release: string | null
 }
 
 export interface TreeNode {
