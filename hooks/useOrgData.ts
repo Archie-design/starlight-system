@@ -17,7 +17,7 @@ export function useOrgData(): {
   const { data, isLoading, error } = useSWR<{ students: OrgStudent[] }>(
     `/api/org?system=${encodeURIComponent(activeTab)}`,
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, dedupingInterval: 300_000 }
   )
 
   const students = data?.students ?? []

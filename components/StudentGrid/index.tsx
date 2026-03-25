@@ -22,15 +22,18 @@ const ROW_HEIGHT = 28
 
 export default function StudentGrid() {
   const { students, count, isLoading } = useStudents()
-  const { page, setPage } = useStudentStore()
+  const { page, setPage, columnVisibility, setColumnVisibility } = useStudentStore()
   const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: false }])
   const containerRef = useRef<HTMLDivElement>(null)
 
   const table = useReactTable({
     data: students,
     columns: studentColumns,
-    state: { sorting },
+    state: { sorting, columnVisibility },
     onSortingChange: setSorting,
+    onColumnVisibilityChange: (updater) => {
+      setColumnVisibility(typeof updater === 'function' ? updater(columnVisibility) : updater)
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     columnResizeMode: 'onChange' as ColumnResizeMode,

@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useStudentStore } from '@/store/useStudentStore'
 
 const REGIONS = ['北區', '中區', '南區']
@@ -14,6 +16,37 @@ export default function FilterBar() {
   const { filters, setFilter, resetFilters } = useStudentStore()
   const hasFilter = Object.values(filters).some((v) => v !== '' && v !== false)
   const activeCount = Object.values(filters).filter((v) => v !== '' && v !== false).length
+
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // 初次載入：從 URL 還原篩選條件
+  useEffect(() => {
+    const name = searchParams.get('name') ?? ''
+    const counselor = searchParams.get('counselor') ?? ''
+    const region = searchParams.get('region') ?? ''
+    const role = searchParams.get('role') ?? ''
+    const hasCourse5 = searchParams.get('hasCourse5') === '1'
+    if (name) setFilter('name', name)
+    if (counselor) setFilter('counselor', counselor)
+    if (region) setFilter('region', region)
+    if (role) setFilter('role', role)
+    if (hasCourse5) setFilter('hasCourse5', true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 篩選變更時同步 URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (filters.name) params.set('name', filters.name)
+    if (filters.counselor) params.set('counselor', filters.counselor)
+    if (filters.region) params.set('region', filters.region)
+    if (filters.role) params.set('role', filters.role)
+    if (filters.hasCourse5) params.set('hasCourse5', '1')
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [filters, pathname, router])
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-100 border-b border-slate-300">

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildStudentsXlsx } from '@/lib/export/buildXlsx'
 import type { Student, SheetSystem } from '@/lib/supabase/types'
 
 export async function GET(request: NextRequest) {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
     const { searchParams } = new URL(request.url)
     const system = (searchParams.get('system') ?? '星光') as SheetSystem

@@ -58,7 +58,7 @@ export interface ImportSession {
   rows_updated: number
   rows_inserted: number
   rows_unchanged: number
-  diff_snapshot: FieldDiff[] | null
+  diff_snapshot: StudentInsert[] | null  // 實際存 StudentInsert[]，非 FieldDiff[]
   applied: boolean
   applied_at: string | null
 }

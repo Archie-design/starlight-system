@@ -8,6 +8,7 @@ import OrgChart from '@/components/OrgChart'
 import ImportWizard from '@/components/ImportWizard'
 import NewStudentModal from '@/components/NewStudentModal'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
 
 function StudentsLayout() {
@@ -32,7 +33,9 @@ function StudentsLayout() {
       {view === 'grid' ? (
         <>
           {/* 篩選列 */}
-          <FilterBar />
+          <Suspense fallback={<div className="h-8 bg-slate-100 border-b border-slate-300" />}>
+            <FilterBar />
+          </Suspense>
           {/* 主表格 */}
           <div className="flex-1 min-h-0">
             <StudentGrid />

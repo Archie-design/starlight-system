@@ -44,6 +44,10 @@ interface StudentStore {
   // 檢視模式
   view: 'grid' | 'org'
   setView: (view: 'grid' | 'org') => void
+
+  // 欄位顯示
+  columnVisibility: Record<string, boolean>
+  setColumnVisibility: (v: Record<string, boolean>) => void
 }
 
 export const useStudentStore = create<StudentStore>((set) => ({
@@ -69,4 +73,7 @@ export const useStudentStore = create<StudentStore>((set) => ({
 
   view: 'grid',
   setView: (view) => set({ view }),
+
+  columnVisibility: {},
+  setColumnVisibility: (columnVisibility) => set({ columnVisibility }),
 }))
