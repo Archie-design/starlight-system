@@ -1,10 +1,10 @@
 import ExcelJS from 'exceljs'
 import type { StudentInsert } from '@/lib/supabase/types'
-import { transformSourceRow } from './transform'
+import { transformSourceRow, HEADER_TO_COL_KEY, DEFAULT_COL, type ColMap } from './transform'
 
 /**
  * 解析來源 xlsx Buffer，返回轉換後的學員資料
- * 適用於 學員關懷傘下學員報課狀況.xlsx
+ * 具備動態標題偵測功能
  */
 export async function parseSourceXlsx(buffer: ArrayBuffer): Promise<{
   rows: StudentInsert[]
@@ -23,16 +23,32 @@ export async function parseSourceXlsx(buffer: ArrayBuffer): Promise<{
   let skipped = 0
   let totalSourceRows = 0
 
+  // 動態欄位對應，預設使用 DEFAULT_COL
+  const colMap: ColMap = { ...DEFAULT_COL }
+
   worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return // 跳過標題列
+    if (rowNumber === 1) {
+      // 解析標題列，建立動態索引映射
+      // ExcelJS row.values[1] 是第一欄
+      const values = row.values as (string | null | undefined)[]
+      values.forEach((value, index) => {
+        if (!value) return
+        const headerName = String(value).trim()
+        const key = HEADER_TO_COL_KEY[headerName]
+        if (key) {
+          colMap[key] = index
+        }
+      })
+      return
+    }
 
     totalSourceRows++
     const values = row.values as (string | number | Date | null | undefined)[]
     // ExcelJS row.values 是 1-indexed，index 0 為 undefined
-    // slice(1) 轉為 0-indexed，transform 使用 get(col) = row[col-1] 也是 0-indexed
+    // slice(1) 轉為 0-indexed，transform 使用 get(col) = row[col-1]
     const rowData = values.slice(1) as (string | number | Date | null | undefined)[]
 
-    const student = transformSourceRow(rowData)
+    const student = transformSourceRow(rowData, colMap)
     if (student) {
       rows.push(student)
     } else {

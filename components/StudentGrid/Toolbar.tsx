@@ -5,7 +5,7 @@ import { useStudentStore } from '@/store/useStudentStore'
 import { useStudents } from '@/hooks/useStudents'
 import type { SheetSystem } from '@/lib/supabase/types'
 
-const TABS: SheetSystem[] = ['星光', '太陽']
+const TABS: SheetSystem[] = ['星光']
 
 const VIEWS = [
   { key: 'grid', label: '表格' },

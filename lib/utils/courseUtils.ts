@@ -18,21 +18,22 @@ const STATUS_ABBREV: Record<string, string | null> = {
 export function buildCourseValue(
   level: number,
   batch: number | string | null | undefined,
-  status: string | null | undefined
+  status: unknown
 ): string | null {
   if (!status) return null
 
-  const abbrev = STATUS_ABBREV[status.trim()]
+  const statusStr = String(status).trim()
+  const abbrev = STATUS_ABBREV[statusStr]
 
   // 名額待確認 → 特殊文字，無梯次
   if (abbrev === null) return '待確認梯次'
 
   // 狀態不在對照表中，使用原始值
-  const displayStatus = abbrev !== undefined ? abbrev : status.trim()
+  const displayStatus = abbrev !== undefined ? abbrev : statusStr
 
   if (batch == null) return displayStatus
 
-  const batchNum = typeof batch === 'string' ? parseFloat(batch) : batch
+  const batchNum = typeof batch === 'string' ? parseFloat(batch) : Number(batch)
   if (isNaN(batchNum)) return displayStatus
 
   return `${level}-${String(Math.round(batchNum)).padStart(2, '0')}-${displayStatus}`
