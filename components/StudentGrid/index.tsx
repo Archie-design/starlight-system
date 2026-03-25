@@ -36,6 +36,9 @@ export default function StudentGrid() {
     columnResizeMode: 'onChange' as ColumnResizeMode,
     enableColumnResizing: true,
     defaultColumn: { minSize: 50 },
+    initialState: {
+      columnPinning: { left: ['id', 'name'] },
+    },
   })
 
   const { rows } = table.getRowModel()
@@ -66,33 +69,43 @@ export default function StudentGrid() {
           style={{ tableLayout: 'fixed' }}
         >
           {/* Header */}
-          <thead className="sticky top-0 z-10">
+          <thead className="sticky top-0 z-20">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-slate-200 border-b border-slate-400">
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    style={{ width: header.getSize(), minWidth: header.getSize() }}
-                    className={`
-                      relative px-1.5 py-1.5 text-left font-bold text-slate-700 border-r border-slate-300
-                      select-none whitespace-nowrap text-xs
-                      ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700' : ''}
-                    `}
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    <span className="truncate block pr-2">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === 'asc' && <span className="text-blue-600 ml-0.5">↑</span>}
-                      {header.column.getIsSorted() === 'desc' && <span className="text-blue-600 ml-0.5">↓</span>}
-                    </span>
-                    {/* 欄寬調整把手 */}
-                    <div
-                      onMouseDown={header.getResizeHandler()}
-                      onTouchStart={header.getResizeHandler()}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 opacity-0 hover:opacity-100 transition-opacity"
-                    />
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const isPinned = header.column.getIsPinned()
+                  return (
+                    <th
+                      key={header.id}
+                      style={{
+                        width: header.getSize(),
+                        minWidth: header.getSize(),
+                        left: isPinned ? `${header.column.getStart('left')}px` : undefined,
+                      }}
+                      className={`
+                        relative px-1.5 py-1.5 text-left font-bold text-slate-700 border-r border-slate-300
+                        select-none whitespace-nowrap text-xs
+                        ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700' : ''}
+                        ${isPinned ? 'sticky z-30 bg-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : ''}
+                      `}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <span className="truncate block pr-2">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === 'asc' && <span className="text-blue-600 ml-0.5">↑</span>}
+                        {header.column.getIsSorted() === 'desc' && <span className="text-blue-600 ml-0.5">↓</span>}
+                      </span>
+                      {/* 欄寬調整把手 */}
+                      {!isPinned && (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 opacity-0 hover:opacity-100 transition-opacity"
+                        />
+                      )}
+                    </th>
+                  )
+                })}
               </tr>
             ))}
           </thead>
@@ -130,21 +143,28 @@ export default function StudentGrid() {
                   return (
                     <tr
                       key={row.id}
-                      className="border-b border-slate-200 hover:bg-blue-50 transition-colors"
+                      className="group border-b border-slate-200 hover:bg-blue-50 transition-colors"
                       style={{ height: ROW_HEIGHT }}
                     >
-                      {row.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          style={{
-                            width: cell.column.getSize(),
-                            minWidth: cell.column.getSize(),
-                          }}
-                          className="border-r border-slate-200 p-0 overflow-hidden"
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
+                      {row.getVisibleCells().map((cell) => {
+                        const isPinned = cell.column.getIsPinned()
+                        return (
+                          <td
+                            key={cell.id}
+                            style={{
+                              width: cell.column.getSize(),
+                              minWidth: cell.column.getSize(),
+                              left: isPinned ? `${cell.column.getStart('left')}px` : undefined,
+                            }}
+                            className={`
+                              border-r border-slate-200 p-0 overflow-hidden
+                              ${isPinned ? 'sticky z-10 bg-white group-hover:bg-blue-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]' : ''}
+                            `}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        )
+                      })}
                     </tr>
                   )
                 })}
