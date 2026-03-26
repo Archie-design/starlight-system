@@ -22,7 +22,12 @@ const COLUMN_GROUPS = [
   { label: '組織脈絡', cols: [
     { id: 'introducer', label: '介紹人' }, { id: 'relation', label: '關係人' },
     { id: 'business_chain', label: '業務脈' }, { id: 'counselor', label: '輔導員' },
-    { id: 'little_angel', label: '小天使' }, { id: 'dream_interpreter', label: '圓夢解盤員' },
+    { id: 'little_angel', label: '小天使' },
+    { id: 'spirit_ambassador_join_date', label: '心之使者加入日' },
+    { id: 'love_giving_start_date', label: '大愛付出起始日' },
+    { id: 'spirit_ambassador_group', label: '心之使者組別' },
+    { id: 'cumulative_seniority', label: '累積年資' },
+    { id: 'dream_interpreter', label: '圓夢解盤員' },
     { id: 'senior_counselor', label: '輔導長' }, { id: 'region', label: '地區' },
     { id: 'guidance_chain', label: '輔導脈' }, { id: 'membership_expiry', label: '社團會籍' },
     { id: 'group_leader', label: '所屬分組' },

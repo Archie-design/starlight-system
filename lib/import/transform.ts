@@ -41,6 +41,11 @@ export const DEFAULT_COL = {
   LIFE_NUMBERS_ADV: 97,
   LIFE_TRANSFORM: 98,
   DEBT_RELEASE: 119,
+  // 心之使者
+  SPIRIT_AMBASSADOR_JOIN_DATE: 46,
+  LOVE_GIVING_START_DATE: 47,
+  SPIRIT_AMBASSADOR_GROUP: 48,
+  CUMULATIVE_SENIORITY: 49,
 } as const
 
 export type ColMap = Record<keyof typeof DEFAULT_COL, number>
@@ -80,6 +85,11 @@ export const HEADER_TO_COL_KEY: Record<string, keyof ColMap> = {
   "生命數字實戰班 出席狀態": "LIFE_NUMBERS_ADV",
   "生命蛻變 出席狀態": "LIFE_TRANSFORM",
   "生生世世告別負債": "DEBT_RELEASE",
+  // 心之使者
+  "心之使者加入日": "SPIRIT_AMBASSADOR_JOIN_DATE",
+  "大愛付出起始日": "LOVE_GIVING_START_DATE",
+  "心之使者組別": "SPIRIT_AMBASSADOR_GROUP",
+  "累積年資": "CUMULATIVE_SENIORITY",
 }
 
 type RawRow = (string | number | Date | null | undefined)[]
@@ -150,6 +160,16 @@ export function transformSourceRow(row: RawRow, colMap: ColMap = DEFAULT_COL as 
     life_numbers_advanced: get(colMap.LIFE_NUMBERS_ADV) ? String(get(colMap.LIFE_NUMBERS_ADV)) : null,
     life_transform: get(colMap.LIFE_TRANSFORM) ? String(get(colMap.LIFE_TRANSFORM)) : null,
     debt_release: get(colMap.DEBT_RELEASE) ? String(get(colMap.DEBT_RELEASE)) : null,
+    spirit_ambassador_join_date: (() => {
+      const d = normalizeDate(get(colMap.SPIRIT_AMBASSADOR_JOIN_DATE) as Date | string | null)
+      return d ? d.toISOString().split('T')[0] : null
+    })(),
+    love_giving_start_date: (() => {
+      const d = normalizeDate(get(colMap.LOVE_GIVING_START_DATE) as Date | string | null)
+      return d ? d.toISOString().split('T')[0] : null
+    })(),
+    spirit_ambassador_group: get(colMap.SPIRIT_AMBASSADOR_GROUP) ? String(get(colMap.SPIRIT_AMBASSADOR_GROUP)) : null,
+    cumulative_seniority: get(colMap.CUMULATIVE_SENIORITY) ? String(get(colMap.CUMULATIVE_SENIORITY)) : null,
     last_synced_at: new Date().toISOString(),
     system_id: get(colMap.SYSTEM_ID) ? Number(get(colMap.SYSTEM_ID)) : null,
   }

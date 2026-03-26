@@ -42,6 +42,10 @@ export interface Student {
   life_transform: string | null
   debt_release: string | null
   group_leader: string | null
+  spirit_ambassador_join_date: string | null
+  love_giving_start_date: string | null
+  spirit_ambassador_group: string | null
+  cumulative_seniority: string | null
   created_at: string
   updated_at: string
   last_synced_at: string | null

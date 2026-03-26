@@ -87,6 +87,27 @@ export const studentColumns = [
   editable('business_chain', '業務脈', 80),
   editable('counselor', '輔導員', 120),
   editable('little_angel', '小天使', 100),
+
+  // ── 心之使者 ──────────────────────────────────────────────
+  ch.accessor('spirit_ambassador_join_date', {
+    header: '心之使者加入日',
+    size: 120,
+    cell: (info) => (
+      <EditableCell value={info.getValue()} rowId={info.row.original.id}
+        field="spirit_ambassador_join_date" type="date" />
+    ),
+  }),
+  ch.accessor('love_giving_start_date', {
+    header: '大愛付出起始日',
+    size: 120,
+    cell: (info) => (
+      <EditableCell value={info.getValue()} rowId={info.row.original.id}
+        field="love_giving_start_date" type="date" />
+    ),
+  }),
+  editable('spirit_ambassador_group', '心之使者組別', 100),
+  editable('cumulative_seniority', '累積年資', 80),
+
   editable('dream_interpreter', '圓夢解盤員', 100),
   editable('senior_counselor', '輔導長', 120),
   selectCell('region', '地區', ['北區', '中區', '南區'], 80),

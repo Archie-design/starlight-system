@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
 import type { CounselorGroup } from '@/lib/supabase/types'
 
@@ -15,6 +15,24 @@ export default function GroupManageModal({ onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [backfilling, setBackfilling] = useState(false)
   const [backfillResult, setBackfillResult] = useState<string | null>(null)
+  const [backfillProgress, setBackfillProgress] = useState(0)
+  const backfillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (backfilling) {
+      setBackfillProgress(0)
+      backfillTimerRef.current = setInterval(() => {
+        setBackfillProgress(p => {
+          if (p >= 90) { clearInterval(backfillTimerRef.current!); return 90 }
+          return p + 1
+        })
+      }, 200)
+    } else {
+      if (backfillTimerRef.current) clearInterval(backfillTimerRef.current)
+      if (backfillResult) setBackfillProgress(100)
+    }
+    return () => { if (backfillTimerRef.current) clearInterval(backfillTimerRef.current) }
+  }, [backfilling, backfillResult])
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editRoots, setEditRoots] = useState('')
@@ -141,8 +159,27 @@ export default function GroupManageModal({ onClose }: Props) {
             >
               {backfilling ? '計算中…' : '執行重新計算'}
             </button>
-            {backfillResult && (
-              <p className="mt-1.5 text-[10px] text-slate-600">{backfillResult}</p>
+            {backfilling && (
+              <div className="mt-2">
+                <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                  <span>正在分析並更新學員歸屬</span>
+                  <span className="tabular-nums">{backfillProgress}%</span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-200"
+                    style={{ width: `${backfillProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {!backfilling && backfillResult && (
+              <div className="mt-2">
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+                  <div className="h-full bg-green-500 rounded-full w-full transition-all duration-300" />
+                </div>
+                <p className="text-[10px] text-slate-600">{backfillResult}</p>
+              </div>
             )}
           </div>
 

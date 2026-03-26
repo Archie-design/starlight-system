@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
 import UploadDropzone from './UploadDropzone'
 import DiffTable from './DiffTable'
@@ -15,6 +15,24 @@ export default function ImportWizard() {
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null)
   const [result, setResult] = useState<{ applied: number; errors: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [applyProgress, setApplyProgress] = useState(0)
+  const applyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (step === 'applying') {
+      setApplyProgress(0)
+      applyTimerRef.current = setInterval(() => {
+        setApplyProgress(p => {
+          if (p >= 90) { clearInterval(applyTimerRef.current!); return 90 }
+          return p + 1
+        })
+      }, 150)
+    } else {
+      if (applyTimerRef.current) clearInterval(applyTimerRef.current)
+      if (step === 'done') setApplyProgress(100)
+    }
+    return () => { if (applyTimerRef.current) clearInterval(applyTimerRef.current) }
+  }, [step])
 
   if (!importModalOpen) return null
 
@@ -133,9 +151,25 @@ export default function ImportWizard() {
 
           {/* Step 3: Applying */}
           {step === 'applying' && (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-gray-600">套用變更中，請稍候…</p>
+            <div className="flex flex-col items-center justify-center py-12 gap-5 px-8">
+              <p className="text-gray-700 font-medium">套用變更中，請稍候…</p>
+              <div className="w-full max-w-sm">
+                <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+                  <span>正在寫入資料庫</span>
+                  <span className="tabular-nums">{applyProgress}%</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-150"
+                    style={{ width: `${applyProgress}%` }}
+                  />
+                </div>
+                {preview && (
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    共 {preview.stats.total_source_rows.toLocaleString()} 筆資料・請勿關閉視窗
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
