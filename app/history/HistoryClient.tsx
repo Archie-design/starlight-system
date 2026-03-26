@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 
@@ -28,6 +28,17 @@ interface ImportLog {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
+interface EditLog {
+  id: string
+  student_id: number
+  student_name: string | null
+  field: string
+  old_value: string | null
+  new_value: string | null
+  changed_at: string
+  changed_by: string | null
+}
+
 const FIELD_LABELS: Record<string, string> = {
   name: '姓名', gender: '性別', role: '角色', phone: '手機', line_id: 'LINE ID',
   introducer: '介紹人', counselor: '輔導員', region: '地區', sheet_system: '體系',
@@ -41,6 +52,88 @@ const FIELD_LABELS: Record<string, string> = {
 
 function fmt(v: string | null) {
   return v ?? <span className="text-slate-300 italic">空</span>
+}
+
+function EditLogsPanel() {
+  const [nameFilter, setNameFilter] = useState('')
+  const [query, setQuery] = useState('')
+  const url = query ? `/api/edit-logs?name=${encodeURIComponent(query)}&limit=500` : '/api/edit-logs?limit=500'
+  const { data, isLoading, mutate } = useSWR<{ logs: EditLog[] }>(url, fetcher, { revalidateOnFocus: false })
+  const logs = data?.logs ?? []
+
+  const handleSearch = useCallback(() => setQuery(nameFilter), [nameFilter])
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleString('zh-TW', {
+      month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 py-2 border-b border-slate-200 flex items-center gap-3">
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
+          <input
+            type="text"
+            placeholder="搜尋姓名…"
+            value={nameFilter}
+            onChange={e => setNameFilter(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            className="border border-slate-300 rounded pl-6 pr-2 py-1 text-xs w-36 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <button onClick={handleSearch} className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 transition-colors">搜尋</button>
+        <button onClick={() => mutate()} className="text-xs text-slate-400 hover:text-blue-600 transition-colors">↻ 重整</button>
+        <span className="text-xs text-slate-500 ml-auto">
+          最近 <span className="font-semibold text-slate-700">{logs.length.toLocaleString()}</span> 筆
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-slate-400 text-sm gap-2">
+            <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            載入中…
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-sm gap-2">
+            <span className="text-3xl">✏️</span>
+            <p>尚無手動編輯紀錄</p>
+          </div>
+        ) : (
+          <table className="w-full text-xs border-collapse">
+            <thead className="sticky top-0 bg-slate-100 border-b border-slate-300">
+              <tr>
+                <th className="px-3 py-1.5 text-left font-semibold text-slate-600 w-36">時間</th>
+                <th className="px-3 py-1.5 text-left font-semibold text-slate-600 w-28">學員</th>
+                <th className="px-3 py-1.5 text-left font-semibold text-slate-600 w-28">欄位</th>
+                <th className="px-3 py-1.5 text-left font-semibold text-slate-600 w-36">舊值</th>
+                <th className="px-3 py-1.5 text-left font-semibold text-slate-600 w-36">新值</th>
+                <th className="px-3 py-1.5 text-left font-semibold text-slate-600">操作者</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map(log => (
+                <tr key={log.id} className="border-b border-slate-100 hover:bg-blue-50/30">
+                  <td className="px-3 py-1.5 text-slate-400 tabular-nums whitespace-nowrap">{fmtDate(log.changed_at)}</td>
+                  <td className="px-3 py-1.5 text-slate-700 whitespace-nowrap">
+                    <span className="font-medium">{log.student_name ?? '—'}</span>
+                    <span className="text-slate-400 ml-1">#{log.student_id}</span>
+                  </td>
+                  <td className="px-3 py-1.5 text-slate-500 whitespace-nowrap">{FIELD_LABELS[log.field] ?? log.field}</td>
+                  <td className="px-3 py-1.5 text-slate-400 line-through max-w-[140px] truncate">{fmt(log.old_value)}</td>
+                  <td className="px-3 py-1.5 text-slate-800 font-medium max-w-[140px] truncate">{fmt(log.new_value)}</td>
+                  <td className="px-3 py-1.5 text-slate-400 truncate max-w-[160px]">{log.changed_by ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function LogTable({ sessionId }: { sessionId: string }) {
@@ -154,6 +247,7 @@ function LogTable({ sessionId }: { sessionId: string }) {
 }
 
 export default function HistoryClient() {
+  const [mode, setMode] = useState<'import' | 'edit'>('import')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { data, isLoading } = useSWR<{ sessions: ImportSession[] }>(
     '/api/history',
@@ -177,7 +271,18 @@ export default function HistoryClient() {
       <header className="flex items-center justify-between px-4 py-2.5 bg-blue-800 text-white shadow-md flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <span className="text-yellow-300 text-lg leading-none">★</span>
-          <h1 className="text-sm font-semibold tracking-wider text-white/95">匯入紀錄</h1>
+          <h1 className="text-sm font-semibold tracking-wider text-white/95">變更紀錄</h1>
+          <div className="flex gap-0.5 ml-3">
+            {(['import', 'edit'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${mode === m ? 'bg-white/20 text-white font-medium' : 'text-blue-200 hover:text-white'}`}
+              >
+                {m === 'import' ? '匯入紀錄' : '手動編輯'}
+              </button>
+            ))}
+          </div>
         </div>
         <Link
           href="/students"
@@ -187,7 +292,13 @@ export default function HistoryClient() {
         </Link>
       </header>
 
-      <div className="flex flex-1 min-h-0">
+      {mode === 'edit' && (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <EditLogsPanel />
+        </div>
+      )}
+
+      <div className="flex flex-1 min-h-0" style={{ display: mode === 'import' ? 'flex' : 'none' }}>
         {/* 左：session 列表 */}
         <div className="w-72 flex-shrink-0 border-r border-slate-200 flex flex-col">
           <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">

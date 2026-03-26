@@ -22,34 +22,63 @@ Copy `.env.local.example` to `.env.local`. Three variables are required:
 
 ## Architecture
 
-This is a Next.js 16 App Router app (Webpack mode). The single page at `/students` is auth-gated: the Server Component checks the session and redirects to `/login` if unauthenticated; the actual UI is a Client Component (`StudentsClient.tsx`).
+Next.js 16 App Router app (Webpack mode) with two auth-gated routes:
+- `/students` — main student management grid
+- `/counselors` — counselor group view (8 groups, each sees their assigned students)
+
+Both routes follow the same pattern: a Server Component (`page.tsx`) checks the Supabase session and redirects to `/login` if unauthenticated, then renders a Client Component wrapped in `<SWRConfig revalidateOnFocus={false}>`.
 
 ### Data flow
 
-**Reading:** `useStudents` hook (SWR + Supabase JS client, anon key) queries the `students` table with filters and pagination. Cell edits are optimistic-updated via `updateCell`.
+**Reading:** `useStudents` (SWR + Supabase JS client, anon key) queries the `students` table with filters and pagination. `useCounselorStudents` does the same but filtered by `group_leader`. Cell edits are optimistic-updated via `updateCell`.
 
 **Import pipeline (xlsx → DB):**
-1. `POST /api/import` — parses the uploaded xlsx with ExcelJS (`lib/import/parseXlsx.ts`), transforms each row to `StudentInsert` (`lib/import/transform.ts`), queries existing students in 500-ID chunks, computes field-level diffs (`lib/import/diff.ts`), and stores the **full `importRows` array** in `import_sessions.diff_snapshot` (JSONB). Returns preview diffs (first 1000) + stats to the frontend.
-2. `POST /api/import/apply` — reads `importRows` back from `diff_snapshot`, upserts in batches of 100.
+1. `POST /api/import` — parses xlsx with ExcelJS (`lib/import/parseXlsx.ts`), transforms rows to `StudentInsert` (`lib/import/transform.ts`), queries existing students in 500-ID chunks, computes field-level diffs (`lib/import/diff.ts`), stores the **full `importRows` array** in `import_sessions.diff_snapshot` (JSONB). Returns preview diffs (first 1000) + stats.
+2. `POST /api/import/apply` — reads `importRows` from `diff_snapshot`, runs `buildGroupAssignments()` to auto-assign `group_leader`, upserts in batches of 100.
 
-> **Important:** `diff_snapshot` stores `StudentInsert[]` (not `FieldDiff[]`) so the apply step has all required fields. The preview diffs shown in the UI are computed at upload time and returned in the response body only — they are **not** what is stored in the DB.
+> **Critical:** `diff_snapshot` stores `StudentInsert[]` (not `FieldDiff[]`) so the apply step has all required fields. The preview diffs shown in the UI are computed at upload time, returned in the response body, and **not** stored in the DB.
 
-**Export:** `GET /api/export` fetches all students matching filters and streams an xlsx built by `lib/export/buildXlsx.ts`.
+**Export:** `GET /api/export` streams an xlsx built by `lib/export/buildXlsx.ts`.
 
 ### xlsx column mapping
 
-`lib/import/transform.ts` maps the source xlsx (學員關懷傘下學員報課狀況.xlsx) by 1-based column index. After ExcelJS `row.values.slice(1)`, the array becomes 0-indexed, and `get(col)` returns `row[col - 1]`. The student `id` comes from column 1 (系統編號) directly, not from parsing the name.
+`lib/import/transform.ts` maps source columns by 1-based index (`DEFAULT_COL`). After ExcelJS `row.values.slice(1)` the array becomes 0-indexed; `get(col)` returns `row[col - 1]`. The student `id` comes from `SYSTEM_ID` (col 2), not from parsing the name field. Dynamic header detection uses `HEADER_TO_COL_KEY` to override defaults when column positions shift.
+
+### Counselor group assignment (`lib/import/assignGroup.ts`)
+
+`buildGroupAssignments()` maps every student to a group by traversing upward through the `counselor` field chain (priority), then the `introducer` field chain (fallback), until it hits a `root_student_id` defined in the `counselor_groups` table (max 25 hops). The field value format is `"ID_姓名"` — parsed via `parseNameWithId()` in `lib/utils/nameUtils.ts`.
+
+Groups are seeded in `supabase/migrations/003_counselor_groups.sql` with 8 entries. Backfill via `POST /api/counselor-groups/backfill` (paginates all students in 1000-row pages to bypass Supabase's default limit).
 
 ### Key types (`lib/supabase/types.ts`)
 
-- `Student` — DB row (includes computed `name_with_id`)
-- `StudentInsert` — `Omit<Student, 'name_with_id' | 'created_at' | 'updated_at'>`
-- `ImportSession` — `import_sessions` table row; `diff_snapshot` is typed as `FieldDiff[] | null` but actually stores `StudentInsert[]` at runtime
+- `Student` — full DB row (includes computed `name_with_id`)
+- `StudentInsert` — `Omit<Student, 'name_with_id' | 'created_at' | 'updated_at' | 'group_leader'>` — `group_leader` is excluded because it is computed during apply, not sourced from xlsx
+- `CounselorGroup` — `counselor_groups` table row with `root_student_ids: number[]`
 
 ### State management
 
-`useStudentStore` (Zustand) holds: active tab (`星光` / `太陽`), filter values, current page, and import modal open state. Changing tab or any filter resets page to 0.
+- `useStudentStore` (Zustand, `store/useStudentStore.ts`) — active tab, filters, page, import/new-student modal open state, column visibility, view mode (`grid` | `org`). Tab or filter change resets page to 0.
+- `useCounselorStore` (Zustand, `store/useCounselorStore.ts`) — active group, filters, page, column visibility. Group or filter change resets page to 0.
+
+Both stores are client-only (`'use client'`). URL filter sync is handled separately in `FilterBar.tsx` via `useSearchParams`.
 
 ### Database schema
 
-Schema lives in `supabase/migrations/001_schema.sql`. Apply it via the Supabase dashboard SQL Editor if the tables don't exist. RLS is enabled on both tables; the service role key bypasses it for API routes, while the anon key relies on Supabase Auth for the client-side queries.
+Migrations in `supabase/migrations/` (apply in order via Supabase SQL Editor):
+- `001_schema.sql` — `students` and `import_sessions` tables, RLS policies
+- `002_import_logs.sql` — `import_logs` table
+- `003_counselor_groups.sql` — `counselor_groups` table + `students.group_leader` column
+- `004_spirit_ambassador_fields.sql` — `spirit_ambassador_join_date`, `love_giving_start_date`, `spirit_ambassador_group`, `cumulative_seniority` columns
+
+Service role key bypasses RLS for all API routes; anon key relies on Supabase Auth for client-side queries.
+
+### Adding a new xlsx column
+
+1. Add the 1-based column index to `DEFAULT_COL` in `lib/import/transform.ts`
+2. Add the Chinese header string to `HEADER_TO_COL_KEY`
+3. Add the field to the `return` object in `transformSourceRow()` (use `normalizeDate()` for date fields)
+4. Add the field to `Student` interface in `lib/supabase/types.ts`
+5. Create a new migration `ALTER TABLE students ADD COLUMN IF NOT EXISTS ...`
+6. Add a column definition to `components/StudentGrid/columns.tsx`
+7. Add the col to `COLUMN_GROUPS` in `components/StudentGrid/Toolbar.tsx` and `components/CounselorsLayout/index.tsx`

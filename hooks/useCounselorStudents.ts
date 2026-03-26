@@ -39,6 +39,10 @@ export function useCounselorStudents() {
   )
 
   async function updateCell(id: number, field: keyof Student, value: string | null) {
+    const student = data?.rows.find((r) => r.id === id)
+    const oldValue = (student?.[field] as string | null) ?? null
+    const studentName = student?.name ?? null
+
     await mutate(
       async (current) => {
         const { error } = await supabase
@@ -46,6 +50,19 @@ export function useCounselorStudents() {
           .update({ [field]: value } as Record<string, unknown>)
           .eq('id', id)
         if (error) throw error
+
+        // 稽核 log（fire-and-forget，不阻塞 UI）
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          supabase.from('edit_logs').insert({
+            student_id: id,
+            student_name: studentName,
+            field: field as string,
+            old_value: oldValue,
+            new_value: value,
+            changed_by: user?.email ?? null,
+          })
+        })
+
         return current
           ? { ...current, rows: current.rows.map(r => r.id === id ? { ...r, [field]: value } : r) }
           : current
