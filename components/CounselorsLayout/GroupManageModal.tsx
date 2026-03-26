@@ -13,6 +13,8 @@ export default function GroupManageModal({ onClose }: Props) {
   const [newName, setNewName] = useState('')
   const [newRoots, setNewRoots] = useState('')
   const [saving, setSaving] = useState(false)
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editRoots, setEditRoots] = useState('')
@@ -48,6 +50,20 @@ export default function GroupManageModal({ onClose }: Props) {
     setEditId(g.id)
     setEditName(g.name)
     setEditRoots(g.root_student_ids.join(', '))
+  }
+
+  const handleBackfill = async () => {
+    if (!confirm('將依介紹人鏈重新計算所有學員的所屬分組，並寫入資料庫。確定執行？')) return
+    setBackfilling(true)
+    setBackfillResult(null)
+    const res = await fetch('/api/counselor-groups/backfill', { method: 'POST' })
+    const json = await res.json()
+    if (res.ok) {
+      setBackfillResult(`完成：共更新 ${json.updated} 位學員（總計 ${json.total} 筆）`)
+    } else {
+      setBackfillResult(`錯誤：${json.error}`)
+    }
+    setBackfilling(false)
   }
 
   const handleUpdate = async () => {
@@ -111,6 +127,22 @@ export default function GroupManageModal({ onClose }: Props) {
             ))}
             {groups.length === 0 && (
               <p className="text-xs text-slate-400 text-center py-4">尚無分組</p>
+            )}
+          </div>
+
+          {/* 重新計算歸屬 */}
+          <div className="border-t border-slate-200 pt-3 mb-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">重新計算學員歸屬</p>
+            <p className="text-[10px] text-slate-400 mb-2">依介紹人鏈追溯，自動填入所有學員的所屬分組。初次建立或修改根節點後請執行一次。</p>
+            <button
+              onClick={handleBackfill}
+              disabled={backfilling}
+              className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded hover:bg-amber-600 disabled:opacity-40 transition-colors"
+            >
+              {backfilling ? '計算中…' : '執行重新計算'}
+            </button>
+            {backfillResult && (
+              <p className="mt-1.5 text-[10px] text-slate-600">{backfillResult}</p>
             )}
           </div>
 
