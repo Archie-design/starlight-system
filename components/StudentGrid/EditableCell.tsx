@@ -53,7 +53,7 @@ export default function EditableCell({ value, rowId, field, type = 'text', optio
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
-          className="w-full h-full border border-blue-500 rounded px-1 text-xs bg-white outline-none ring-1 ring-blue-300 shadow-sm"
+          className="w-full h-full border border-blue-500 rounded px-1 text-xs bg-white text-slate-800 outline-none ring-1 ring-blue-300 shadow-sm"
         >
           <option value="">—</option>
           {options.map((opt) => (
@@ -74,7 +74,7 @@ export default function EditableCell({ value, rowId, field, type = 'text', optio
           if (e.key === 'Enter') commit()
           if (e.key === 'Escape') cancel()
         }}
-        className="w-full h-full border border-blue-500 rounded px-1 text-xs bg-white outline-none ring-1 ring-blue-300 shadow-sm"
+        className="w-full h-full border border-blue-500 rounded px-1 text-xs bg-white text-slate-800 outline-none ring-1 ring-blue-300 shadow-sm"
       />
     )
   }
