@@ -105,6 +105,10 @@ function parseStudentRow(
     life_numbers_advanced: str(36),
     life_transform: str(37),
     debt_release: str(38),
+    spirit_ambassador_join_date: null,
+    love_giving_start_date: null,
+    spirit_ambassador_group: null,
+    cumulative_seniority: null,
     last_synced_at: null,
     system_id: null,
   }
