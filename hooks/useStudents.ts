@@ -77,7 +77,7 @@ export function useStudents() {
             old_value: oldValue,
             new_value: value,
             changed_by: user?.email ?? null,
-          })
+          }).then(() => {})
         })
 
         return current

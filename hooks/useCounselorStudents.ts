@@ -60,7 +60,7 @@ export function useCounselorStudents() {
             old_value: oldValue,
             new_value: value,
             changed_by: user?.email ?? null,
-          })
+          }).then(() => {})
         })
 
         return current
