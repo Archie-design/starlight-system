@@ -16,11 +16,21 @@ export async function POST() {
     .select('name, root_student_ids')
   if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
 
-  // 2. 取得所有學員（id、counselor、introducer）
-  const { data: students, error: sErr } = await supabase
-    .from('students')
-    .select('id, counselor, introducer')
-  if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
+  // 2. 取得所有學員（id、counselor、introducer）—— 分頁避開 Supabase 1000 筆上限
+  const PAGE = 1000
+  const students: { id: number; counselor: string | null; introducer: string | null }[] = []
+  let from = 0
+  while (true) {
+    const { data, error: sErr } = await supabase
+      .from('students')
+      .select('id, counselor, introducer')
+      .range(from, from + PAGE - 1)
+    if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
+    if (!data || data.length === 0) break
+    students.push(...data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
 
   // 3. 建立 Map 並運算歸屬
   const studentMap = new Map(
