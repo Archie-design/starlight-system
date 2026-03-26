@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { computeDiff } from '@/lib/import/diff'
-import type { Student, StudentInsert } from '@/lib/supabase/types'
+import { buildGroupAssignments } from '@/lib/import/assignGroup'
+import type { Student, StudentInsert, CounselorGroup } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
   const authClient = await createClient()
@@ -70,12 +71,43 @@ export async function POST(request: NextRequest) {
       await (supabase as any).from('import_logs').insert(logRows.slice(i, i + BATCH))
     }
 
-    // 批次 upsert（每批 100 筆）
+    // ── 自動歸屬 group_leader ──────────────────────────────────────
+    // 查詢所有分組（含根節點 ID）
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: groups } = await (supabase as any)
+      .from('counselor_groups')
+      .select('name, root_student_ids')
+      .order('display_order') as { data: Pick<CounselorGroup, 'name' | 'root_student_ids'>[] | null }
+
+    let groupAssignments = new Map<number, string>()
+    if (groups && groups.length > 0) {
+      // 建立 id→introducer Map（含已存在 DB 的學員，讓追溯更完整）
+      const studentMap = new Map<number, { id: number; introducer: string | null }>()
+      // 先放 DB 現有學員
+      for (const s of existingStudents) {
+        studentMap.set(s.id, { id: s.id, introducer: s.introducer })
+      }
+      // 再用匯入資料覆蓋（更新的 introducer 值優先）
+      for (const r of importRows) {
+        studentMap.set(r.id, { id: r.id, introducer: r.introducer ?? null })
+      }
+      groupAssignments = buildGroupAssignments(studentMap, groups)
+    }
+
+    // 注入 group_leader 後批次 upsert
     let applied = 0
     let errors = 0
 
     for (let i = 0; i < importRows.length; i += BATCH) {
-      const batch = importRows.slice(i, i + BATCH)
+      const batch = importRows.slice(i, i + BATCH).map(row => {
+        // 如果能自動判定，就覆蓋；否則保留既有 group_leader（不覆蓋手動設定）
+        const autoGroup = groupAssignments.get(row.id)
+        const existingGroup = dbMap.get(row.id)?.group_leader ?? null
+        return {
+          ...row,
+          group_leader: autoGroup ?? existingGroup ?? null,
+        }
+      })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any)

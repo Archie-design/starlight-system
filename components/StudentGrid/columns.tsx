@@ -140,6 +140,9 @@ export const studentColumns = [
   editable('life_transform', '生命蛻變', 100),
   editable('debt_release', '生生世世告別負債貧窮', 150),
 
+  // ── 輔導長分組 ───────────────────────────────────────────────
+  editable('group_leader', '所屬分組', 120),
+
   // ── 計算欄 (唯讀) ─────────────────────────────────────────
   ch.display({
     id: 'name_with_id',

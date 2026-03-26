@@ -71,6 +71,12 @@ const COLUMN_GROUPS = [
     ],
   },
   {
+    label: '輔導長分組',
+    cols: [
+      { id: 'group_leader', label: '所屬分組' },
+    ],
+  },
+  {
     label: '計算欄',
     cols: [
       { id: 'name_with_id', label: '學員(含學編)' },

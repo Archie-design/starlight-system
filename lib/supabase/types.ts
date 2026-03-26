@@ -41,13 +41,14 @@ export interface Student {
   life_numbers_advanced: string | null
   life_transform: string | null
   debt_release: string | null
+  group_leader: string | null
   created_at: string
   updated_at: string
   last_synced_at: string | null
   system_id: number | null
 }
 
-export type StudentInsert = Omit<Student, 'name_with_id' | 'created_at' | 'updated_at'>
+export type StudentInsert = Omit<Student, 'name_with_id' | 'created_at' | 'updated_at' | 'group_leader'>
 export type StudentUpdate = Partial<StudentInsert>
 
 export interface ImportSession {
@@ -82,6 +83,15 @@ export interface ImportLog {
   old_value: string | null
   new_value: string | null
   change_type: 'insert' | 'update'
+}
+
+
+export interface CounselorGroup {
+  id: string
+  name: string
+  display_order: number
+  root_student_ids: number[]
+  created_at: string
 }
 
 export interface ImportPreviewResult {
