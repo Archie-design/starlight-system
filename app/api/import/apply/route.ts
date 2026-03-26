@@ -81,15 +81,15 @@ export async function POST(request: NextRequest) {
 
     let groupAssignments = new Map<number, string>()
     if (groups && groups.length > 0) {
-      // 建立 id→introducer Map（含已存在 DB 的學員，讓追溯更完整）
-      const studentMap = new Map<number, { id: number; introducer: string | null }>()
+      // 建立 id→{counselor,introducer} Map（含已存在 DB 的學員，讓追溯更完整）
+      const studentMap = new Map<number, { id: number; counselor: string | null; introducer: string | null }>()
       // 先放 DB 現有學員
       for (const s of existingStudents) {
-        studentMap.set(s.id, { id: s.id, introducer: s.introducer })
+        studentMap.set(s.id, { id: s.id, counselor: s.counselor ?? null, introducer: s.introducer })
       }
-      // 再用匯入資料覆蓋（更新的 introducer 值優先）
+      // 再用匯入資料覆蓋（更新的值優先）
       for (const r of importRows) {
-        studentMap.set(r.id, { id: r.id, introducer: r.introducer ?? null })
+        studentMap.set(r.id, { id: r.id, counselor: r.counselor ?? null, introducer: r.introducer ?? null })
       }
       groupAssignments = buildGroupAssignments(studentMap, groups)
     }

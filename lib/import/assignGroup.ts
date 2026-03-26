@@ -5,21 +5,28 @@ interface GroupDef {
   root_student_ids: number[]
 }
 
+interface StudentEntry {
+  id: number
+  counselor: string | null
+  introducer: string | null
+}
+
 /**
- * 依介紹人鏈自動判定學員所屬分組。
+ * 依輔導員鏈（優先）或介紹人鏈（備援）自動判定學員所屬分組。
  *
- * 邏輯：對每個 student，沿 introducer 欄位向上追溯（最多 MAX_DEPTH 層），
- * 第一個命中任一根節點 ID 即返回對應組名。
+ * 邏輯：
+ * 1. 先沿 counselor（輔導員）欄位向上追溯，命中根節點即返回組名。
+ * 2. 若輔導員鏈無法解析，再改沿 introducer（介紹人）欄位追溯。
  *
- * @param studentMap      student id → { id, introducer }
- * @param groups          counselor_groups 清單（含 root_student_ids）
- * @returns               student id → group name
+ * @param studentMap  student id → { id, counselor, introducer }
+ * @param groups      counselor_groups 清單（含 root_student_ids）
+ * @returns           student id → group name
  */
 export function buildGroupAssignments(
-  studentMap: Map<number, { id: number; introducer: string | null }>,
+  studentMap: Map<number, StudentEntry>,
   groups: GroupDef[]
 ): Map<number, string> {
-  // 建立根節點 id → 組名 的快速查找
+  // 根節點 id → 組名
   const rootToGroup = new Map<number, string>()
   for (const g of groups) {
     for (const rid of g.root_student_ids) {
@@ -29,14 +36,21 @@ export function buildGroupAssignments(
 
   const MAX_DEPTH = 25
   const result = new Map<number, string>()
-  // 快取已知歸屬，避免重複追溯
-  const cache = new Map<number, string | null>()
 
-  function resolve(studentId: number, depth: number): string | null {
+  // 各自獨立快取，避免不同追溯路徑互相污染
+  const counselorCache = new Map<number, string | null>()
+  const introducerCache = new Map<number, string | null>()
+
+  function resolveVia(
+    studentId: number,
+    field: 'counselor' | 'introducer',
+    cache: Map<number, string | null>,
+    depth: number
+  ): string | null {
     if (depth > MAX_DEPTH) return null
     if (cache.has(studentId)) return cache.get(studentId)!
 
-    // 是否為根節點？
+    // 是否為根節點本身？
     const groupName = rootToGroup.get(studentId)
     if (groupName) {
       cache.set(studentId, groupName)
@@ -44,24 +58,28 @@ export function buildGroupAssignments(
     }
 
     const student = studentMap.get(studentId)
-    if (!student?.introducer) {
+    const raw = student?.[field] ?? null
+    if (!raw) {
       cache.set(studentId, null)
       return null
     }
 
-    const { id: introducerId } = parseNameWithId(student.introducer)
-    if (!introducerId) {
+    const { id: nextId } = parseNameWithId(raw)
+    if (!nextId) {
       cache.set(studentId, null)
       return null
     }
 
-    const resolved = resolve(introducerId, depth + 1)
+    const resolved = resolveVia(nextId, field, cache, depth + 1)
     cache.set(studentId, resolved)
     return resolved
   }
 
   for (const [id] of studentMap) {
-    const group = resolve(id, 0)
+    // 優先沿輔導員鏈追溯
+    let group = resolveVia(id, 'counselor', counselorCache, 0)
+    // 若輔導員鏈無解，再試介紹人鏈
+    if (!group) group = resolveVia(id, 'introducer', introducerCache, 0)
     if (group) result.set(id, group)
   }
 

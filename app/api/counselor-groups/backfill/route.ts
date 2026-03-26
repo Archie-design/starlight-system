@@ -16,15 +16,15 @@ export async function POST() {
     .select('name, root_student_ids')
   if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
 
-  // 2. 取得所有學員（只需 id 和 introducer）
+  // 2. 取得所有學員（id、counselor、introducer）
   const { data: students, error: sErr } = await supabase
     .from('students')
-    .select('id, introducer')
+    .select('id, counselor, introducer')
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
 
   // 3. 建立 Map 並運算歸屬
   const studentMap = new Map(
-    (students ?? []).map((s: { id: number; introducer: string | null }) => [s.id, s])
+    (students ?? []).map((s: { id: number; counselor: string | null; introducer: string | null }) => [s.id, s])
   )
   const assignments = buildGroupAssignments(studentMap, groups ?? [])
 
