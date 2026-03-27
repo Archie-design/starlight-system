@@ -45,6 +45,7 @@ type DashboardProps = {
   regionData: any[]
   wuyunData: any[]
   newStudentsData: any[]
+  paymentDistribution: any[]
 }
 
 export default function DashboardClient({
@@ -52,6 +53,7 @@ export default function DashboardClient({
   courseFunnel,
   groupStudents,
   membershipData,
+  paymentDistribution,
 }: DashboardProps) {
   // 1. 各組人數計算
   const groupStats = useMemo(() => {
@@ -65,7 +67,31 @@ export default function DashboardClient({
       .sort((a, b) => b.count - a.count) // 由大到小排序
   }, [groupStudents])
 
-  // 2. 會籍預警計算
+  // 2. 付款狀態分類（找出所有可能的狀態以建立 Bar）
+  const paymentStatuses = useMemo(() => {
+    const statuses = new Set<string>()
+    paymentDistribution.forEach(d => {
+      Object.keys(d).forEach(k => {
+        if (k !== 'name') statuses.add(k)
+      })
+    })
+    return Array.from(statuses)
+  }, [paymentDistribution])
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case '已完款': return '#10b981' // emerald-500
+      case '部分付款/金額': return '#f59e0b' // amber-500
+      case '未完款': return '#ef4444' // red-500
+      default: return '#cbd5e1' // slate-300
+    }
+  }
+
+  // 排序狀態，讓「已完款」固定在最下面
+  const sortedStatuses = useMemo(() => {
+    const order = ['已完款', '部分付款/金額', '未完款', '其他']
+    return paymentStatuses.sort((a, b) => order.indexOf(a) - order.indexOf(b))
+  }, [paymentStatuses])
   const membershipAlerts = useMemo(() => {
     const now = new Date().getTime()
     const msPerDay = 1000 * 60 * 60 * 24
@@ -138,8 +164,8 @@ export default function DashboardClient({
             </Card>
           </div>
 
+          {/* 課程漏斗與各組人數 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 課程漏斗 */}
             <Card>
               <CardHeader title="課程進度漏斗" subtitle="各階學員的留存與轉換狀況" />
               <div className="h-[350px] p-4">
@@ -158,9 +184,8 @@ export default function DashboardClient({
               </div>
             </Card>
 
-            {/* 各組人數統計 */}
             <Card>
-              <CardHeader title="各組人數統計" subtitle="各愛心顧問組別之目前學員數" />
+              <CardHeader title="各組人數統計" subtitle="各輔導長組別之目前學員數" />
               <div className="h-[350px] p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={groupStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -176,6 +201,30 @@ export default function DashboardClient({
               </div>
             </Card>
           </div>
+
+          {/* 付款狀態分布 */}
+          <Card>
+            <CardHeader title="課程付款狀態分布" subtitle="各階課程之完款、未完款與其他狀態分布情形" />
+            <div className="h-[350px] p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={paymentDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip cursor={{ fill: '#f1f5f9' }} />
+                  {sortedStatuses.map(status => (
+                    <Bar 
+                      key={status} 
+                      dataKey={status} 
+                      stackId="a" 
+                      fill={getStatusColor(status)} 
+                      radius={[2, 2, 2, 2]} 
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
 
           {/* 會籍到期預警 */}
           <Card>

@@ -6,7 +6,7 @@
 /                   → redirect（空白首頁）
 /login              → Supabase Auth 登入頁
 /students           → 主管理員視圖（全體學員管理）
-/counselors         → 愛心顧問視圖（各組只看自己學員）
+/counselors         → 輔導長視圖（各組只看自己學員）
 /history            → 匯入歷史紀錄
 ```
 

@@ -34,7 +34,8 @@ export default async function DashboardPage() {
           spirit_ambassador_join_date, cumulative_seniority,
           region, wuyun_a, wuyun_b, wuyun_c, wuyun_d, wuyun_f,
           created_at, introducer,
-          course_1, course_2, course_3, course_4, course_5
+          course_1, course_2, course_3, course_4, course_5,
+          payment_1, payment_2, payment_3, payment_4, payment_5, payment_wuyun
         `)
         .range(i * pageSize, (i + 1) * pageSize - 1)
     )
@@ -53,6 +54,48 @@ export default async function DashboardPage() {
   ])
 
   const allStudents = studentsResults.flatMap(r => r.data || [])
+
+  // 10. 付款狀態分布聚合
+  const normalizePayment = (val: string | null) => {
+    if (!val) return '未完款'
+    const v = val.trim()
+    
+    // 完款類
+    if (v === '已完款' || v === '完款' || v === '1' || v === 'true' || v.includes('完款')) {
+      return '已完款'
+    }
+    
+    // 數字或訂金類 (通常代表已付部分款項或記錄金額)
+    if (/^\d+(\.\d+)?$/.test(v) || v.includes('訂金') || v === '有的') {
+      return '部分付款/金額'
+    }
+
+    if (v === '未完款' || v === '0' || v === 'false' || v === '無' || v === 'x') {
+      return '未完款'
+    }
+
+    return '其他' // 極少數例外
+  }
+
+  const paymentStages = [
+    { label: '一階', key: 'payment_1' },
+    { label: '二階', key: 'payment_2' },
+    { label: '三階', key: 'payment_3' },
+    { label: '四階', key: 'payment_4' },
+    { label: '五階', key: 'payment_5' },
+    { label: '五運', key: 'payment_wuyun' },
+  ]
+
+  const paymentDistribution = paymentStages.map(stage => {
+    const counts: Record<string, number> = {}
+    allStudents.forEach(s => {
+      // 只統計有參加該課程的人的付款狀態 (或是統計所有人？通常是有報名的才有付款狀態)
+      // 這裡假設 payment 欄位有值才列入統計，或是如果是 null 視為未報名/未完款
+      const status = normalizePayment(s[stage.key as keyof typeof s] as string | null)
+      counts[status] = (counts[status] || 0) + 1
+    })
+    return { name: stage.label, ...counts }
+  })
 
   // 整理 subsets 傳遞給 Client Component 減少 JSON 大小
   let courseFunnel: { stage: string; count: number }[] = []
@@ -112,6 +155,7 @@ export default async function DashboardPage() {
       regionData={regionData}
       wuyunData={wuyunData}
       newStudentsData={newStudentsData}
+      paymentDistribution={paymentDistribution}
     />
   )
 }

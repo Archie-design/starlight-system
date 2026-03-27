@@ -1,8 +1,8 @@
-# 05 — 愛心顧問群組指派
+# 05 — 輔導長群組指派
 
 ## 概念
 
-每個學員有一個 `group_leader` 欄位，代表他屬於哪個愛心顧問組。  
+每個學員有一個 `group_leader` 欄位，代表他屬於哪個輔導長組。  
 這個值**不從 xlsx 讀取**，而是在 `POST /api/import/apply` 時由 `buildGroupAssignments()` 動態計算。
 
 ---

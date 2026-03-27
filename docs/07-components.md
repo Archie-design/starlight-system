@@ -16,7 +16,7 @@
 
 ## `CounselorsLayout`（`components/CounselorsLayout/`）
 
-愛心顧問視圖（`/counselors` 使用）。
+輔導長視圖（`/counselors` 使用）。
 
 | 檔案 | 功能 |
 |------|------|
