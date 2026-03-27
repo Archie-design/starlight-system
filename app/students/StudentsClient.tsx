@@ -23,6 +23,7 @@ function StudentsLayout() {
           <h1 className="text-sm font-semibold tracking-wider text-white/95">星光超級表格系統</h1>
         </div>
         <div className="hidden sm:flex items-center gap-3">
+          <Link href="/dashboard" className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</Link>
           <Link href="/counselors" className="text-xs text-blue-200/70 hover:text-white transition-colors">輔導長專區 →</Link>
           <Link href="/history" className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</Link>
         </div>
