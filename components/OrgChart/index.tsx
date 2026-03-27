@@ -85,7 +85,7 @@ function StudentName({ student, onClick, className }: StudentNameProps) {
         onMouseLeave={() => setTooltipPos(null)}
         className={className}
       >
-        {student.name}
+        <span className="text-slate-400 font-normal">{student.id}_</span>{student.name}
       </button>
       {tooltipPos && <CourseTooltip student={student} pos={tooltipPos} />}
     </span>
@@ -300,7 +300,9 @@ function SearchBox({ students, onSelect }: SearchBoxProps) {
               onClick={() => { onSelect(s); setQuery(''); setOpen(false) }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors text-left"
             >
-              <span className="font-medium text-slate-800 flex-1">{s.name}</span>
+              <span className="font-medium text-slate-800 flex-1">
+                <span className="text-slate-400 font-normal">{s.id}_</span>{s.name}
+              </span>
               {s.role && (
                 <span className={`text-[10px] px-1 py-0.5 rounded-full ${getRoleColor(s.role)}`}>{s.role}</span>
               )}
@@ -387,7 +389,7 @@ export default function OrgChart() {
                     : 'text-blue-600 hover:text-blue-800'
                 }`}
               >
-                {node.student.name}
+                <span className="text-slate-400 font-normal">{node.student.id}_</span>{node.student.name}
               </button>
             </span>
           ))}
