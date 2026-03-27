@@ -1,5 +1,5 @@
 import { buildCourseValue, buildPaymentValue } from '@/lib/utils/courseUtils'
-import { normalizeDate } from '@/lib/utils/dateUtils'
+import { normalizeDate, formatDateLocal } from '@/lib/utils/dateUtils'
 import { parseNameWithId } from '@/lib/utils/nameUtils'
 import type { StudentInsert } from '@/lib/supabase/types'
 
@@ -117,7 +117,7 @@ export function transformSourceRow(row: RawRow, colMap: ColMap = DEFAULT_COL as 
   const membershipRaw = get(colMap.CLUB_MEMBERSHIP)
   const membershipDate = normalizeDate(membershipRaw as Date | string | null)
   const membershipExpiry = membershipDate
-    ? membershipDate.toISOString().split('T')[0]
+    ? formatDateLocal(membershipDate)
     : null
 
   return {
@@ -162,11 +162,11 @@ export function transformSourceRow(row: RawRow, colMap: ColMap = DEFAULT_COL as 
     debt_release: get(colMap.DEBT_RELEASE) ? String(get(colMap.DEBT_RELEASE)) : null,
     spirit_ambassador_join_date: (() => {
       const d = normalizeDate(get(colMap.SPIRIT_AMBASSADOR_JOIN_DATE) as Date | string | null)
-      return d ? d.toISOString().split('T')[0] : null
+      return d ? formatDateLocal(d) : null
     })(),
     love_giving_start_date: (() => {
       const d = normalizeDate(get(colMap.LOVE_GIVING_START_DATE) as Date | string | null)
-      return d ? d.toISOString().split('T')[0] : null
+      return d ? formatDateLocal(d) : null
     })(),
     spirit_ambassador_group: get(colMap.SPIRIT_AMBASSADOR_GROUP) ? String(get(colMap.SPIRIT_AMBASSADOR_GROUP)) : null,
     cumulative_seniority: get(colMap.CUMULATIVE_SENIORITY) ? String(get(colMap.CUMULATIVE_SENIORITY)) : null,

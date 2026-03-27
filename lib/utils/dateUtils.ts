@@ -38,6 +38,16 @@ export function fromROCDate(roc: string | null | undefined): Date | null {
 }
 
 /**
+ * 將 Date 格式化為 YYYY-MM-DD（使用本地時間，避免 toISOString UTC 偏移問題）
+ */
+export function formatDateLocal(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
  * 將 Excel 日期物件/字串 正規化為 Date (去除時間部分)
  */
 export function normalizeDate(input: Date | string | null | undefined): Date | null {

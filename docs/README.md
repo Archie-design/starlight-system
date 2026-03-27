@@ -12,6 +12,7 @@
 | [06-state-management.md](./06-state-management.md) | Zustand stores、SWR hooks、URL filter sync |
 | [07-components.md](./07-components.md) | 各 Component 功能說明 |
 | [08-gotchas.md](./08-gotchas.md) | 已知陷阱、常見錯誤、注意事項 |
+| [09-dashboard-ideas.md](./09-dashboard-ideas.md) | 儀表板功能建議（課程漏斗、付款狀態、到期預警等） |
 
 ---
 
