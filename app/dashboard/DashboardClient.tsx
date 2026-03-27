@@ -46,6 +46,7 @@ type DashboardProps = {
   wuyunData: any[]
   newStudentsData: any[]
   paymentDistribution: any[]
+  unpaidAlerts: { id: number; name: string; unpaid: { label: string; status: string }[] }[]
 }
 
 export default function DashboardClient({
@@ -54,6 +55,7 @@ export default function DashboardClient({
   groupStudents,
   membershipData,
   paymentDistribution,
+  unpaidAlerts,
 }: DashboardProps) {
   // 1. 各組人數計算
   const groupStats = useMemo(() => {
@@ -204,7 +206,7 @@ export default function DashboardClient({
 
           {/* 付款狀態分布 */}
           <Card>
-            <CardHeader title="課程付款狀態分布" subtitle="各階課程之完款、未完款與其他狀態分布情形" />
+            <CardHeader title="課程付款狀態分布" subtitle="僅統計已報名/已出席該階課程之學員付款狀況" />
             <div className="h-[350px] p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={paymentDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -226,43 +228,83 @@ export default function DashboardClient({
             </div>
           </Card>
 
-          {/* 會籍到期預警 */}
-          <Card>
-            <CardHeader title="會籍到期預警清單" subtitle="顯示已過期與 30 天內即將到期的會籍，請留意續會邀請。" />
-            <div className="p-0">
-              {membershipAlerts.within30.length === 0 && membershipAlerts.expired.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">近期無即將到期會籍 🎉</div>
-              ) : (
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="py-3 px-6 font-medium text-slate-600">學員名稱</th>
-                      <th className="py-3 px-6 font-medium text-slate-600">狀態 / 到期日</th>
-                      <th className="py-3 px-6 font-medium text-slate-600 text-right">剩餘天數</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {[...membershipAlerts.expired, ...membershipAlerts.within30].map((s) => {
-                       const expiry = new Date(s.membership_expiry).getTime()
-                       const diffDays = Math.ceil((expiry - new Date().getTime()) / 86400000)
-                       const isExpired = diffDays < 0
-                       return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            {/* 會籍到期預警 */}
+            <Card>
+              <CardHeader title="會籍到期預警清單" subtitle="顯示已過期與 30 天內即將到期的會籍" />
+              <div className="p-0 max-h-[500px] overflow-auto">
+                {membershipAlerts.within30.length === 0 && membershipAlerts.expired.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">近期無即將到期會籍 🎉</div>
+                ) : (
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-3 px-6 font-medium text-slate-600">學員名稱</th>
+                        <th className="py-3 px-6 font-medium text-slate-600">狀態 / 到期日</th>
+                        <th className="py-3 px-6 font-medium text-slate-600 text-right">剩餘天數</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...membershipAlerts.expired, ...membershipAlerts.within30].map((s) => {
+                         const expiry = new Date(s.membership_expiry).getTime()
+                         const diffDays = Math.ceil((expiry - new Date().getTime()) / 86400000)
+                         const isExpired = diffDays < 0
+                         return (
+                          <tr key={s.id} className="hover:bg-slate-50/50">
+                            <td className="py-3 px-6 font-medium text-slate-800">{s.name}</td>
+                            <td className="py-3 px-6 text-slate-600 text-[13px]">
+                              {isExpired ? <span className="text-red-600 font-medium">已過期</span> : s.membership_expiry.split('T')[0]}
+                            </td>
+                            <td className="py-3 px-6 font-mono text-right font-medium text-orange-600 text-[13px]">
+                              {isExpired ? '-' : `${diffDays} 天`}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </Card>
+
+            {/* 未完款學員預警 */}
+            <Card>
+              <CardHeader title="未完款學員預警 (有紀錄但未完款)" subtitle="列出已參加課程但付款狀態欄位非『完款』的學員" />
+              <div className="p-0 max-h-[500px] overflow-auto">
+                {unpaidAlerts.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">目前無異常未完款紀錄 🎉</div>
+                ) : (
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-3 px-6 font-medium text-slate-600">學員名稱</th>
+                        <th className="py-3 px-6 font-medium text-slate-600">欠款項目與備註</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {unpaidAlerts.map((s) => (
                         <tr key={s.id} className="hover:bg-slate-50/50">
-                          <td className="py-3 px-6 font-medium text-slate-800">{s.name}</td>
-                          <td className="py-3 px-6 text-slate-600">
-                            {isExpired ? <span className="text-red-600 font-medium">已過期</span> : s.membership_expiry.split('T')[0]}
-                          </td>
-                          <td className="py-3 px-6 font-mono text-right font-medium text-orange-600">
-                            {isExpired ? '-' : `${diffDays} 天`}
+                          <td className="py-3 px-6 font-medium text-slate-800 whitespace-nowrap align-top">{s.name}</td>
+                          <td className="py-3 px-6 space-y-1.5">
+                            {s.unpaid.map((u, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-bold border border-slate-200">
+                                  {u.label}
+                                </span>
+                                <span className="text-orange-600 text-[12px] font-medium italic">
+                                  {u.status}
+                                </span>
+                              </div>
+                            ))}
                           </td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </Card>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </Card>
+          </div>
 
         </div>
       </main>

@@ -34,7 +34,7 @@ export default async function DashboardPage() {
           spirit_ambassador_join_date, cumulative_seniority,
           region, wuyun_a, wuyun_b, wuyun_c, wuyun_d, wuyun_f,
           created_at, introducer,
-          course_1, course_2, course_3, course_4, course_5,
+          course_1, course_2, course_3, course_4, course_5, course_wuyun,
           payment_1, payment_2, payment_3, payment_4, payment_5, payment_wuyun
         `)
         .range(i * pageSize, (i + 1) * pageSize - 1)
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
     const v = val.trim()
     
     // 完款類
-    if (v === '已完款' || v === '完款' || v === '1' || v === 'true' || v.includes('完款')) {
+    if (v === '已完款' || v === '完款' || v === '1' || v === 'true' || v.includes('完款') || v === '已付' || v === '繳清') {
       return '已完款'
     }
     
@@ -86,11 +86,15 @@ export default async function DashboardPage() {
     { label: '五運', key: 'payment_wuyun' },
   ]
 
-  const paymentDistribution = paymentStages.map(stage => {
+  const paymentDistribution = paymentStages.map((stage, index) => {
+    const courseKey = `course_${index + 1}` as keyof typeof allStudents[0]
+    // 五運班特別處理
+    const actualCourseKey = stage.key === 'payment_wuyun' ? 'course_wuyun' : courseKey
+    
+    const enrolledStudents = allStudents.filter(s => !!s[actualCourseKey as keyof typeof s])
+    
     const counts: Record<string, number> = {}
-    allStudents.forEach(s => {
-      // 只統計有參加該課程的人的付款狀態 (或是統計所有人？通常是有報名的才有付款狀態)
-      // 這裡假設 payment 欄位有值才列入統計，或是如果是 null 視為未報名/未完款
+    enrolledStudents.forEach(s => {
       const status = normalizePayment(s[stage.key as keyof typeof s] as string | null)
       counts[status] = (counts[status] || 0) + 1
     })
@@ -140,9 +144,27 @@ export default async function DashboardPage() {
     wuyun_f: s.wuyun_f,
   }))
 
-  const newStudentsData = allStudents
+  const unpaidStudentsData = allStudents
     .map((s) => ({ created_at: s.created_at, introducer: s.introducer }))
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+  // 11. 未完款學員清單 (有上課但未完款)
+  const unpaidAlerts = allStudents.map(s => {
+    const unpaid = paymentStages.filter((stage, index) => {
+      const courseKey = stage.key === 'payment_wuyun' ? 'course_wuyun' : `course_${index + 1}`
+      const isEnrolled = !!s[courseKey as keyof typeof s]
+      const status = normalizePayment(s[stage.key as keyof typeof s] as string | null)
+      return isEnrolled && status !== '已完款'
+    }).map(stage => ({
+      label: stage.label,
+      status: (s[stage.key as keyof typeof s] as string | null) || '（空白）'
+    }))
+
+    if (unpaid.length > 0) {
+      return { id: s.id, name: s.name, unpaid }
+    }
+    return null
+  }).filter(Boolean).slice(0, 100) // 限制筆數，避免 Client 負載過重
 
   return (
     <DashboardClient
@@ -154,8 +176,9 @@ export default async function DashboardPage() {
       importHistory={importResult.data ?? []}
       regionData={regionData}
       wuyunData={wuyunData}
-      newStudentsData={newStudentsData}
+      newStudentsData={unpaidStudentsData}
       paymentDistribution={paymentDistribution}
+      unpaidAlerts={unpaidAlerts as any[]}
     />
   )
 }
