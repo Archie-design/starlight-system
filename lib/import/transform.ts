@@ -67,6 +67,7 @@ export const HEADER_TO_COL_KEY: Record<string, keyof ColMap> = {
   "輔導員": "COUNSELOR",
   "輔導區域": "REGION",
   "輔導體系": "GUIDANCE_CHAIN",
+  "輔導長": "SENIOR_COUNSELOR",
   "傳愛領袖": "SENIOR_COUNSELOR",
   "聯誼會籍": "CLUB_MEMBERSHIP",
   "圓夢解盤": "DREAM_INTERPRETER",

@@ -39,6 +39,7 @@ function StudentsLayout() {
         </div>
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</Link>
+          <Link href="/maintenance" className="text-xs text-blue-200/70 hover:text-white transition-colors">資料維護 →</Link>
           <Link href="/counselors" className="text-xs text-blue-200/70 hover:text-white transition-colors">輔導長專區 →</Link>
           <Link href="/history" className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</Link>
         </div>

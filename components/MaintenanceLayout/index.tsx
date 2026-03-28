@@ -2,11 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { useCounselorGroups } from '@/hooks/useCounselorGroups'
-import { useCounselorStudents } from '@/hooks/useCounselorStudents'
-import { useCounselorStore } from '@/store/useCounselorStore'
-import CounselorStudentGrid from './CounselorStudentGrid'
-import GroupManageModal from './GroupManageModal'
+import { useMaintenanceStudents } from '@/hooks/useMaintenanceStudents'
+import { useMaintenanceStore, MaintenanceCategory } from '@/store/useMaintenanceStore'
+import MaintenanceStudentGrid from './MaintenanceStudentGrid'
 
 const REGIONS = ['北區', '中區', '南區']
 const ROLES = [
@@ -16,7 +14,13 @@ const ROLES = [
   '體系長', '體系長共同經營',
 ]
 
-// 可隱藏欄位分組（同 Toolbar.tsx）
+const MAINTENANCE_CATEGORIES: { id: MaintenanceCategory; label: string }[] = [
+  { id: 'MISSING_GROUP', label: '未分配組別' },
+  { id: 'MISSING_COUNSELOR', label: '輔導長空白' },
+  { id: 'MISSING_CHAIN', label: '輔導體系空白' },
+]
+
+// 可隱藏欄位分組
 const COLUMN_GROUPS = [
   { label: '基本資訊', cols: [{ id: 'gender', label: '性別' }, { id: 'role', label: '角色' }, { id: 'phone', label: '手機' }, { id: 'line_id', label: 'LINE ID' }] },
   { label: '組織脈絡', cols: [
@@ -48,20 +52,11 @@ const COLUMN_GROUPS = [
   ]},
 ]
 
-export default function CounselorsLayout() {
-  const { groups, isLoading: groupsLoading } = useCounselorGroups()
-  const { activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
-  const { count } = useCounselorStudents()
-  const [showManage, setShowManage] = useState(false)
+export default function MaintenanceLayout() {
+  const { activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useMaintenanceStore()
+  const { count } = useMaintenanceStudents()
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
-
-  // 分組載入後，自動選取第一個
-  useEffect(() => {
-    if (!activeGroup && groups.length > 0) {
-      setActiveGroup(groups[0].name)
-    }
-  }, [groups, activeGroup, setActiveGroup])
 
   // 點擊外部關閉欄位選單
   useEffect(() => {
@@ -73,8 +68,8 @@ export default function CounselorsLayout() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showColMenu])
 
-  const hasFilter = Object.values(filters).some(v => v !== '' && v !== false)
-  const activeFilterCount = Object.values(filters).filter(v => v !== '' && v !== false).length
+  const hasFilter = Object.values(filters).some(v => v !== '')
+  const activeFilterCount = Object.values(filters).filter(v => v !== '').length
   const hiddenCount = Object.values(columnVisibility).filter(v => v === false).length
 
   const toggleCol = (id: string) => {
@@ -84,50 +79,42 @@ export default function CounselorsLayout() {
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2.5 bg-blue-800 text-white shadow-md">
+      <header className="flex items-center justify-between px-4 py-2.5 bg-slate-800 text-white shadow-md">
         <div className="flex items-center gap-2.5">
-          <span className="text-yellow-300 text-lg leading-none">★</span>
-          <h1 className="text-sm font-semibold tracking-wider text-white/95">輔導長專區</h1>
+          <span className="text-amber-400 text-lg leading-none">🛠️</span>
+          <h1 className="text-sm font-semibold tracking-wider text-white/95">資料維護專區</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/maintenance" className="text-xs text-blue-200/70 hover:text-white transition-colors">
-            資料維護專區
+          <Link href="/counselors" className="text-xs text-slate-300 hover:text-white transition-colors">
+            輔導長專區
           </Link>
-          <Link href="/students" className="text-xs text-blue-200/70 hover:text-white transition-colors">
+          <Link href="/students" className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
           </Link>
         </div>
       </header>
 
-      {/* 工具列 */}
-      <div className="flex flex-wrap items-center justify-between gap-y-2 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
-        {/* 左側：分組 Tabs + 筆數 */}
-        <div className="flex items-center gap-2 overflow-hidden min-w-0 flex-1 sm:flex-none">
-          <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar py-0.5">
-            {groupsLoading ? (
-              <div className="h-7 w-48 bg-slate-200 animate-pulse rounded" />
-            ) : (
-              groups.map(g => (
-                <button
-                  key={g.id}
-                  onClick={() => setActiveGroup(g.name)}
-                  className={`
-                    px-3 py-1.5 text-xs font-semibold rounded whitespace-nowrap transition-all
-                    ${activeGroup === g.name
-                      ? 'bg-blue-700 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
-                  `}
-                >
-                  {g.name}
-                </button>
-              ))
-            )}
-          </div>
+      {/* 第一層：類別選取標籤 */}
+      <div className="flex items-center justify-between gap-y-2 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+          {MAINTENANCE_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`
+                px-4 py-1.5 text-xs font-semibold rounded whitespace-nowrap transition-all
+                ${activeCategory === cat.id
+                  ? 'bg-slate-700 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
+              `}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
 
         {/* 右側：工具按鈕 */}
-        <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
-          {/* 欄位顯示/隱藏 */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <div className="relative" ref={colMenuRef}>
             <button
               onClick={() => setShowColMenu(v => !v)}
@@ -146,7 +133,7 @@ export default function CounselorsLayout() {
                     <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">{group.label}</div>
                     {group.cols.map(({ id, label }) => (
                       <label key={id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-xs text-slate-700">
-                        <input type="checkbox" checked={columnVisibility[id] !== false} onChange={() => toggleCol(id)} className="accent-blue-600 w-3.5 h-3.5" />
+                        <input type="checkbox" checked={columnVisibility[id] !== false} onChange={() => toggleCol(id)} className="accent-slate-600 w-3.5 h-3.5" />
                         {label}
                       </label>
                     ))}
@@ -158,71 +145,48 @@ export default function CounselorsLayout() {
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => setShowManage(true)}
-            className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded hover:bg-slate-50 border border-slate-300 transition-colors"
-          >
-            管理分組
-          </button>
         </div>
       </div>
 
-      {/* 篩選列 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-100 border-b border-slate-300">
+      {/* 第二層：搜尋/篩選列 */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-50 border-b border-slate-300">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
           <input type="text" placeholder="搜尋姓名…" value={filters.name}
             onChange={e => setFilter('name', e.target.value)}
-            className="border border-slate-300 rounded pl-6 pr-2 py-1 text-xs w-32 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="border border-slate-300 rounded pl-6 pr-2 py-1 text-xs w-32 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500 transition-colors"
           />
         </div>
         <input type="text" placeholder="輔導員…" value={filters.counselor}
           onChange={e => setFilter('counselor', e.target.value)}
-          className="border border-slate-300 rounded px-2 py-1 text-xs w-28 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+          className="border border-slate-300 rounded px-2 py-1 text-xs w-28 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors"
         />
         <select value={filters.region} onChange={e => setFilter('region', e.target.value)}
-          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors">
+          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors">
           <option value="">全部地區</option>
           {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={filters.role} onChange={e => setFilter('role', e.target.value)}
-          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors">
+          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors">
           <option value="">全部角色</option>
           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
-        <label className={`flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded border transition-colors select-none
-          ${filters.hasCourse5 ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
-          <input type="checkbox" checked={filters.hasCourse5} onChange={e => setFilter('hasCourse5', e.target.checked)} className="accent-blue-600" />
-          有五階
-        </label>
         {hasFilter && (
           <div className="flex items-center gap-1 ml-0.5">
-            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium tabular-nums">{activeFilterCount}</span>
+            <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 text-xs rounded-full font-medium tabular-nums">{activeFilterCount}</span>
             <button onClick={resetFilters} className="text-xs text-slate-400 hover:text-red-500 transition-colors px-1" title="清除所有篩選">✕ 清除</button>
           </div>
         )}
 
-        {/* 筆數顯示 - 靠右對齊 */}
-        {activeGroup && (
-          <div className="ml-auto text-xs text-slate-500 tabular-nums font-medium bg-white/50 px-2 py-1 rounded border border-slate-200 shadow-sm">
-            共 <span className="font-bold text-slate-700">{count.toLocaleString()}</span> 筆
-          </div>
-        )}
+        <div className="ml-auto text-xs text-slate-500 tabular-nums font-medium bg-white/50 px-2 py-1 rounded border border-slate-200 shadow-sm">
+          待修正筆數：<span className="font-bold text-slate-700">{count.toLocaleString()}</span>
+        </div>
       </div>
 
       {/* 主表格 */}
       <div className="flex-1 min-h-0">
-        {activeGroup ? (
-          <CounselorStudentGrid />
-        ) : (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-            請選擇上方的輔導長分組
-          </div>
-        )}
+        <MaintenanceStudentGrid />
       </div>
-
-      {showManage && <GroupManageModal onClose={() => setShowManage(false)} />}
     </div>
   )
 }
