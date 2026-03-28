@@ -112,25 +112,23 @@ export default function ImportWizard() {
           {step === 'preview' && preview && (
             <>
               {/* 統計 */}
-              <div className="grid grid-cols-4 gap-3 mb-4">
                 {[
-                  { label: '來源資料列', value: preview.stats.total_source_rows },
+                  { label: '來源資料列', value: preview.stats.total_source_rows, color: 'text-slate-400' },
                   { label: '比對到學員', value: preview.stats.matched, color: 'text-blue-600' },
-                  { label: '欄位變更', value: preview.stats.total_changes, color: 'text-yellow-600' },
-                  { label: '新學員', value: preview.stats.new_students, color: 'text-green-600' },
+                  { label: '欄位變更', value: preview.stats.total_changes, color: 'text-amber-600' },
+                  { label: '新學員', value: preview.stats.new_students, color: 'text-emerald-600' },
                 ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-gray-50 rounded-lg p-3 text-center border">
-                    <div className={`text-2xl font-bold ${color ?? ''}`}>{value}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+                  <div key={label} className="bg-gray-50 rounded-lg p-3 text-center border border-gray-100">
+                    <div className={`text-2xl font-bold ${color ?? ''}`}>{value.toLocaleString()}</div>
+                    <div className="text-[10px] font-bold text-slate-500 mt-0.5 uppercase tracking-wider">{label}</div>
                   </div>
                 ))}
-              </div>
 
               {/* 新學員列表 */}
               {preview.new_student_names.length > 0 && (
-                <div className="mb-3 p-3 bg-green-50 rounded border border-green-200 text-sm">
-                  <span className="font-medium text-green-700">新學員 ({preview.new_student_names.length})：</span>
-                  <span className="text-green-600 ml-1">
+                <div className="mb-3 p-3 bg-emerald-50/50 rounded-lg border border-emerald-100 text-sm">
+                  <span className="font-bold text-emerald-800">新學員 ({preview.new_student_names.length})：</span>
+                  <span className="text-emerald-700 ml-1 font-medium">
                     {preview.new_student_names.slice(0, 20).join('、')}
                     {preview.new_student_names.length > 20 && `…等 ${preview.new_student_names.length} 人`}
                   </span>

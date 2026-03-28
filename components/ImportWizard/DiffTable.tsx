@@ -51,14 +51,14 @@ export default function DiffTable({ changes }: Props) {
           {changes.map((diff, i) => (
             <tr
               key={i}
-              className={`border-b ${diff.change_type === 'insert' ? 'bg-green-50' : 'bg-yellow-50'}`}
+              className={`border-b hover:bg-white/50 transition-colors ${diff.change_type === 'insert' ? 'bg-emerald-50/30' : 'bg-amber-50/30'}`}
             >
-              <td className="px-2 py-1 font-medium truncate max-w-28">{diff.name}</td>
-              <td className="px-2 py-1 text-gray-600">
+              <td className="px-2 py-2 font-bold text-slate-800 truncate max-w-28">{diff.name}</td>
+              <td className="px-2 py-2 text-slate-500 font-medium">
                 {FIELD_LABELS[diff.field] ?? diff.field}
               </td>
-              <td className="px-2 py-1 text-red-500 max-w-xs truncate">{diff.old_value ?? '—'}</td>
-              <td className="px-2 py-1 text-green-700 max-w-xs truncate">{diff.new_value ?? '—'}</td>
+              <td className="px-2 py-2 text-red-600 font-medium max-w-xs truncate">{diff.old_value ?? '—'}</td>
+              <td className="px-2 py-2 text-emerald-700 font-bold max-w-xs truncate">{diff.new_value ?? '—'}</td>
               <td className="px-2 py-1 text-center">
                 <span className={`
                   inline-block px-1.5 py-0.5 rounded text-xs font-medium
