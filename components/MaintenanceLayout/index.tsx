@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import NavButton from '../NavButton'
 import { useMaintenanceStudents } from '@/hooks/useMaintenanceStudents'
 import { useMaintenanceStore, MaintenanceCategory } from '@/store/useMaintenanceStore'
 import MaintenanceStudentGrid from './MaintenanceStudentGrid'
@@ -57,6 +59,7 @@ export default function MaintenanceLayout() {
   const { count } = useMaintenanceStudents()
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
 
   // 點擊外部關閉欄位選單
   useEffect(() => {
@@ -85,12 +88,15 @@ export default function MaintenanceLayout() {
           <h1 className="text-sm font-semibold tracking-wider text-white/95">資料維護專區</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/counselors" className="text-xs text-slate-300 hover:text-white transition-colors">
+          <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-slate-300 hover:text-white transition-colors">
+            儀表板 →
+          </NavButton>
+          <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-slate-300 hover:text-white transition-colors">
             輔導長專區
-          </Link>
-          <Link href="/students" className="text-xs text-slate-300 hover:text-white transition-colors">
+          </NavButton>
+          <NavButton href="/students" active={pathname === '/students'} className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
-          </Link>
+          </NavButton>
         </div>
       </header>
 

@@ -7,8 +7,8 @@ import Toolbar from '@/components/StudentGrid/Toolbar'
 import OrgChart from '@/components/OrgChart'
 import ImportWizard from '@/components/ImportWizard'
 import NewStudentModal from '@/components/NewStudentModal'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import NavButton from '@/components/NavButton'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
 
@@ -28,6 +28,7 @@ function SearchParamHandler() {
 
 function StudentsLayout() {
   const { view } = useStudentStore()
+  const pathname = usePathname()
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -38,10 +39,10 @@ function StudentsLayout() {
           <h1 className="text-sm font-semibold tracking-wider text-white/95">星光超級表格系統</h1>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</Link>
-          <Link href="/maintenance" className="text-xs text-blue-200/70 hover:text-white transition-colors">資料維護 →</Link>
-          <Link href="/counselors" className="text-xs text-blue-200/70 hover:text-white transition-colors">輔導長專區 →</Link>
-          <Link href="/history" className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</Link>
+          <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</NavButton>
+          <NavButton href="/maintenance" active={pathname === '/maintenance'} className="text-xs text-blue-200/70 hover:text-white transition-colors">資料維護 →</NavButton>
+          <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-blue-200/70 hover:text-white transition-colors">輔導長專區 →</NavButton>
+          <NavButton href="/history" active={pathname === '/history'} className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</NavButton>
         </div>
       </header>
 

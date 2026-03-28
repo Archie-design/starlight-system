@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import NavButton from '../NavButton'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
 import { useCounselorStudents } from '@/hooks/useCounselorStudents'
 import { useCounselorStore } from '@/store/useCounselorStore'
@@ -55,6 +56,7 @@ export default function CounselorsLayout() {
   const [showManage, setShowManage] = useState(false)
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
 
   // 分組載入後，自動選取第一個
   useEffect(() => {
@@ -90,12 +92,15 @@ export default function CounselorsLayout() {
           <h1 className="text-sm font-semibold tracking-wider text-white/95">輔導長專區</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/maintenance" className="text-xs text-blue-200/70 hover:text-white transition-colors">
-            資料維護專區
-          </Link>
-          <Link href="/students" className="text-xs text-blue-200/70 hover:text-white transition-colors">
+          <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
+            儀表板 →
+          </NavButton>
+          <NavButton href="/maintenance" active={pathname === '/maintenance'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
+            資料維護
+          </NavButton>
+          <NavButton href="/students" active={pathname === '/students'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
             ← 學員管理
-          </Link>
+          </NavButton>
         </div>
       </header>
 
