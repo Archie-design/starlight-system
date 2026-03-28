@@ -91,14 +91,14 @@ export default function DashboardClient({
     switch (status) {
       case '已完款': return '#10b981' // emerald-500
       case '部分付款': return '#f59e0b' // amber-500
-      case '未完款': return '#ef4444' // red-500
+      case '退款完成': return '#ef4444' // red-500
       default: return '#94a3b8' // slate-400
     }
   }
 
   // 排序狀態，讓「已完款」固定在最下面
   const sortedStatuses = useMemo(() => {
-    const order = ['已完款', '部分付款', '未完款']
+    const order = ['已完款', '部分付款', '退款完成']
     return paymentStatuses
       .filter(s => order.includes(s))
       .sort((a, b) => order.indexOf(a) - order.indexOf(b))
@@ -157,11 +157,11 @@ export default function DashboardClient({
 
     // 內部定義歸類邏輯 (與 Server 同步)
     const normalize = (val: string | null) => {
-      if (!val) return '未完款'
+      if (!val) return '退款完成'
       const v = val.trim()
       if (v === '已完款' || v === '完款' || v === '1' || v === 'true' || v.includes('完款') || v === '已付' || v === '繳清') return '已完款'
       if (/^\d+(\.\d+)?$/.test(v) || v.includes('訂金') || v === '有的') return '部分付款'
-      return '未完款'
+      return '退款完成'
     }
 
     return distributionDetail.filter(s => {
@@ -425,9 +425,9 @@ export default function DashboardClient({
               </div>
             </Card>
 
-            {/* 未完款學員預警 */}
+            {/* 未完款學員清單 */}
             <Card>
-              <CardHeader title="未完款學員預警 (有紀錄但未完款)" subtitle="列出已參加課程但付款狀態欄位非『完款』的學員" />
+              <CardHeader title="未完款學員 (有報課紀錄但尚未完款)" subtitle="列出已參加課程但付款狀態欄位非『完款』的學員" />
               <div className="p-0 max-h-[500px] overflow-auto">
                 {unpaidAlerts.length === 0 ? (
                   <div className="p-8 text-center text-slate-500">目前無異常未完款紀錄 🎉</div>

@@ -57,7 +57,7 @@ export default async function DashboardPage() {
 
   // 10. 付款狀態分布聚合
   const normalizePayment = (val: string | null) => {
-    if (!val) return '未完款'
+    if (!val) return '退款完成'
     const v = val.trim()
     
     // 完款類
@@ -70,11 +70,11 @@ export default async function DashboardPage() {
       return '部分付款'
     }
 
-    if (v === '未完款' || v === '0' || v === 'false' || v === '無' || v === 'x') {
-      return '未完款'
+    if (v === '未完款' || v === '退款完成' || v === '0' || v === 'false' || v === '無' || v === 'x') {
+      return '退款完成'
     }
 
-    return '未完款' // 其他一律歸類為未完款
+    return '退款完成' // 其他一律歸類為退款完成
   }
 
   const paymentStages = [
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
     const counts: Record<string, number> = {
       '已完款': 0,
       '部分付款': 0,
-      '未完款': 0
+      '退款完成': 0
     }
     
     enrolledStudents.forEach(s => {
@@ -152,7 +152,7 @@ export default async function DashboardPage() {
     .map((s) => ({ created_at: s.created_at, introducer: s.introducer }))
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
-  // 11. 未完款學員清單 (有上課但未完款)
+  // 11. 退款完成學員清單 (有上課但退款完成)
   const unpaidAlerts = allStudents.map(s => {
     const unpaid = paymentStages.filter((stage, index) => {
       const courseKey = stage.key === 'payment_wuyun' ? 'course_wuyun' : `course_${index + 1}`
