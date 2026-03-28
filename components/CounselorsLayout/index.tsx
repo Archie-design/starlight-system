@@ -95,36 +95,33 @@ export default function CounselorsLayout() {
       </header>
 
       {/* 工具列 */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
-        {/* 分組 Tabs */}
-        <div className="flex items-center gap-0.5 overflow-x-auto max-w-[70%]">
-          {groupsLoading ? (
-            <div className="h-7 w-48 bg-slate-200 animate-pulse rounded" />
-          ) : (
-            groups.map(g => (
-              <button
-                key={g.id}
-                onClick={() => setActiveGroup(g.name)}
-                className={`
-                  px-3 py-1.5 text-xs font-semibold rounded whitespace-nowrap transition-all
-                  ${activeGroup === g.name
-                    ? 'bg-blue-700 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
-                `}
-              >
-                {g.name}
-              </button>
-            ))
-          )}
-          {activeGroup && (
-            <span className="ml-2 text-xs text-slate-500 tabular-nums font-medium whitespace-nowrap">
-              {count.toLocaleString()} 筆
-            </span>
-          )}
+      <div className="flex flex-wrap items-center justify-between gap-y-2 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
+        {/* 左側：分組 Tabs + 筆數 */}
+        <div className="flex items-center gap-2 overflow-hidden min-w-0 flex-1 sm:flex-none">
+          <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar py-0.5">
+            {groupsLoading ? (
+              <div className="h-7 w-48 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              groups.map(g => (
+                <button
+                  key={g.id}
+                  onClick={() => setActiveGroup(g.name)}
+                  className={`
+                    px-3 py-1.5 text-xs font-semibold rounded whitespace-nowrap transition-all
+                    ${activeGroup === g.name
+                      ? 'bg-blue-700 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
+                  `}
+                >
+                  {g.name}
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
-        {/* 工具按鈕 */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* 右側：工具按鈕 */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
           {/* 欄位顯示/隱藏 */}
           <div className="relative" ref={colMenuRef}>
             <button
@@ -198,6 +195,13 @@ export default function CounselorsLayout() {
           <div className="flex items-center gap-1 ml-0.5">
             <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium tabular-nums">{activeFilterCount}</span>
             <button onClick={resetFilters} className="text-xs text-slate-400 hover:text-red-500 transition-colors px-1" title="清除所有篩選">✕ 清除</button>
+          </div>
+        )}
+
+        {/* 筆數顯示 - 靠右對齊 */}
+        {activeGroup && (
+          <div className="ml-auto text-xs text-slate-500 tabular-nums font-medium bg-white/50 px-2 py-1 rounded border border-slate-200 shadow-sm">
+            共 <span className="font-bold text-slate-700">{count.toLocaleString()}</span> 筆
           </div>
         )}
       </div>
