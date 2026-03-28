@@ -2,29 +2,10 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else {
-      router.push('/students')
-    }
-  }
 
   const handleGoogle = async () => {
     setGoogleLoading(true)
@@ -54,8 +35,8 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={handleGoogle}
-          disabled={googleLoading || loading}
-          className="w-full flex items-center justify-center gap-2.5 border border-gray-300 rounded-lg py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors mb-4"
+          disabled={googleLoading}
+          className="w-full flex items-center justify-center gap-2.5 border border-gray-300 rounded-lg py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
@@ -66,46 +47,9 @@ export default function LoginPage() {
           {googleLoading ? '導向中…' : '使用 Google 帳號登入'}
         </button>
 
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">或使用 Email</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="your@email.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="••••••••"
-            />
-          </div>
-          {error && (
-            <p className="text-sm text-red-500 bg-red-50 rounded p-2">{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loading || googleLoading}
-            className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? '登入中…' : '登入'}
-          </button>
-        </form>
+        {error && (
+          <p className="text-sm text-red-500 bg-red-50 rounded p-2 mt-4">{error}</p>
+        )}
       </div>
     </div>
   )
