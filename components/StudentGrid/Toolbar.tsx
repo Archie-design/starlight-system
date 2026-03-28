@@ -125,9 +125,9 @@ export default function Toolbar() {
   }
 
   return (
-    <div className="flex items-center justify-between px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
+    <div className="flex flex-wrap items-center gap-y-1.5 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
       {/* 體系 Tab 切換 */}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 mr-auto">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -165,7 +165,7 @@ export default function Toolbar() {
       </div>
 
       {/* 工具按鈕 */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 w-full sm:w-auto">
         {/* 欄位顯示/隱藏 */}
         {view === 'grid' && (
           <div className="relative" ref={colMenuRef}>
