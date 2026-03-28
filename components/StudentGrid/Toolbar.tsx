@@ -125,9 +125,9 @@ export default function Toolbar() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-y-1.5 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm">
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm min-h-[48px]">
       {/* 體系 Tab 切換 */}
-      <div className="flex items-center gap-0.5 mr-auto">
+      <div className="flex-1 flex items-center gap-0.5">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -142,94 +142,118 @@ export default function Toolbar() {
             {tab}體系
           </button>
         ))}
-        <span className="ml-3 text-xs text-slate-500 tabular-nums font-medium">
-          {count.toLocaleString()} 筆
+        <span className="ml-3 text-[11px] text-slate-400 tabular-nums font-medium">
+          {count.toLocaleString()} 筆資料
         </span>
       </div>
 
-      {/* 檢視切換 */}
-      <div className="flex items-center gap-0.5 border border-slate-200 rounded overflow-hidden">
-        {VIEWS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setView(key)}
-            className={`px-3 py-1.5 text-xs font-semibold transition-all ${
-              view === key
-                ? 'bg-blue-700 text-white'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* 檢視切換 - 置中 */}
+      <div className="flex-none">
+        <div className="flex items-center p-0.5 bg-slate-100/80 rounded-lg border border-slate-200/60 shadow-inner">
+          {VIEWS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={`px-5 py-1 text-xs font-bold rounded-md transition-all duration-200 ${
+                view === key
+                  ? 'bg-white text-blue-700 shadow-sm scale-[1.02]'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* 工具按鈕 */}
-      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+      {/* 工具按鈕 - 靠右 */}
+      <div className="flex-1 flex items-center justify-end gap-2">
         {/* 欄位顯示/隱藏 */}
         {view === 'grid' && (
           <div className="relative" ref={colMenuRef}>
             <button
               onClick={() => setShowColMenu(v => !v)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded hover:bg-slate-50 border border-slate-300 transition-colors"
+              className="group flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white rounded-md hover:bg-slate-50 border border-slate-200 transition-all active:scale-95 shadow-sm"
             >
+              <svg className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+              </svg>
               欄位
               {hiddenCount > 0 && (
-                <span className="ml-0.5 px-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-semibold">{hiddenCount}</span>
+                <span className="ml-0.5 px-1.5 py-0.5 bg-amber-500 text-white rounded-full text-[9px] font-bold ring-2 ring-white">
+                  {hiddenCount}
+                </span>
               )}
-              <span className="text-[10px] ml-0.5">▾</span>
             </button>
 
             {showColMenu && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg w-56 max-h-[70vh] overflow-y-auto py-1">
-                {COLUMN_GROUPS.map((group) => (
-                  <div key={group.label}>
-                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                      {group.label}
+              <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-slate-200 rounded-xl shadow-xl w-64 max-h-[70vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="overflow-y-auto py-2">
+                  {COLUMN_GROUPS.map((group) => (
+                    <div key={group.label} className="mb-2 last:mb-0">
+                      <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50">
+                        {group.label}
+                      </div>
+                      <div className="grid grid-cols-1 gap-0.5 px-1">
+                        {group.cols.map(({ id, label }) => {
+                          const visible = columnVisibility[id] !== false
+                          return (
+                            <label
+                              key={id}
+                              className="flex items-center gap-3 px-3 py-2 hover:bg-blue-50/50 rounded-md cursor-pointer text-xs text-slate-700 transition-colors group"
+                            >
+                              <div className="relative flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={visible}
+                                  onChange={() => toggleCol(id)}
+                                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-300 transition-all checked:border-blue-600 checked:bg-blue-600 focus:outline-none"
+                                />
+                                <svg className="absolute h-4 w-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </div>
+                              <span className="group-hover:text-blue-700 font-medium transition-colors">{label}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
                     </div>
-                    {group.cols.map(({ id, label }) => {
-                      const visible = columnVisibility[id] !== false
-                      return (
-                        <label
-                          key={id}
-                          className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-xs text-slate-700"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visible}
-                            onChange={() => toggleCol(id)}
-                            className="accent-blue-600 w-3.5 h-3.5"
-                          />
-                          {label}
-                        </label>
-                      )
-                    })}
-                  </div>
-                ))}
-                <div className="border-t border-slate-100 px-3 py-1.5">
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/80 flex justify-between items-center">
                   <button
                     onClick={() => setColumnVisibility({})}
-                    className="text-xs text-slate-400 hover:text-blue-600 transition-colors"
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
                   >
-                    全部顯示
+                    重置顯示全部
                   </button>
+                  <span className="text-[10px] text-slate-400 font-medium">共 {COLUMN_GROUPS.reduce((acc, g) => acc + g.cols.length, 0)} 欄</span>
                 </div>
               </div>
             )}
           </div>
         )}
 
+        <div className="h-6 w-px bg-slate-200 mx-1" />
+
         <button
           onClick={() => setImportModalOpen(true)}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 active:scale-95 transition-all shadow-sm hover:shadow-md ring-1 ring-blue-700/10"
         >
-          <span className="text-sm leading-none">↑</span> 匯入 xlsx
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          匯入 xlsx
         </button>
         <button
           onClick={handleExport}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded hover:bg-slate-50 active:bg-slate-100 transition-colors border border-slate-300"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-md hover:bg-slate-50 active:scale-95 transition-all border border-slate-200 shadow-sm hover:shadow"
         >
-          <span className="text-sm leading-none">↓</span> 匯出 xlsx
+          <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          匯出 xlsx
         </button>
       </div>
     </div>

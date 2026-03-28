@@ -45,7 +45,7 @@ export default function UploadDropzone({ onFile, loading }: Props) {
         {loading ? '解析中…' : '拖放 xlsx 檔案至此，或點擊選擇'}
       </p>
       <p className="text-xs text-gray-400 mt-1">
-        學員關懷傘下學員報課狀況.xlsx
+        學員資料庫.xlsx
       </p>
     </div>
   )
