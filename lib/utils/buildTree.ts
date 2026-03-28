@@ -24,7 +24,7 @@ export interface TreeNode {
   depth: number
 }
 
-export function buildTree(students: OrgStudent[]): TreeNode[] {
+export function buildTree(students: OrgStudent[], aliases: Record<number, number> = {}): TreeNode[] {
   const nodeById = new Map<number, TreeNode>()
   const nodeByName = new Map<string, TreeNode>()
 
@@ -42,10 +42,17 @@ export function buildTree(students: OrgStudent[]): TreeNode[] {
     let parent: TreeNode | undefined
 
     if (student.introducer) {
-      const { id: parsedId } = parseNameWithId(student.introducer)
+      let { id: parsedId } = parseNameWithId(student.introducer)
+      
+      // 核心代理邏輯：若介紹人 ID 在代理表內，則替換為代理父 ID
+      if (parsedId !== null && aliases[parsedId]) {
+        parsedId = aliases[parsedId]
+      }
+
       if (parsedId !== null) {
         parent = nodeById.get(parsedId)
       }
+      
       if (!parent) {
         const bareName = extractBareName(student.introducer)
         parent = nodeByName.get(bareName)

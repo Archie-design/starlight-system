@@ -16,7 +16,14 @@ export async function POST() {
     .select('name, root_student_ids')
   if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
 
-  // 2. 取得所有學員（id、counselor、introducer）—— 分頁避開 Supabase 1000 筆上限
+  // 2. 取得代管對照表
+  const { data: aliasData } = await supabase.from('parent_aliases').select('original_parent_id, proxy_parent_id')
+  const aliasMap: Record<number, number> = {}
+  aliasData?.forEach(a => {
+    aliasMap[a.original_parent_id] = a.proxy_parent_id
+  })
+
+  // 3. 取得所有學員（id、counselor、introducer）—— 分頁避開 Supabase 1000 筆上限
   const PAGE = 1000
   const students: { id: number; counselor: string | null; introducer: string | null }[] = []
   let from = 0
@@ -32,11 +39,11 @@ export async function POST() {
     from += PAGE
   }
 
-  // 3. 建立 Map 並運算歸屬
+  // 4. 建立 Map 並運算歸屬
   const studentMap = new Map(
     (students ?? []).map((s: { id: number; counselor: string | null; introducer: string | null }) => [s.id, s])
   )
-  const assignments = buildGroupAssignments(studentMap, groups ?? [])
+  const assignments = buildGroupAssignments(studentMap, groups ?? [], aliasMap)
 
   // 4. 按 group_leader 分桶，用 in() 批次更新
   const byGroup = new Map<string, number[]>()

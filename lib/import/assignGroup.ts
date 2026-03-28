@@ -24,7 +24,8 @@ interface StudentEntry {
  */
 export function buildGroupAssignments(
   studentMap: Map<number, StudentEntry>,
-  groups: GroupDef[]
+  groups: GroupDef[],
+  aliases: Record<number, number> = {}
 ): Map<number, string> {
   // 根節點 id → 組名
   const rootToGroup = new Map<number, string>()
@@ -64,7 +65,13 @@ export function buildGroupAssignments(
       return null
     }
 
-    const { id: nextId } = parseNameWithId(raw)
+    let { id: nextId } = parseNameWithId(raw)
+    
+    // 核心代理邏輯：若路徑中遇到被代管的 ID，直接跳轉到代理 ID
+    if (nextId && aliases[nextId]) {
+      nextId = aliases[nextId]
+    }
+
     if (!nextId) {
       cache.set(studentId, null)
       return null

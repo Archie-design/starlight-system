@@ -1,6 +1,7 @@
 'use client'
 
 import useSWR from 'swr'
+import { useMemo } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
 import { buildTree, type TreeNode, type OrgStudent } from '@/lib/utils/buildTree'
 
@@ -20,8 +21,23 @@ export function useOrgData(): {
     { revalidateOnFocus: false, dedupingInterval: 300_000 }
   )
 
+  const { data: aliasData } = useSWR<{ aliases: { original_parent_id: number; proxy_parent_id: number }[] }>(
+    '/api/parent-aliases',
+    fetcher
+  )
+
+  const aliases = useMemo(() => {
+    const map: Record<number, number> = {}
+    aliasData?.aliases.forEach(a => {
+      map[a.original_parent_id] = a.proxy_parent_id
+    })
+    return map
+  }, [aliasData])
+
   const students = data?.students ?? []
-  const roots = students.length > 0 ? buildTree(students) : []
+  const roots = useMemo(() => (
+    students.length > 0 ? buildTree(students, aliases) : []
+  ), [students, aliases])
 
   return { roots, students, totalCount: students.length, isLoading, error }
 }
