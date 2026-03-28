@@ -67,14 +67,14 @@ export default async function DashboardPage() {
     
     // 數字或訂金類 (通常代表已付部分款項或記錄金額)
     if (/^\d+(\.\d+)?$/.test(v) || v.includes('訂金') || v === '有的') {
-      return '部分付款/金額'
+      return '部分付款'
     }
 
     if (v === '未完款' || v === '0' || v === 'false' || v === '無' || v === 'x') {
       return '未完款'
     }
 
-    return '其他' // 極少數例外
+    return '未完款' // 其他一律歸類為未完款
   }
 
   const paymentStages = [
@@ -88,12 +88,16 @@ export default async function DashboardPage() {
 
   const paymentDistribution = paymentStages.map((stage, index) => {
     const courseKey = `course_${index + 1}` as keyof typeof allStudents[0]
-    // 五運班特別處理
     const actualCourseKey = stage.key === 'payment_wuyun' ? 'course_wuyun' : courseKey
     
     const enrolledStudents = allStudents.filter(s => !!s[actualCourseKey as keyof typeof s])
     
-    const counts: Record<string, number> = {}
+    const counts: Record<string, number> = {
+      '已完款': 0,
+      '部分付款': 0,
+      '未完款': 0
+    }
+    
     enrolledStudents.forEach(s => {
       const status = normalizePayment(s[stage.key as keyof typeof s] as string | null)
       counts[status] = (counts[status] || 0) + 1
@@ -166,6 +170,24 @@ export default async function DashboardPage() {
     return null
   }).filter(Boolean).slice(0, 100) // 限制筆數，避免 Client 負載過重
 
+  const distributionDetail = allStudents.map(s => ({
+    id: s.id,
+    name: s.name,
+    group_leader: s.group_leader,
+    course_1: s.course_1,
+    course_2: s.course_2,
+    course_3: s.course_3,
+    course_4: s.course_4,
+    course_5: s.course_5,
+    course_wuyun: s.course_wuyun,
+    payment_1: s.payment_1,
+    payment_2: s.payment_2,
+    payment_3: s.payment_3,
+    payment_4: s.payment_4,
+    payment_5: s.payment_5,
+    payment_wuyun: s.payment_wuyun,
+  }))
+
   return (
     <DashboardClient
       totalStudents={totalStudents}
@@ -178,6 +200,7 @@ export default async function DashboardPage() {
       wuyunData={wuyunData}
       newStudentsData={unpaidStudentsData}
       paymentDistribution={paymentDistribution}
+      distributionDetail={distributionDetail as any}
       unpaidAlerts={unpaidAlerts as any[]}
     />
   )

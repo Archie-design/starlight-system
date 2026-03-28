@@ -8,8 +8,23 @@ import OrgChart from '@/components/OrgChart'
 import ImportWizard from '@/components/ImportWizard'
 import NewStudentModal from '@/components/NewStudentModal'
 import Link from 'next/link'
-import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
+
+function SearchParamHandler() {
+  const searchParams = useSearchParams()
+  const { setFilter } = useStudentStore()
+
+  useEffect(() => {
+    const search = searchParams.get('search')
+    if (search) {
+      setFilter('name', search)
+    }
+  }, [searchParams, setFilter])
+
+  return null
+}
 
 function StudentsLayout() {
   const { view } = useStudentStore()
@@ -54,6 +69,11 @@ function StudentsLayout() {
 
       {/* 新增學員 Modal */}
       <NewStudentModal />
+
+      {/* URL 參數處理器 */}
+      <Suspense fallback={null}>
+        <SearchParamHandler />
+      </Suspense>
     </div>
   )
 }
