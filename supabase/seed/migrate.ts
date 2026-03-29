@@ -69,6 +69,7 @@ function parseStudentRow(
     id,
     name,
     gender: str(2),
+    birthday: null,
     role: str(3),
     sheet_system: system,
     phone: str(4),

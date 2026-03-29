@@ -43,7 +43,7 @@ export function buildTree(students: OrgStudent[], aliases: Record<number, number
     nodeByName.set(student.name, node)
   }
 
-  const roots: TreeNode[] = []
+  const parentMap = new Map<TreeNode, TreeNode>()
 
   for (const student of students) {
     const node = nodeById.get(student.id)!
@@ -68,11 +68,55 @@ export function buildTree(students: OrgStudent[], aliases: Record<number, number
     }
 
     if (parent && parent !== node) {
-      parent.children.push(node)
-      node.depth = parent.depth + 1
+      parentMap.set(node, parent)
+    }
+  }
+
+  // 3. Cycle breaking
+  const roots: TreeNode[] = []
+  const resolved = new Set<TreeNode>()
+  const inPath = new Set<TreeNode>()
+
+  function resolveNode(node: TreeNode) {
+    if (resolved.has(node)) return
+    if (inPath.has(node)) {
+      // 打破迴圈！這顆節點將變成 Root
+      parentMap.delete(node)
+      return
+    }
+    
+    inPath.add(node)
+    const p = parentMap.get(node)
+    if (p) {
+      resolveNode(p)
+    }
+    inPath.delete(node)
+    resolved.add(node)
+  }
+
+  for (const node of nodeById.values()) {
+    resolveNode(node)
+  }
+
+  // 4. Assemble children
+  for (const node of nodeById.values()) {
+    const p = parentMap.get(node)
+    if (p) {
+      p.children.push(node)
     } else {
       roots.push(node)
     }
+  }
+
+  // 5. Assign depth
+  function assignDepth(node: TreeNode, d: number) {
+    node.depth = d
+    for (const c of node.children) {
+      assignDepth(c, d + 1)
+    }
+  }
+  for (const root of roots) {
+    assignDepth(root, 0)
   }
 
   return roots
