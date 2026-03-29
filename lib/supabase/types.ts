@@ -11,6 +11,7 @@ export interface Student {
   line_id: string | null
   introducer: string | null
   relation: string | null
+  birthday: string | null
   business_chain: string | null
   counselor: string | null
   little_angel: string | null

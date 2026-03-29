@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: chunk, error } = await (supabase as any)
       .from('students')
-      .select('id, name, role, region, introducer, course_1, course_2, course_3, course_4, course_5, course_wuyun, life_numbers, life_numbers_advanced, life_transform, debt_release')
+      .select('id, name, role, region, introducer, course_1, course_2, course_3, course_4, course_5, course_wuyun, life_numbers, life_numbers_advanced, life_transform, debt_release, gender, counselor, business_chain, senior_counselor, guidance_chain, relation, membership_expiry, birthday')
       .eq('sheet_system', system)
       .order('id', { ascending: true })
       .range(from, from + PAGE - 1)

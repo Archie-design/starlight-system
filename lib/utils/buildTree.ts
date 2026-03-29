@@ -16,6 +16,14 @@ export interface OrgStudent {
   life_numbers_advanced: string | null
   life_transform: string | null
   debt_release: string | null
+  gender?: string | null
+  counselor?: string | null
+  business_chain?: string | null
+  senior_counselor?: string | null
+  guidance_chain?: string | null
+  relation?: string | null
+  membership_expiry?: string | null
+  birthday?: string | null
 }
 
 export interface TreeNode {

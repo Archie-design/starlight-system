@@ -40,9 +40,12 @@ interface EditLog {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  name: '姓名', gender: '性別', role: '角色', phone: '手機', line_id: 'LINE ID',
-  introducer: '介紹人', counselor: '輔導員', region: '地區', sheet_system: '體系',
-  membership_expiry: '會員到期', course_1: '一階課程', payment_1: '一階繳費',
+  name: '姓名',  introducer: '介紹人', relation: '與介紹人關係', business_chain: '業務脈', counselor: '輔導員',
+  little_angel: '小天使', dream_interpreter: '圓夢解盤員', birthday: '生日',
+  senior_counselor: '輔導長', region: '地區', guidance_chain: '輔導脈',
+  membership_expiry: '社團會籍', parent_1: '一階家長',
+  spirit_ambassador_join_date: '心之使者加入日', love_giving_start_date: '大愛付出起始日',
+  spirit_ambassador_group: '心之使者組別', cumulative_seniority: '累積年資', payment_1: '一階繳費',
   course_2: '二階課程', payment_2: '二階繳費', course_3: '三階課程', payment_3: '三階繳費',
   course_4: '四階課程', payment_4: '四階繳費', course_5: '五階課程', payment_5: '五階繳費',
   course_wuyun: '五運課程', payment_wuyun: '五運繳費',

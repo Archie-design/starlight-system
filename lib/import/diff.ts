@@ -3,10 +3,12 @@ import type { Student, StudentInsert, FieldDiff } from '@/lib/supabase/types'
 // 需要比對的欄位（排除計算欄位與稽核欄位）
 const COMPARABLE_FIELDS: (keyof StudentInsert)[] = [
   'name', 'sheet_system',
-  'gender', 'role', 'phone', 'line_id',
-  'introducer', 'business_chain', 'counselor', 'little_angel',
+  'gender', 'role', 'phone', 'line_id', 'birthday',
+  'introducer', 'relation', 'business_chain', 'counselor', 'little_angel',
   'dream_interpreter', 'senior_counselor', 'region', 'guidance_chain',
   'membership_expiry',
+  'spirit_ambassador_join_date', 'love_giving_start_date',
+  'spirit_ambassador_group', 'cumulative_seniority',
   'course_1', 'payment_1', 'parent_1',
   'course_2', 'payment_2',
   'course_3', 'payment_3',

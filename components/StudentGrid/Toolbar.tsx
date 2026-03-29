@@ -18,6 +18,7 @@ const COLUMN_GROUPS = [
     label: '基本資訊',
     cols: [
       { id: 'gender', label: '性別' },
+      { id: 'birthday', label: '生日' },
       { id: 'role', label: '角色' },
       { id: 'phone', label: '手機' },
       { id: 'line_id', label: 'LINE ID' },

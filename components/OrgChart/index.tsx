@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useOrgData } from '@/hooks/useOrgData'
 import { countDescendants, findPath, type TreeNode } from '@/lib/utils/buildTree'
 import type { OrgStudent } from '@/lib/utils/buildTree'
+import { calculateAge } from '@/lib/utils/dateUtils'
 
 const ROLE_COLORS: Record<string, string> = {
   '體系長': 'bg-purple-100 text-purple-700',
@@ -22,7 +23,7 @@ function getRoleColor(role: string | null): string {
   return role ? (ROLE_COLORS[role] ?? 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-400'
 }
 
-// ── 課程浮動提示 ─────────────────────────────────────
+// ── 個人資料與課程浮動提示 ─────────────────────────────────────
 const COURSE_LABELS: { key: keyof OrgStudent; label: string }[] = [
   { key: 'course_1', label: '一階' },
   { key: 'course_2', label: '二階' },
@@ -38,30 +39,68 @@ const COURSE_LABELS: { key: keyof OrgStudent; label: string }[] = [
 
 interface TooltipPos { x: number; y: number }
 
-interface CourseTooltipProps {
+interface StudentTooltipProps {
   student: OrgStudent
   pos: TooltipPos
 }
 
-function CourseTooltip({ student, pos }: CourseTooltipProps) {
+function StudentTooltip({ student, pos }: StudentTooltipProps) {
   const courses = COURSE_LABELS.filter(({ key }) => !!student[key])
-  if (courses.length === 0) return null
+  
+  const age = calculateAge(student.birthday)
+
+  const personalInfo = [
+    { label: '生理性別', value: student.gender },
+    { label: '年齡', value: age !== null ? age : null },
+    { label: '介紹人', value: student.introducer },
+    { label: '與介紹人關係', value: student.relation },
+    { label: '聯誼會籍', value: student.membership_expiry },
+    { label: '輔導員', value: student.counselor },
+    { label: '傳愛體系', value: student.business_chain },
+    { label: '輔導長', value: student.senior_counselor },
+    { label: '輔導體系', value: student.guidance_chain },
+  ].filter(item => item.value)
+
+  if (courses.length === 0 && personalInfo.length === 0) return null
 
   return (
     <div
       className="fixed z-50 pointer-events-none"
       style={{ left: pos.x + 12, top: pos.y - 8 }}
     >
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xl px-3 py-2 min-w-[140px] max-w-[220px]">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">課程紀錄</p>
-        <div className="flex flex-col gap-1">
-          {courses.map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-slate-400 whitespace-nowrap">{label}</span>
-              <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap">{String(student[key])}</span>
+      <div className="bg-white border border-slate-200 rounded-lg shadow-xl px-4 py-3 min-w-[180px] max-w-[280px]">
+        
+        {personalInfo.length > 0 && (
+          <div className="mb-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <span className="w-1 h-3 rounded bg-blue-400 block" /> 個人資料
+            </p>
+            <div className="flex flex-col gap-1">
+              {personalInfo.map(({ label, value }) => (
+                <div key={label} className="flex items-start justify-between gap-4">
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap">{label}</span>
+                  <span className="text-[10px] font-medium text-slate-800 text-right">{value}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {courses.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <span className="w-1 h-3 rounded bg-emerald-400 block" /> 課程紀錄
+            </p>
+            <div className="flex flex-col gap-1">
+              {courses.map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between gap-4">
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap">{label}</span>
+                  <span className="text-[10px] font-medium text-slate-800 whitespace-nowrap text-right">{String(student[key])}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -87,7 +126,7 @@ function StudentName({ student, onClick, className }: StudentNameProps) {
       >
         <span className="text-slate-400 font-normal">{student.id}_</span>{student.name}
       </button>
-      {tooltipPos && <CourseTooltip student={student} pos={tooltipPos} />}
+      {tooltipPos && <StudentTooltip student={student} pos={tooltipPos} />}
     </span>
   )
 }

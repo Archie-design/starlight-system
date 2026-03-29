@@ -60,3 +60,19 @@ export function normalizeDate(input: Date | string | null | undefined): Date | n
     return null
   }
 }
+
+/**
+ * 計算年齡
+ */
+export function calculateAge(birthday: string | Date | null | undefined): number | null {
+  if (!birthday) return null
+  const bd = new Date(birthday)
+  if (isNaN(bd.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - bd.getFullYear()
+  const m = today.getMonth() - bd.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) {
+    age--
+  }
+  return age >= 0 ? age : null
+}

@@ -70,6 +70,18 @@ export const studentColumns = [
     ),
   }),
   selectCell('gender', '性別', ['男', '女'], 60),
+  ch.accessor('birthday', {
+    header: '生日',
+    size: 110,
+    cell: (info) => (
+      <EditableCell
+        value={info.getValue()}
+        rowId={info.row.original.id}
+        field="birthday"
+        type="date"
+      />
+    ),
+  }),
   selectCell('role', '角色', [
     '會員', '小天使', '輔導員', '輔導員共同經營',
     '傳愛領袖', '傳愛領袖共同經營',
