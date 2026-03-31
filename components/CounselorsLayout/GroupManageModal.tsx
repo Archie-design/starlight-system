@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import useSWR from 'swr'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
+import { useOrgData } from '@/hooks/useOrgData'
 import type { CounselorGroup } from '@/lib/supabase/types'
 
 interface Props {
@@ -14,7 +15,19 @@ const fetcher = (url: string) => fetch(url).then(res => res.json())
 export default function GroupManageModal({ onClose }: Props) {
   const { groups, mutate: mutateGroups } = useCounselorGroups()
   const { data: aliasData, mutate: mutateAliases } = useSWR<{ aliases: { id: string; original_parent_id: number; proxy_parent_id: number; note: string | null }[] }>('/api/parent-aliases', fetcher)
-  const [activeTab, setActiveTab] = useState<'groups' | 'aliases'>('groups')
+  const { data: overrideData, mutate: mutateOverrides } = useSWR<{ overrides: { id: string; student_id: number; student_name: string; override_parent_id: number; proxy_name: string; note: string | null }[] }>('/api/student-overrides', fetcher)
+  const [activeTab, setActiveTab] = useState<'groups' | 'aliases' | 'overrides'>('groups')
+
+  // 特定學員換線狀態
+  const [overrideOrigId, setOverrideOrigId] = useState('')
+  const [overrideProxyId, setOverrideProxyId] = useState('')
+  const [overrideNote, setOverrideNote] = useState('')
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([])
+  const [downlineSearch, setDownlineSearch] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingNoteValue, setEditingNoteValue] = useState('')
+  
+  const { students: allStudents } = useOrgData()
 
   // 新增分組狀態
   const [newName, setNewName] = useState('')
@@ -94,6 +107,57 @@ export default function GroupManageModal({ onClose }: Props) {
     await fetch(`/api/parent-aliases/${id}`, { method: 'DELETE' })
     await mutateAliases()
   }
+
+  const handleCreateOverrides = async () => {
+    const pId = parseInt(overrideProxyId)
+    if (isNaN(pId) || selectedStudents.length === 0) return
+    setSaving(true)
+    await fetch('/api/student-overrides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_ids: selectedStudents, override_parent_id: pId, note: overrideNote }),
+    })
+    await mutateOverrides()
+    setSelectedStudents([])
+    setOverrideOrigId('')
+    setOverrideProxyId('')
+    setOverrideNote('')
+    setSaving(false)
+  }
+
+  const handleDeleteOverride = async (id: string) => {
+    if (!confirm('確定取消此特定學員的強制換線設定？')) return
+    await fetch(`/api/student-overrides/${id}`, { method: 'DELETE' })
+    await mutateOverrides()
+  }
+
+  const handleUpdateNote = async (id: string) => {
+    await fetch(`/api/student-overrides/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: editingNoteValue }),
+    })
+    await mutateOverrides()
+    setEditingNoteId(null)
+  }
+
+  const downlines = useMemo(() => {
+    const pId = parseInt(overrideOrigId)
+    if (isNaN(pId)) return []
+    const baseList = allStudents.filter(s => {
+      let match = s.introducer?.match(/^(\d+)_/)
+      if (match && parseInt(match[1]) === pId) return true
+      match = s.counselor?.match(/^(\d+)_/)
+      if (match && parseInt(match[1]) === pId) return true
+      return false
+    })
+
+    if (!downlineSearch.trim()) return baseList
+    return baseList.filter(s => 
+      s.name.includes(downlineSearch.trim()) || 
+      s.id.toString().includes(downlineSearch.trim())
+    )
+  }, [allStudents, overrideOrigId, downlineSearch])
 
   const handleDeleteGroup = async (id: string, name: string) => {
     if (!confirm(`確定刪除「${name}」分組？已指派的學員不會被刪除，但 group_leader 欄位將失效。`)) return
@@ -187,7 +251,15 @@ export default function GroupManageModal({ onClose }: Props) {
                   activeTab === 'aliases' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                代管設定
+                全脈代管
+              </button>
+              <button
+                onClick={() => setActiveTab('overrides')}
+                className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                  activeTab === 'overrides' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                白名單換線
               </button>
             </div>
           </div>
@@ -195,7 +267,7 @@ export default function GroupManageModal({ onClose }: Props) {
         </div>
 
         <div className="p-4 max-h-[70vh] overflow-y-auto">
-          {activeTab === 'groups' ? (
+          {activeTab === 'groups' && (
             <div className="space-y-4">
               {/* 現有分組列表 */}
               <div className="space-y-2 mb-6">
@@ -295,7 +367,8 @@ export default function GroupManageModal({ onClose }: Props) {
                 </button>
               </div>
             </div>
-          ) : (
+          )}
+          {activeTab === 'aliases' && (
             <div className="space-y-6">
               {/* 代管列表 */}
               <div className="space-y-2">
@@ -364,6 +437,142 @@ export default function GroupManageModal({ onClose }: Props) {
                   className="w-full px-6 py-2.5 text-xs font-bold bg-slate-800 text-white rounded-md hover:bg-slate-900 active:scale-[0.98] disabled:opacity-40 transition-all shadow-md mt-2"
                 >
                   確認建立代管
+                </button>
+              </div>
+            </div>
+          )}
+          {activeTab === 'overrides' && (
+            <div className="space-y-6">
+              {/* 特定學員特例列表 */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 px-1">特定學員強制換線特例</p>
+                {overrideData?.overrides && overrideData.overrides.length > 0 ? (
+                  overrideData.overrides.map(o => (
+                    <div key={o.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/50 border border-slate-200 group">
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">學員 ({o.student_id})</span>
+                          <span className="text-sm font-bold text-slate-700">{o.student_name}</span>
+                        </div>
+                        <div className="text-slate-300 text-lg">→</div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">新上線 ({o.override_parent_id})</span>
+                          <span className="text-sm font-bold text-blue-600">{o.proxy_name}</span>
+                        </div>
+                        
+                        <div className="ml-4 flex-1">
+                          {editingNoteId === o.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                autoFocus
+                                value={editingNoteValue}
+                                onChange={e => setEditingNoteValue(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleUpdateNote(o.id)}
+                                onBlur={() => handleUpdateNote(o.id)}
+                                className="w-full text-[10px] border border-blue-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              onClick={() => { setEditingNoteId(o.id); setEditingNoteValue(o.note || ''); }}
+                              className="text-[10px] text-slate-400 bg-white px-2 py-1 rounded border border-slate-100 hover:border-blue-200 hover:text-slate-600 cursor-pointer min-w-[100px] transition-all italic"
+                            >
+                              {o.note || '點擊新增備註...'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeleteOverride(o.id)} className="text-[10px] text-slate-400 hover:text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-all">移除</button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 text-center py-8 italic border-2 border-dashed border-slate-100 rounded-xl">尚無強制換線特例</p>
+                )}
+              </div>
+
+              {/* 新增特例表單 */}
+              <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-blue-50/20">
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  新增白名單換線對象
+                </p>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">先尋找原始上線 (獲得直屬名單)</label>
+                  <input
+                    value={overrideOrigId}
+                    onChange={e => setOverrideOrigId(e.target.value)}
+                    placeholder="輸入原始上線ID (如蕭琇方：4253)"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                {overrideOrigId && (
+                  <div className="mt-2 space-y-2">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
+                      <input
+                        type="text"
+                        placeholder="搜尋下線姓名或 ID..."
+                        value={downlineSearch}
+                        onChange={e => setDownlineSearch(e.target.value)}
+                        className="w-full border border-slate-200 rounded-md pl-6 pr-2 py-1.5 text-[11px] bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                      />
+                    </div>
+                    
+                    <div className="p-3 bg-white border border-slate-200 rounded-lg max-h-48 overflow-y-auto">
+                      {downlines.length > 0 ? (
+                        <div className="space-y-1.5">
+                          <p className="text-[9px] font-bold text-slate-400 mb-2">請勾選要強制換線的學員 ({downlines.length}名)</p>
+                          {downlines.map(s => (
+                          <label key={s.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedStudents.includes(s.id)} 
+                              onChange={() => {
+                                setSelectedStudents(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])
+                              }}
+                              className="accent-blue-600 w-3.5 h-3.5" 
+                            />
+                            <span className="font-mono text-slate-400 w-10">{s.id}</span>
+                            <span className="font-medium">{s.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 text-center py-2">查無直屬下線資料</p>
+                    )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <div className="space-y-1 col-span-2 sm:col-span-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">給予新代理上線 ID</label>
+                    <input
+                      value={overrideProxyId}
+                      onChange={e => setOverrideProxyId(e.target.value)}
+                      placeholder="例：4929"
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs font-mono text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1 col-span-2 sm:col-span-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">備註 (選填)</label>
+                    <input
+                      value={overrideNote}
+                      onChange={e => setOverrideNote(e.target.value)}
+                      placeholder="例如：游芳瑜特例"
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <button
+                  onClick={handleCreateOverrides}
+                  disabled={saving || !overrideProxyId || selectedStudents.length === 0}
+                  className="w-full px-6 py-2.5 text-xs font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 transition-all shadow-md mt-2"
+                >
+                  確認建立 {selectedStudents.length} 筆特例換線
                 </button>
               </div>
             </div>

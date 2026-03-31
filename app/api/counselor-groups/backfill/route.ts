@@ -23,6 +23,13 @@ export async function POST() {
     aliasMap[a.original_parent_id] = a.proxy_parent_id
   })
 
+  // 2.5 取得指定學員覆寫對照表
+  const { data: overrideData } = await supabase.from('student_overrides').select('student_id, override_parent_id')
+  const overrideMap: Record<number, number> = {}
+  overrideData?.forEach(o => {
+    overrideMap[o.student_id] = o.override_parent_id
+  })
+
   // 3. 取得所有學員（id、counselor、introducer）—— 分頁避開 Supabase 1000 筆上限
   const PAGE = 1000
   const students: { id: number; counselor: string | null; introducer: string | null }[] = []
@@ -43,7 +50,7 @@ export async function POST() {
   const studentMap = new Map(
     (students ?? []).map((s: { id: number; counselor: string | null; introducer: string | null }) => [s.id, s])
   )
-  const assignments = buildGroupAssignments(studentMap, groups ?? [], aliasMap)
+  const assignments = buildGroupAssignments(studentMap, groups ?? [], aliasMap, overrideMap)
 
   // 4. 按 group_leader 分桶，用 in() 批次更新
   const byGroup = new Map<string, number[]>()

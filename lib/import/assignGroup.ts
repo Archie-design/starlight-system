@@ -25,7 +25,8 @@ interface StudentEntry {
 export function buildGroupAssignments(
   studentMap: Map<number, StudentEntry>,
   groups: GroupDef[],
-  aliases: Record<number, number> = {}
+  aliases: Record<number, number> = {},
+  overrides: Record<number, number> = {}
 ): Map<number, string> {
   // 根節點 id → 組名
   const rootToGroup = new Map<number, string>()
@@ -68,7 +69,9 @@ export function buildGroupAssignments(
     let { id: nextId } = parseNameWithId(raw)
     
     // 核心代理邏輯：若路徑中遇到被代管的 ID，直接跳轉到代理 ID
-    if (nextId && aliases[nextId]) {
+    if (nextId && overrides[studentId]) {
+      nextId = overrides[studentId]
+    } else if (nextId && aliases[nextId]) {
       nextId = aliases[nextId]
     }
 

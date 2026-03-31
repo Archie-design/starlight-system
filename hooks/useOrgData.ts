@@ -26,6 +26,11 @@ export function useOrgData(): {
     fetcher
   )
 
+  const { data: overrideData } = useSWR<{ overrides: { student_id: number; override_parent_id: number }[] }>(
+    '/api/student-overrides',
+    fetcher
+  )
+
   const aliases = useMemo(() => {
     const map: Record<number, number> = {}
     aliasData?.aliases.forEach(a => {
@@ -34,10 +39,18 @@ export function useOrgData(): {
     return map
   }, [aliasData])
 
+  const overrides = useMemo(() => {
+    const map: Record<number, number> = {}
+    overrideData?.overrides.forEach(o => {
+      map[o.student_id] = o.override_parent_id
+    })
+    return map
+  }, [overrideData])
+
   const students = data?.students ?? []
   const roots = useMemo(() => (
-    students.length > 0 ? buildTree(students, aliases) : []
-  ), [students, aliases])
+    students.length > 0 ? buildTree(students, aliases, overrides) : []
+  ), [students, aliases, overrides])
 
   return { roots, students, totalCount: students.length, isLoading, error }
 }
