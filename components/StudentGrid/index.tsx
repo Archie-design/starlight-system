@@ -9,10 +9,11 @@ import {
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useStudents, PAGE_SIZE } from '@/hooks/useStudents'
 import { useStudentStore } from '@/store/useStudentStore'
 import { studentColumns } from './columns'
+import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
 // 固定寬度避免 SSR hydration mismatch（不能用 Math.random()）
@@ -24,7 +25,15 @@ export default function StudentGrid() {
   const { students, count, isLoading } = useStudents()
   const { page, setPage, columnVisibility, setColumnVisibility } = useStudentStore()
   const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: false }])
+  const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const table = useReactTable({
     data: students,
@@ -65,7 +74,13 @@ export default function StudentGrid() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 捲動容器 */}
+      {/* 手機版 */}
+      {isMobile ? (
+        <div className="flex-1 overflow-auto">
+          <MobileStudentList students={students} isLoading={isLoading} />
+        </div>
+      ) : (
+      {/* 桌面版 */}
       <div ref={containerRef} className="flex-1 overflow-auto">
         <table
           className="text-xs border-collapse w-max min-w-full"
@@ -179,6 +194,7 @@ export default function StudentGrid() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* 分頁列 */}
       {totalPages > 1 && (

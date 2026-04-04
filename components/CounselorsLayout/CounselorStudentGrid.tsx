@@ -9,10 +9,11 @@ import {
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useCounselorStudents, COUNSELOR_PAGE_SIZE } from '@/hooks/useCounselorStudents'
 import { useCounselorStore } from '@/store/useCounselorStore'
 import { studentColumns } from '@/components/StudentGrid/columns'
+import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
 const SKELETON_WIDTHS = [70, 55, 85, 60, 75, 90, 65, 80, 50, 70, 60, 85, 75, 55, 65, 80, 70, 90, 60, 75, 50, 65, 85, 70, 55]
@@ -22,7 +23,15 @@ export default function CounselorStudentGrid() {
   const { students, count, isLoading } = useCounselorStudents()
   const { page, setPage, columnVisibility, setColumnVisibility } = useCounselorStore()
   const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: false }])
+  const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const table = useReactTable({
     data: students,
@@ -59,6 +68,13 @@ export default function CounselorStudentGrid() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* 手機版 */}
+      {isMobile ? (
+        <div className="flex-1 overflow-auto">
+          <MobileStudentList students={students} isLoading={isLoading} />
+        </div>
+      ) : (
+      {/* 桌面版 */}
       <div ref={containerRef} className="flex-1 overflow-auto">
         <table className="text-xs border-collapse w-max min-w-full" style={{ tableLayout: 'fixed' }}>
           <thead className="sticky top-0 z-20">
@@ -160,6 +176,7 @@ export default function CounselorStudentGrid() {
           </tbody>
         </table>
       </div>
+      )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-3 py-1.5 border-t border-slate-200 bg-slate-50 text-xs text-slate-500">
