@@ -74,7 +74,6 @@ export default function CounselorStudentGrid() {
           <MobileStudentList students={students} isLoading={isLoading} />
         </div>
       ) : (
-      {/* 桌面版 */}
       <div ref={containerRef} className="flex-1 overflow-auto">
         <table className="text-xs border-collapse w-max min-w-full" style={{ tableLayout: 'fixed' }}>
           <thead className="sticky top-0 z-20">
