@@ -15,14 +15,15 @@ CREATE POLICY "auth manage" ON counselor_groups FOR ALL    TO authenticated USIN
 ALTER TABLE students ADD COLUMN IF NOT EXISTS group_leader text;
 CREATE INDEX IF NOT EXISTS idx_students_group_leader ON students(group_leader);
 
--- 初始 8 個分組（順序同 Excel 工作頁）
+-- 初始 9 個分組（順序同資料庫現況）
 INSERT INTO counselor_groups (name, display_order, root_student_ids) VALUES
   ('張安奇高珮綺', 1, '{3034,2888}'),
-  ('李筱婷',       2, '{5231}'),
-  ('陳宥翎',       3, '{3545}'),
-  ('謝貿如蔡京唐', 4, '{6968,21711}'),
-  ('潘立瑄',       5, '{4929}'),
-  ('李宜娟',       6, '{8700}'),
+  ('謝貿如蔡京唐', 2, '{6968,21711}'),
+  ('李筱婷',       3, '{5231}'),
+  ('李宜娟',       4, '{8700}'),
+  ('郭芷萱',       5, '{10393}'),
+  ('潘立瑄',       6, '{4929}'),
   ('王姿尹',       7, '{13235}'),
-  ('曾尉柯怡均',   8, '{3260,3440}')
+  ('陳宥翎',       8, '{3545}'),
+  ('夏嘉鴻',       9, '{4252}')
 ON CONFLICT (name) DO NOTHING;

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/server'
 import DashboardClient from './DashboardClient'
 
 export const metadata = {
@@ -8,12 +9,7 @@ export const metadata = {
 }
 
 export default async function DashboardPage() {
-  // Auth guard
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!(await checkAuth())) redirect('/login')
 
   const service = createServiceClient()
 

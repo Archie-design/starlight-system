@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { checkAuth } from '@/lib/auth'
 import { computeDiff } from '@/lib/import/diff'
 import { buildGroupAssignments } from '@/lib/import/assignGroup'
 import type { Student, StudentInsert, CounselorGroup } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { session_id } = await request.json() as { session_id: string }

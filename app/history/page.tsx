@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { checkAuth } from '@/lib/auth'
 import HistoryClient from './HistoryClient'
 
 export default async function HistoryPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!(await checkAuth())) redirect('/login')
   return <HistoryClient />
 }

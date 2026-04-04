@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { checkAuth } from '@/lib/auth'
 import CounselorsClient from './CounselorsClient'
 
 export default async function CounselorsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!(await checkAuth())) redirect('/login')
   return <CounselorsClient />
 }

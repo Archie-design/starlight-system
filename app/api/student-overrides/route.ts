@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { checkAuth } from '@/lib/auth'
 
 export async function GET() {
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createServiceClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,9 +42,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { student_ids, override_parent_id, note } = await request.json()
   if (!student_ids || !Array.isArray(student_ids) || student_ids.length === 0 || !override_parent_id) {
