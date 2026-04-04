@@ -16,17 +16,31 @@ No test runner is configured.
 
 ## Environment
 
-Copy `.env.local.example` to `.env.local`. Three variables are required:
+Copy `.env.local.example` to `.env.local`. Five variables are required:
+- `APP_PASSWORD` — the fixed password users enter on the login page
+- `AUTH_SECRET` — a random secret stored in the session cookie to verify login state
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — used client-side and in Server Components
 - `SUPABASE_SERVICE_ROLE_KEY` — server-only; bypasses RLS for API routes
 
+## Authentication
+
+Auth uses a fixed password stored in `APP_PASSWORD` (no Supabase Auth / Google OAuth). Flow:
+1. User submits password on `/login` → `POST /api/login` verifies against `APP_PASSWORD`
+2. On success, an httpOnly cookie (`sl_session`) is set to the value of `AUTH_SECRET`
+3. All protected Server Component pages call `checkAuth()` from `lib/auth.ts`
+4. All API routes call `checkAuth()` at the top of each handler
+
+Supabase RLS policies allow both `anon` and `authenticated` roles (migration `009_rls_allow_anon.sql`), so the anon key works without Supabase Auth.
+
 ## Architecture
 
-Next.js 16 App Router app (Webpack mode) with two auth-gated routes:
+Next.js 16 App Router app (Webpack mode) with auth-gated routes:
 - `/students` — main student management grid
-- `/counselors` — counselor group view (8 groups, each sees their assigned students)
+- `/counselors` — counselor group view (9 groups, each sees their assigned students)
+- `/dashboard` — aggregated stats and charts (Server Component, fetches all data server-side)
+- `/history` — import history log
 
-Both routes follow the same pattern: a Server Component (`page.tsx`) checks the Supabase session and redirects to `/login` if unauthenticated, then renders a Client Component wrapped in `<SWRConfig revalidateOnFocus={false}>`.
+All protected pages follow the same pattern: a Server Component (`page.tsx`) calls `checkAuth()` and redirects to `/login` if not authenticated, then renders a Client Component wrapped in `<SWRConfig revalidateOnFocus={false}>`.
 
 ### Data flow
 
@@ -48,7 +62,11 @@ Both routes follow the same pattern: a Server Component (`page.tsx`) checks the 
 
 `buildGroupAssignments()` maps every student to a group by traversing upward through the `counselor` field chain (priority), then the `introducer` field chain (fallback), until it hits a `root_student_id` defined in the `counselor_groups` table (max 25 hops). The field value format is `"ID_姓名"` — parsed via `parseNameWithId()` in `lib/utils/nameUtils.ts`.
 
-Groups are seeded in `supabase/migrations/003_counselor_groups.sql` with 8 entries. Backfill via `POST /api/counselor-groups/backfill` (paginates all students in 1000-row pages to bypass Supabase's default limit).
+There are 9 counselor groups seeded in `supabase/migrations/003_counselor_groups.sql`. Backfill via `POST /api/counselor-groups/backfill` (paginates all students in 1000-row pages to bypass Supabase's default limit).
+
+Two override mechanisms exist:
+- `parent_aliases` table — remaps a student's upline to a proxy (e.g. when the original upline is inactive)
+- `student_overrides` table — force-assigns a specific student to a given upline, bypassing the chain traversal entirely
 
 ### Key types (`lib/supabase/types.ts`)
 
@@ -68,10 +86,15 @@ Both stores are client-only (`'use client'`). URL filter sync is handled separat
 Migrations in `supabase/migrations/` (apply in order via Supabase SQL Editor):
 - `001_schema.sql` — `students` and `import_sessions` tables, RLS policies
 - `002_import_logs.sql` — `import_logs` table
-- `003_counselor_groups.sql` — `counselor_groups` table + `students.group_leader` column
+- `003_counselor_groups.sql` — `counselor_groups` table + `students.group_leader` column + 9 initial groups
 - `004_spirit_ambassador_fields.sql` — `spirit_ambassador_join_date`, `love_giving_start_date`, `spirit_ambassador_group`, `cumulative_seniority` columns
+- `005_edit_logs.sql` — `edit_logs` table for manual edit audit trail
+- `006_parent_aliases.sql` — `parent_aliases` table for proxy upline relationships
+- `007_student_overrides.sql` — `student_overrides` table for force-assigned upline exceptions
+- `008_birthday_field.sql` — `birthday` column on `students`
+- `009_rls_allow_anon.sql` — updates all RLS policies to allow `anon` role (required after removing Supabase Auth)
 
-Service role key bypasses RLS for all API routes; anon key relies on Supabase Auth for client-side queries.
+Service role key bypasses RLS for all API routes; anon key is used for client-side queries (allowed by migration 009).
 
 ### Adding a new xlsx column
 
