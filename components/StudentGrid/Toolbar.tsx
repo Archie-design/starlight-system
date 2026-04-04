@@ -126,15 +126,15 @@ export default function Toolbar() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm min-h-[48px]">
+    <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm min-h-[48px]">
       {/* 體系 Tab 切換 */}
-      <div className="flex-1 flex items-center gap-0.5">
+      <div className="flex-1 flex items-center gap-0.5 min-w-0">
         {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`
-              px-4 py-1.5 text-xs font-semibold rounded transition-all
+              px-2 sm:px-4 py-1.5 text-xs font-semibold rounded transition-all whitespace-nowrap
               ${activeTab === tab
                 ? 'bg-blue-700 text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
@@ -143,8 +143,8 @@ export default function Toolbar() {
             {tab}體系
           </button>
         ))}
-        <span className="ml-3 text-[11px] text-slate-400 tabular-nums font-medium">
-          {count.toLocaleString()} 筆資料
+        <span className="ml-1.5 sm:ml-3 text-[11px] text-slate-400 tabular-nums font-medium whitespace-nowrap">
+          {count.toLocaleString()} 筆
         </span>
       </div>
 
@@ -155,7 +155,7 @@ export default function Toolbar() {
             <button
               key={key}
               onClick={() => setView(key)}
-              className={`px-5 py-1 text-xs font-bold rounded-md transition-all duration-200 ${
+              className={`px-3 sm:px-5 py-1 text-xs font-bold rounded-md transition-all duration-200 ${
                 view === key
                   ? 'bg-white text-blue-700 shadow-sm scale-[1.02]'
                   : 'text-slate-500 hover:text-slate-800'
@@ -168,7 +168,7 @@ export default function Toolbar() {
       </div>
 
       {/* 工具按鈕 - 靠右 */}
-      <div className="flex-1 flex items-center justify-end gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* 欄位顯示/隱藏 */}
         {view === 'grid' && (
           <div className="relative" ref={colMenuRef}>
@@ -236,25 +236,27 @@ export default function Toolbar() {
           </div>
         )}
 
-        <div className="h-6 w-px bg-slate-200 mx-1" />
+        <div className="h-6 w-px bg-slate-200 mx-0.5 sm:mx-1" />
 
         <button
           onClick={() => setImportModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 active:scale-95 transition-all shadow-sm hover:shadow-md ring-1 ring-blue-700/10"
+          className="flex items-center gap-1.5 px-2 sm:px-4 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 active:scale-95 transition-all shadow-sm hover:shadow-md ring-1 ring-blue-700/10"
+          title="匯入 xlsx"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          匯入 xlsx
+          <span className="hidden sm:inline">匯入 xlsx</span>
         </button>
         <button
           onClick={handleExport}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-md hover:bg-slate-50 active:scale-95 transition-all border border-slate-200 shadow-sm hover:shadow"
+          className="flex items-center gap-1.5 px-2 sm:px-4 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-md hover:bg-slate-50 active:scale-95 transition-all border border-slate-200 shadow-sm hover:shadow"
+          title="匯出 xlsx"
         >
-          <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          匯出 xlsx
+          <span className="hidden sm:inline">匯出 xlsx</span>
         </button>
       </div>
     </div>
