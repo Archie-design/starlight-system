@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import useSWR from 'swr'
 import { useStudentStore } from '@/store/useStudentStore'
 
 const REGIONS = ['北區', '中區', '南區']
@@ -12,6 +13,14 @@ const ROLES = [
   '體系長', '體系長共同經營',
 ]
 
+const fetcher = (url: string) => fetch(url).then(r => r.json())
+
+function formatLastUpdated(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export default function FilterBar() {
   const { filters, setFilter, resetFilters } = useStudentStore()
   const hasFilter = Object.values(filters).some((v) => v !== '' && v !== false)
@@ -20,6 +29,9 @@ export default function FilterBar() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  const { data: lastUpdatedData } = useSWR<{ updatedAt: string | null }>(
+    '/api/last-updated', fetcher, { revalidateOnFocus: false, refreshInterval: 60_000 }
+  )
 
   // 初次載入：從 URL 還原篩選條件
   useEffect(() => {
@@ -122,6 +134,11 @@ export default function FilterBar() {
           </button>
         </div>
       )}
+
+      {/* 最後更新時間 */}
+      <span className="ml-auto text-xs text-slate-400 tabular-nums whitespace-nowrap">
+        更新：{formatLastUpdated(lastUpdatedData?.updatedAt)}
+      </span>
     </div>
   )
 }
