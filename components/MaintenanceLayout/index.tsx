@@ -10,16 +10,16 @@ import MaintenanceStudentGrid from './MaintenanceStudentGrid'
 
 const REGIONS = ['北區', '中區', '南區']
 const ROLES = [
-  '會員', '小天使', '輔導員', '輔導員共同經營',
+  '會員', '小天使', '關懷員', '關懷員共同經營',
   '傳愛領袖', '傳愛領袖共同經營',
-  '輔導長', '輔導長共同經營',
+  '關懷長', '關懷長共同經營',
   '體系長', '體系長共同經營',
 ]
 
 const MAINTENANCE_CATEGORIES: { id: MaintenanceCategory; label: string }[] = [
   { id: 'MISSING_GROUP', label: '未分配組別' },
-  { id: 'MISSING_COUNSELOR', label: '輔導長空白' },
-  { id: 'MISSING_CHAIN', label: '輔導體系空白' },
+  { id: 'MISSING_COUNSELOR', label: '關懷長空白' },
+  { id: 'MISSING_CHAIN', label: '關懷體系空白' },
 ]
 
 // 可隱藏欄位分組
@@ -27,15 +27,15 @@ const COLUMN_GROUPS = [
   { label: '基本資訊', cols: [{ id: 'gender', label: '性別' }, { id: 'role', label: '角色' }, { id: 'phone', label: '手機' }, { id: 'line_id', label: 'LINE ID' }] },
   { label: '組織脈絡', cols: [
     { id: 'introducer', label: '介紹人' }, { id: 'relation', label: '關係人' },
-    { id: 'business_chain', label: '業務脈' }, { id: 'counselor', label: '輔導員' },
+    { id: 'business_chain', label: '業務脈' }, { id: 'counselor', label: '關懷員' },
     { id: 'little_angel', label: '小天使' },
     { id: 'spirit_ambassador_join_date', label: '心之使者加入日' },
     { id: 'love_giving_start_date', label: '大愛付出起始日' },
     { id: 'spirit_ambassador_group', label: '心之使者組別' },
     { id: 'cumulative_seniority', label: '累積年資' },
     { id: 'dream_interpreter', label: '圓夢解盤員' },
-    { id: 'senior_counselor', label: '輔導長' }, { id: 'region', label: '地區' },
-    { id: 'guidance_chain', label: '輔導脈' }, { id: 'membership_expiry', label: '社團會籍' },
+    { id: 'senior_counselor', label: '關懷長' }, { id: 'region', label: '地區' },
+    { id: 'guidance_chain', label: '關懷脈' }, { id: 'membership_expiry', label: '社團會籍' },
     { id: 'group_leader', label: '所屬分組' },
   ]},
   { label: '課程', cols: [
@@ -92,7 +92,7 @@ export default function MaintenanceLayout() {
             儀表板 →
           </NavButton>
           <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-slate-300 hover:text-white transition-colors">
-            輔導長專區
+            關懷長專區
           </NavButton>
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
@@ -163,7 +163,7 @@ export default function MaintenanceLayout() {
             className="border border-slate-300 rounded pl-6 pr-2 py-1 text-xs w-32 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500 transition-colors"
           />
         </div>
-        <input type="text" placeholder="輔導員…" value={filters.counselor}
+        <input type="text" placeholder="關懷員…" value={filters.counselor}
           onChange={e => setFilter('counselor', e.target.value)}
           className="border border-slate-300 rounded px-2 py-1 text-xs w-28 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors"
         />

@@ -41,7 +41,7 @@ function StudentsLayout() {
         <div className="flex items-center gap-3">
           <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</NavButton>
           <NavButton href="/maintenance" active={pathname === '/maintenance'} className="text-xs text-blue-200/70 hover:text-white transition-colors">資料維護 →</NavButton>
-          <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-blue-200/70 hover:text-white transition-colors">輔導長專區 →</NavButton>
+          <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-blue-200/70 hover:text-white transition-colors">關懷長專區 →</NavButton>
           <NavButton href="/history" active={pathname === '/history'} className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</NavButton>
         </div>
       </header>

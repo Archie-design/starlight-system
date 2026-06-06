@@ -83,9 +83,9 @@ export const studentColumns = [
     ),
   }),
   selectCell('role', '角色', [
-    '會員', '小天使', '輔導員', '輔導員共同經營',
+    '會員', '小天使', '關懷員', '關懷員共同經營',
     '傳愛領袖', '傳愛領袖共同經營',
-    '輔導長', '輔導長共同經營',
+    '關懷長', '關懷長共同經營',
     '體系長', '體系長共同經營',
   ], 120),
 
@@ -97,7 +97,7 @@ export const studentColumns = [
   editable('introducer', '介紹人', 120),
   editable('relation', '關係人', 100),
   editable('business_chain', '業務脈', 80),
-  editable('counselor', '輔導員', 120),
+  editable('counselor', '關懷員', 120),
   editable('little_angel', '小天使', 100),
 
   // ── 心之使者 ──────────────────────────────────────────────
@@ -121,9 +121,9 @@ export const studentColumns = [
   editable('cumulative_seniority', '累積年資', 80),
 
   editable('dream_interpreter', '圓夢解盤員', 100),
-  editable('senior_counselor', '輔導長', 120),
+  editable('senior_counselor', '關懷長', 120),
   selectCell('region', '地區', ['北區', '中區', '南區'], 80),
-  editable('guidance_chain', '輔導脈', 80),
+  editable('guidance_chain', '關懷脈', 80),
   ch.accessor('membership_expiry', {
     header: '社團會籍',
     size: 110,
@@ -173,7 +173,7 @@ export const studentColumns = [
   editable('life_transform', '生命蛻變', 100),
   editable('debt_release', '生生世世告別負債貧窮', 150),
 
-  // ── 輔導長分組 ───────────────────────────────────────────────
+  // ── 關懷長分組 ───────────────────────────────────────────────
   editable('group_leader', '所屬分組', 120),
 
   // ── 計算欄 (唯讀) ─────────────────────────────────────────

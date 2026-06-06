@@ -9,12 +9,12 @@ import { calculateAge } from '@/lib/utils/dateUtils'
 const ROLE_COLORS: Record<string, string> = {
   '體系長': 'bg-purple-100 text-purple-700',
   '體系長共同經營': 'bg-purple-100 text-purple-700',
-  '輔導長': 'bg-blue-100 text-blue-700',
-  '輔導長共同經營': 'bg-blue-100 text-blue-700',
+  '關懷長': 'bg-blue-100 text-blue-700',
+  '關懷長共同經營': 'bg-blue-100 text-blue-700',
   '傳愛領袖': 'bg-cyan-100 text-cyan-700',
   '傳愛領袖共同經營': 'bg-cyan-100 text-cyan-700',
-  '輔導員': 'bg-emerald-100 text-emerald-700',
-  '輔導員共同經營': 'bg-emerald-100 text-emerald-700',
+  '關懷員': 'bg-emerald-100 text-emerald-700',
+  '關懷員共同經營': 'bg-emerald-100 text-emerald-700',
   '小天使': 'bg-yellow-100 text-yellow-700',
   '會員': 'bg-slate-100 text-slate-500',
 }
@@ -55,10 +55,10 @@ function StudentTooltip({ student, pos }: StudentTooltipProps) {
     { label: '介紹人', value: student.introducer },
     { label: '與介紹人關係', value: student.relation },
     { label: '聯誼會籍', value: student.membership_expiry },
-    { label: '輔導員', value: student.counselor },
+    { label: '關懷員', value: student.counselor },
     { label: '傳愛體系', value: student.business_chain },
-    { label: '輔導長', value: student.senior_counselor },
-    { label: '輔導體系', value: student.guidance_chain },
+    { label: '關懷長', value: student.senior_counselor },
+    { label: '關懷體系', value: student.guidance_chain },
   ].filter(item => item.value)
 
   if (courses.length === 0 && personalInfo.length === 0) return null

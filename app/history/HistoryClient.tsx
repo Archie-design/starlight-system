@@ -40,9 +40,9 @@ interface EditLog {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  name: '姓名',  introducer: '介紹人', relation: '與介紹人關係', business_chain: '業務脈', counselor: '輔導員',
+  name: '姓名',  introducer: '介紹人', relation: '與介紹人關係', business_chain: '業務脈', counselor: '關懷員',
   little_angel: '小天使', dream_interpreter: '圓夢解盤員', birthday: '生日',
-  senior_counselor: '輔導長', region: '地區', guidance_chain: '輔導脈',
+  senior_counselor: '關懷長', region: '地區', guidance_chain: '關懷脈',
   membership_expiry: '社團會籍', parent_1: '一階家長',
   spirit_ambassador_join_date: '心之使者加入日', love_giving_start_date: '大愛付出起始日',
   spirit_ambassador_group: '心之使者組別', cumulative_seniority: '累積年資', payment_1: '一階繳費',

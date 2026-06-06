@@ -82,11 +82,11 @@ export default function MobileStudentList({ students, isLoading }: MobileStudent
                   <Field label="介紹人" value={student.introducer} />
                   <Field label="關係人" value={student.relation} />
                   <Field label="業務脈" value={student.business_chain} />
-                  <Field label="輔導員" value={student.counselor} />
+                  <Field label="關懷員" value={student.counselor} />
                   <Field label="小天使" value={student.little_angel} />
                   <Field label="圓夢解盤員" value={student.dream_interpreter} />
-                  <Field label="輔導長" value={student.senior_counselor} />
-                  <Field label="輔導脈" value={student.guidance_chain} />
+                  <Field label="關懷長" value={student.senior_counselor} />
+                  <Field label="關懷脈" value={student.guidance_chain} />
                   <Field label="分組" value={student.group_leader} />
                 </Section>
                 <Section label="心之使者">

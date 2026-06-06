@@ -314,7 +314,7 @@ export default function DashboardClient({
             </Card>
 
             <Card>
-              <CardHeader title="各組人數統計" subtitle="各輔導長組別之目前學員數" />
+              <CardHeader title="各組人數統計" subtitle="各關懷長組別之目前學員數" />
               <div className="h-[350px] p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={groupStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -503,7 +503,7 @@ export default function DashboardClient({
                 <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0 backdrop-blur-md">
                   <tr>
                     <th className="py-3 px-6 font-bold text-slate-600">姓名</th>
-                    <th className="py-3 px-6 font-bold text-slate-600">輔導長</th>
+                    <th className="py-3 px-6 font-bold text-slate-600">關懷長</th>
                     <th className="py-3 px-6 font-bold text-slate-600">原始付款紀錄</th>
                   </tr>
                 </thead>

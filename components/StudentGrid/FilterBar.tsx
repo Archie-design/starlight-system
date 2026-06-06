@@ -7,9 +7,9 @@ import { useStudentStore } from '@/store/useStudentStore'
 
 const REGIONS = ['北區', '中區', '南區']
 const ROLES = [
-  '會員', '小天使', '輔導員', '輔導員共同經營',
+  '會員', '小天使', '關懷員', '關懷員共同經營',
   '傳愛領袖', '傳愛領袖共同經營',
-  '輔導長', '輔導長共同經營',
+  '關懷長', '關懷長共同經營',
   '體系長', '體系長共同經營',
 ]
 
@@ -74,10 +74,10 @@ export default function FilterBar() {
         />
       </div>
 
-      {/* 輔導員搜尋 */}
+      {/* 關懷員搜尋 */}
       <input
         type="text"
-        placeholder="輔導員…"
+        placeholder="關懷員…"
         value={filters.counselor}
         onChange={(e) => setFilter('counselor', e.target.value)}
         className="border border-slate-300 rounded px-2 py-1 text-xs w-28 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"

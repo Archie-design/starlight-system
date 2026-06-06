@@ -235,7 +235,7 @@ export default function GroupManageModal({ onClose }: Props) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="px-5 py-3 bg-slate-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-sm font-semibold">輔導系統設定</h2>
+            <h2 className="text-sm font-semibold">關懷系統設定</h2>
             <div className="flex bg-slate-700/50 p-0.5 rounded-lg border border-slate-600/50">
               <button
                 onClick={() => setActiveTab('groups')}
