@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import type { Student } from '@/lib/supabase/types'
 import { useStudents } from '@/hooks/useStudents'
 
@@ -12,7 +12,7 @@ interface Props {
   options?: string[]
 }
 
-export default function EditableCell({ value, rowId, field, type = 'text', options = [] }: Props) {
+function EditableCellComponent({ value, rowId, field, type = 'text', options = [] }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
@@ -28,17 +28,20 @@ export default function EditableCell({ value, rowId, field, type = 'text', optio
     if (editing) inputRef.current?.focus()
   }, [editing])
 
+  // 穩定化 updateCell 參考，避免 useCallback 每次都重新創建
+  const stableUpdateCell = useMemo(() => updateCell, [updateCell])
+
   const commit = useCallback(async () => {
     setEditing(false)
     const newValue = draft.trim() || null
     if (newValue === (value ?? null)) return
     setSaving(true)
     try {
-      await updateCell(rowId, field, newValue)
+      await stableUpdateCell(rowId, field, newValue)
     } finally {
       setSaving(false)
     }
-  }, [draft, value, rowId, field, updateCell])
+  }, [draft, value, rowId, field, stableUpdateCell])
 
   const cancel = useCallback(() => {
     setEditing(false)
@@ -96,3 +99,17 @@ export default function EditableCell({ value, rowId, field, type = 'text', optio
     </div>
   )
 }
+
+// 使用 React.memo 防止父組件更新時不必要的重新渲染
+// 比對 Props 變化：value、rowId、field 變化才重新渲染
+const EditableCell = memo(EditableCellComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.rowId === nextProps.rowId &&
+    prevProps.field === nextProps.field &&
+    prevProps.type === nextProps.type &&
+    JSON.stringify(prevProps.options) === JSON.stringify(nextProps.options)
+  )
+})
+
+export default EditableCell

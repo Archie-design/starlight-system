@@ -270,11 +270,24 @@ interface SearchBoxProps {
 
 function SearchBox({ students, onSelect }: SearchBoxProps) {
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const results = query.trim().length >= 1
-    ? students.filter(s => s.name.includes(query.trim())).slice(0, 20)
+  // Debounce 搜尋輸入（300ms）以減少過濾運算
+  useEffect(() => {
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 300)
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    }
+  }, [query])
+
+  const results = debouncedQuery.trim().length >= 1
+    ? students.filter(s => s.name.includes(debouncedQuery.trim())).slice(0, 20)
     : []
 
   useEffect(() => {
