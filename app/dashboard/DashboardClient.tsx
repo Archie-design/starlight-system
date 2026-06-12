@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo, useState } from 'react'
 import ExcelJS from 'exceljs'
 import {
   BarChart,
@@ -15,8 +14,9 @@ import {
   LabelList,
 } from 'recharts'
 import Link from 'next/link'
+import { useDashboardStats } from '@/lib/hooks/useDashboardStats'
+import { usePaymentDistribution } from '@/lib/hooks/usePaymentDistribution'
 
-// UI Components
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
@@ -37,18 +37,11 @@ function CardHeader({ title, subtitle, action }: { title: string; subtitle?: str
   )
 }
 
-// -------------------------------------------------------------------------------- //
-
 type DashboardProps = {
   totalStudents: number
   courseFunnel: { stage: string; count: number }[]
   groupStudents: { group_leader: string }[]
   membershipData: { id: string; name: string; membership_expiry: string }[]
-  spiritData: any[]
-  importHistory: any[]
-  regionData: any[]
-  wuyunData: any[]
-  newStudentsData: any[]
   paymentDistribution: any[]
   distributionDetail: any[]
   unpaidAlerts: { id: number; name: string; unpaid: { label: string; status: string }[] }[]
@@ -63,46 +56,17 @@ export default function DashboardClient({
   distributionDetail,
   unpaidAlerts,
 }: DashboardProps) {
-  const [selectedSegment, setSelectedSegment] = useState<{ stage: string; status: string } | null>(null)
-  // 1. 各組人數計算
-  const groupStats = useMemo(() => {
-    const counts: Record<string, number> = {}
-    groupStudents.forEach((s) => {
-      const name = s.group_leader.trim() || '未分組'
-      counts[name] = (counts[name] || 0) + 1
-    })
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count) // 由大到小排序
-  }, [groupStudents])
-
-  // 2. 付款狀態分類（找出所有可能的狀態以建立 Bar）
-  const paymentStatuses = useMemo(() => {
-    const statuses = new Set<string>()
-    paymentDistribution.forEach(d => {
-      Object.keys(d).forEach(k => {
-        if (k !== 'name') statuses.add(k)
-      })
-    })
-    return Array.from(statuses)
-  }, [paymentDistribution])
+  const { groupStats, membershipAlerts } = useDashboardStats(groupStudents, membershipData)
+  const { selectedSegment, setSelectedSegment, sortedStatuses, selectedStudents } = usePaymentDistribution(paymentDistribution, distributionDetail)
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case '已完款': return '#10b981' // emerald-500
-      case '部分付款': return '#f59e0b' // amber-500
-      case '退款完成': return '#ef4444' // red-500
-      default: return '#94a3b8' // slate-400
+      case '已完款': return '#10b981'
+      case '部分付款': return '#f59e0b'
+      case '退款完成': return '#ef4444'
+      default: return '#94a3b8'
     }
   }
-
-  // 排序狀態，讓「已完款」固定在最下面
-  const sortedStatuses = useMemo(() => {
-    const order = ['已完款', '部分付款', '退款完成']
-    return paymentStatuses
-      .filter(s => order.includes(s))
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b))
-  }, [paymentStatuses])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -137,73 +101,10 @@ export default function DashboardClient({
     return null
   }
 
-  // 3. 過濾選中區塊的名單
-  const selectedStudents = useMemo(() => {
-    if (!selectedSegment) return []
-    const { stage, status } = selectedSegment
-
-    // 階段對應欄位
-    const stageMap: Record<string, { course: string; payment: string }> = {
-      '一階': { course: 'course_1', payment: 'payment_1' },
-      '二階': { course: 'course_2', payment: 'payment_2' },
-      '三階': { course: 'course_3', payment: 'payment_3' },
-      '四階': { course: 'course_4', payment: 'payment_4' },
-      '五階': { course: 'course_5', payment: 'payment_5' },
-      '五運': { course: 'course_wuyun', payment: 'payment_wuyun' },
-    }
-
-    const keys = stageMap[stage]
-    if (!keys) return []
-
-    // 內部定義歸類邏輯 (與 Server 同步)
-    const normalize = (val: string | null) => {
-      if (!val) return '退款完成'
-      const v = val.trim()
-      if (v === '已完款' || v === '完款' || v === '1' || v === 'true' || v.includes('完款') || v === '已付' || v === '繳清') return '已完款'
-      if (/^\d+(\.\d+)?$/.test(v) || v.includes('訂金') || v === '有的') return '部分付款'
-      return '退款完成'
-    }
-
-    return distributionDetail.filter(s => {
-      const isEnrolled = !!s[keys.course]
-      const currentStatus = normalize(s[keys.payment])
-      return isEnrolled && currentStatus === status
-    }).map(s => ({
-      ...s,
-      actualPayment: s[keys.payment] || '（空白）'
-    }))
-  }, [selectedSegment, distributionDetail])
-
-  const membershipAlerts = useMemo(() => {
-    const now = new Date().getTime()
-    const msPerDay = 1000 * 60 * 60 * 24
-
-    const expired: typeof membershipData = []
-    const within30: typeof membershipData = []
-    const within90: typeof membershipData = []
-
-    membershipData.forEach((s) => {
-      if (!s.membership_expiry) return
-      const expiry = new Date(s.membership_expiry).getTime()
-      const diffDays = Math.ceil((expiry - now) / msPerDay)
-
-      if (diffDays < 0) {
-        expired.push(s)
-      } else if (diffDays <= 30) {
-        within30.push(s)
-      } else if (diffDays <= 90) {
-        within90.push(s)
-      }
-    })
-
-    return { expired, within30, within90 }
-  }, [membershipData])
-
   const exportMembershipToExcel = async () => {
     const workbook = new ExcelJS.Workbook()
     const worksheet = workbook.addWorksheet('會籍到期預警')
 
-    // 設定標題
     worksheet.columns = [
       { header: '學員姓名', key: 'name', width: 20 },
       { header: '狀態', key: 'status', width: 15 },
@@ -211,7 +112,6 @@ export default function DashboardClient({
       { header: '剩餘天數', key: 'days', width: 15 },
     ]
 
-    // 準備數據
     const rows = [...membershipAlerts.expired, ...membershipAlerts.within30].map(s => {
       const expiryDate = new Date(s.membership_expiry)
       const diffDays = Math.ceil((expiryDate.getTime() - new Date().getTime()) / 86400000)
@@ -227,7 +127,6 @@ export default function DashboardClient({
 
     worksheet.addRows(rows)
 
-    // 美化表格
     worksheet.getRow(1).font = { bold: true }
     worksheet.getRow(1).fill = {
       type: 'pattern',
@@ -235,7 +134,6 @@ export default function DashboardClient({
       fgColor: { argb: 'F1F5F9' }
     }
 
-    // 匯出檔案
     const buffer = await workbook.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(blob)
@@ -248,7 +146,6 @@ export default function DashboardClient({
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 overflow-hidden">
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200">
         <div className="flex items-center gap-2">
           <span className="text-yellow-400 text-lg">📊</span>
@@ -261,11 +158,9 @@ export default function DashboardClient({
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          
-          {/* KPI 總覽 */}
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <div className="p-6">
@@ -293,7 +188,6 @@ export default function DashboardClient({
             </Card>
           </div>
 
-          {/* 課程漏斗與各組人數 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader title="課程進度漏斗" subtitle="各階學員的留存與轉換狀況" />
@@ -331,7 +225,6 @@ export default function DashboardClient({
             </Card>
           </div>
 
-          {/* 付款狀態分布 */}
           <Card>
             <CardHeader title="課程付款狀態分布" subtitle="僅統計已報名/已出席該階課程之學員付款狀況" />
             <div className="h-[350px] p-4">
@@ -342,13 +235,13 @@ export default function DashboardClient({
                   <YAxis />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
                   {sortedStatuses.map((status, index) => (
-                    <Bar 
-                      key={status} 
-                      dataKey={status} 
+                    <Bar
+                      key={status}
+                      dataKey={status}
                       name={status}
-                      stackId="a" 
-                      fill={getStatusColor(status)} 
-                      radius={index === sortedStatuses.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} 
+                      stackId="a"
+                      fill={getStatusColor(status)}
+                      radius={index === sortedStatuses.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                       barSize={45}
                       className="cursor-pointer"
                       onClick={(data) => {
@@ -364,11 +257,10 @@ export default function DashboardClient({
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {/* 會籍到期預警 */}
             <Card>
-              <CardHeader 
-                title="會籍到期預警清單" 
-                subtitle="顯示已過期與 30 天內即將到期的會籍" 
+              <CardHeader
+                title="會籍到期預警清單"
+                subtitle="顯示已過期與 30 天內即將到期的會籍"
                 action={
                   <button
                     onClick={exportMembershipToExcel}
@@ -401,7 +293,7 @@ export default function DashboardClient({
                          return (
                           <tr key={s.id} className="hover:bg-slate-50/50">
                             <td className="py-3 px-6 font-medium text-slate-800">
-                              <Link 
+                              <Link
                                 href={`/students?search=${encodeURIComponent(s.name)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -425,7 +317,6 @@ export default function DashboardClient({
               </div>
             </Card>
 
-            {/* 未完款學員清單 */}
             <Card>
               <CardHeader title="未完款學員 (有報課紀錄但尚未完款)" subtitle="列出已參加課程但付款狀態欄位非『完款』的學員" />
               <div className="p-0 max-h-[500px] overflow-auto">
@@ -443,7 +334,7 @@ export default function DashboardClient({
                       {unpaidAlerts.map((s) => (
                         <tr key={s.id} className="hover:bg-slate-50/50">
                           <td className="py-3 px-6 font-medium text-slate-800 whitespace-nowrap align-top">
-                            <Link 
+                            <Link
                               href={`/students?search=${encodeURIComponent(s.name)}`}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -476,7 +367,6 @@ export default function DashboardClient({
         </div>
       </main>
 
-      {/* 詳情彈窗 */}
       {selectedSegment && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedSegment(null)} />
@@ -488,7 +378,7 @@ export default function DashboardClient({
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">共有 {selectedStudents.length} 位學員</p>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedSegment(null)}
                 className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600"
               >
@@ -497,7 +387,7 @@ export default function DashboardClient({
                 </svg>
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-auto p-0">
               <table className="w-full text-left text-sm border-collapse">
                 <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0 backdrop-blur-md">
@@ -511,7 +401,7 @@ export default function DashboardClient({
                   {selectedStudents.map((s: any) => (
                     <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="py-3 px-6">
-                        <Link 
+                        <Link
                           href={`/students?search=${encodeURIComponent(s.name)}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -538,9 +428,9 @@ export default function DashboardClient({
                 </tbody>
               </table>
             </div>
-            
+
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button 
+              <button
                 onClick={() => setSelectedSegment(null)}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
               >
