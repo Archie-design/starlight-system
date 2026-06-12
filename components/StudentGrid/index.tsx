@@ -102,7 +102,7 @@ export default function StudentGrid() {
                       className={`
                         relative px-1.5 py-1.5 text-left font-bold text-slate-700 border-r border-slate-300
                         select-none whitespace-nowrap text-xs
-                        ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700' : ''}
+                        ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700 active:bg-slate-300' : ''}
                         ${isPinned ? 'sticky z-30 bg-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : ''}
                       `}
                       onClick={header.column.getToggleSortingHandler()}
@@ -117,7 +117,7 @@ export default function StudentGrid() {
                         <div
                           onMouseDown={header.getResizeHandler()}
                           onTouchStart={header.getResizeHandler()}
-                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 opacity-0 hover:opacity-100 transition-opacity"
+                          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize bg-blue-400 opacity-0 hover:opacity-100 active:opacity-100 transition-opacity touch-none"
                         />
                       )}
                     </th>
@@ -202,18 +202,18 @@ export default function StudentGrid() {
             共 <span className="font-medium text-slate-700">{count.toLocaleString()}</span> 筆
             ・第 <span className="font-medium text-slate-700">{page + 1}</span> / {totalPages} 頁
           </span>
-          <div className="flex gap-1">
+          <div className="flex gap-2 sm:gap-1">
             <button
               disabled={page === 0}
               onClick={() => setPage(page - 1)}
-              className="px-2.5 py-1 rounded border border-slate-300 bg-white disabled:opacity-30 hover:bg-slate-100 hover:border-slate-400 transition-colors"
+              className="px-2.5 py-2 sm:py-1 rounded border border-slate-300 bg-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 hover:border-slate-400 active:scale-95 transition-all"
             >
               ← 上一頁
             </button>
             <button
               disabled={page >= totalPages - 1}
               onClick={() => setPage(page + 1)}
-              className="px-2.5 py-1 rounded border border-slate-300 bg-white disabled:opacity-30 hover:bg-slate-100 hover:border-slate-400 transition-colors"
+              className="px-2.5 py-2 sm:py-1 rounded border border-slate-300 bg-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 hover:border-slate-400 active:scale-95 transition-all"
             >
               下一頁 →
             </button>

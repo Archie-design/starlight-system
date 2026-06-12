@@ -51,7 +51,7 @@ export default function Toolbar() {
   return (
     <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm min-h-[48px]">
       {/* 體系 Tab 切換 */}
-      <div className="flex-1 flex items-center gap-0.5 min-w-0">
+      <div className="flex-1 flex items-center gap-1.5 sm:gap-0.5 min-w-0">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -78,7 +78,7 @@ export default function Toolbar() {
             <button
               key={key}
               onClick={() => setView(key)}
-              className={`px-3 sm:px-5 py-1 text-xs font-bold rounded-md transition-all duration-200 ${
+              className={`px-3 sm:px-5 py-2 sm:py-1 text-xs font-bold rounded-md transition-all duration-200 active:scale-95 ${
                 view === key
                   ? 'bg-white text-blue-700 shadow-sm scale-[1.02]'
                   : 'text-slate-500 hover:text-slate-800'

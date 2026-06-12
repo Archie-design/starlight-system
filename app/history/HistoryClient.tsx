@@ -269,7 +269,7 @@ export default function HistoryClient() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-dvh bg-white">
       {/* 頭部 */}
       <header className="flex items-center justify-between px-4 py-2.5 bg-blue-800 text-white shadow-md flex-shrink-0">
         <div className="flex items-center gap-2.5">

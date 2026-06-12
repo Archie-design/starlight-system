@@ -31,7 +31,7 @@ function StudentsLayout() {
   const pathname = usePathname()
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-dvh bg-white">
       {/* 頂部標題列 */}
       <header className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-2.5 bg-blue-800 text-white shadow-md">
         <div className="flex items-center gap-2.5">

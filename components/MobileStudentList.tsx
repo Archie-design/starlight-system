@@ -133,7 +133,7 @@ export default function MobileStudentList({ students, isLoading }: MobileStudent
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{label}</div>
+      <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">{label}</div>
       <div className="space-y-1.5 pl-1">{children}</div>
     </div>
   )
