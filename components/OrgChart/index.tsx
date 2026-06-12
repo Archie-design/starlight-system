@@ -5,37 +5,11 @@ import { useOrgData } from '@/hooks/useOrgData'
 import { countDescendants, findPath, type TreeNode } from '@/lib/utils/buildTree'
 import type { OrgStudent } from '@/lib/utils/buildTree'
 import { calculateAge } from '@/lib/utils/dateUtils'
-
-const ROLE_COLORS: Record<string, string> = {
-  '體系長': 'bg-purple-100 text-purple-700',
-  '體系長共同經營': 'bg-purple-100 text-purple-700',
-  '關懷長': 'bg-blue-100 text-blue-700',
-  '關懷長共同經營': 'bg-blue-100 text-blue-700',
-  '傳愛領袖': 'bg-cyan-100 text-cyan-700',
-  '傳愛領袖共同經營': 'bg-cyan-100 text-cyan-700',
-  '關懷員': 'bg-emerald-100 text-emerald-700',
-  '關懷員共同經營': 'bg-emerald-100 text-emerald-700',
-  '小天使': 'bg-yellow-100 text-yellow-700',
-  '會員': 'bg-slate-100 text-slate-500',
-}
+import { ROLE_COLORS, COURSE_LABELS } from '@/lib/constants'
 
 function getRoleColor(role: string | null): string {
   return role ? (ROLE_COLORS[role] ?? 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-400'
 }
-
-// ── 個人資料與課程浮動提示 ─────────────────────────────────────
-const COURSE_LABELS: { key: keyof OrgStudent; label: string }[] = [
-  { key: 'course_1', label: '一階' },
-  { key: 'course_2', label: '二階' },
-  { key: 'course_3', label: '三階' },
-  { key: 'course_4', label: '四階' },
-  { key: 'course_5', label: '五階' },
-  { key: 'course_wuyun', label: '五運' },
-  { key: 'life_numbers', label: '生命數字' },
-  { key: 'life_numbers_advanced', label: '生命數字實戰' },
-  { key: 'life_transform', label: '生命蛻變' },
-  { key: 'debt_release', label: '告別負債' },
-]
 
 interface TooltipPos { x: number; y: number }
 

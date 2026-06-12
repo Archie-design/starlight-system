@@ -4,14 +4,7 @@ import { useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { useStudentStore } from '@/store/useStudentStore'
-
-const REGIONS = ['北區', '中區', '南區']
-const ROLES = [
-  '會員', '小天使', '關懷員', '關懷員共同經營',
-  '傳愛領袖', '傳愛領袖共同經營',
-  '關懷長', '關懷長共同經營',
-  '體系長', '體系長共同經營',
-]
+import { REGIONS, ROLES } from '@/lib/constants'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
