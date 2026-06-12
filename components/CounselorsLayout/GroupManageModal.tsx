@@ -5,6 +5,7 @@ import { useGroupManagement } from '@/lib/hooks/useGroupManagement'
 import { useAliasManagement } from '@/lib/hooks/useAliasManagement'
 import { useOverrideManagement } from '@/lib/hooks/useOverrideManagement'
 import { useBackfillProgress } from '@/lib/hooks/useBackfillProgress'
+import { useModalDismiss } from '@/lib/hooks/useModalDismiss'
 
 interface Props {
   onClose: () => void
@@ -16,13 +17,20 @@ export default function GroupManageModal({ onClose }: Props) {
   const aliasMgmt = useAliasManagement()
   const overrideMgmt = useOverrideManagement()
   const backfill = useBackfillProgress()
+  const modalRef = useModalDismiss<HTMLDivElement>(onClose)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="group-manage-title"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="px-5 py-3 bg-slate-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-sm font-semibold">關懷系統設定</h2>
+            <h2 id="group-manage-title" className="text-sm font-semibold">關懷系統設定</h2>
             <div className="flex bg-slate-700/50 p-0.5 rounded-lg border border-slate-600/50">
               <button
                 onClick={() => setActiveTab('groups')}
@@ -50,7 +58,7 @@ export default function GroupManageModal({ onClose }: Props) {
               </button>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-300 hover:text-white text-lg leading-none transition-colors">✕</button>
+          <button onClick={onClose} aria-label="關閉" className="text-slate-300 hover:text-white text-lg leading-none transition-colors">✕</button>
         </div>
 
         <div className="p-4 max-h-[70vh] overflow-y-auto">
@@ -86,6 +94,7 @@ export default function GroupManageModal({ onClose }: Props) {
                           <button
                             onClick={() => groupMgmt.handleMove(index, 'up')}
                             disabled={index === 0 || groupMgmt.saving}
+                            aria-label="向上移動"
                             className="p-0.5 text-slate-300 hover:text-blue-600 disabled:opacity-10 transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" /></svg>
@@ -93,6 +102,7 @@ export default function GroupManageModal({ onClose }: Props) {
                           <button
                             onClick={() => groupMgmt.handleMove(index, 'down')}
                             disabled={index === groupMgmt.groups.length - 1 || groupMgmt.saving}
+                            aria-label="向下移動"
                             className="p-0.5 text-slate-300 hover:text-blue-600 disabled:opacity-10 transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>

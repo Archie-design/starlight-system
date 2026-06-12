@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useStudents } from '@/hooks/useStudents'
+import { useModalDismiss } from '@/lib/hooks/useModalDismiss'
 import { REGIONS, ROLES } from '@/lib/constants'
 
 export default function NewStudentModal() {
@@ -19,8 +20,6 @@ export default function NewStudentModal() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!newStudentOpen) return null
-
   const reset = () => {
     setId('')
     setName('')
@@ -35,6 +34,10 @@ export default function NewStudentModal() {
     reset()
     setNewStudentOpen(false)
   }
+
+  const modalRef = useModalDismiss<HTMLDivElement>(handleClose, newStudentOpen)
+
+  if (!newStudentOpen) return null
 
   const handleSave = async () => {
     if (!id || !name) {
@@ -71,9 +74,19 @@ export default function NewStudentModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-80 p-5">
-        <h2 className="text-sm font-semibold text-slate-800 mb-4">新增學員</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={handleClose}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-student-title"
+        className="bg-white rounded-lg shadow-xl w-80 p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="new-student-title" className="text-sm font-semibold text-slate-800 mb-4">新增學員</h2>
 
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
@@ -140,7 +153,8 @@ export default function NewStudentModal() {
           <label className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">手機</span>
             <input
-              type="text"
+              type="tel"
+              inputMode="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="例：0912345678"
@@ -154,7 +168,7 @@ export default function NewStudentModal() {
         </div>
 
         {error && (
-          <p className="mt-3 text-xs text-red-600 bg-red-50 rounded px-2 py-1">{error}</p>
+          <p role="alert" className="mt-3 text-xs text-red-600 bg-red-50 rounded px-2 py-1">{error}</p>
         )}
 
         <div className="flex justify-end gap-2 mt-5">
@@ -167,7 +181,7 @@ export default function NewStudentModal() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {saving ? '儲存中…' : '新增'}
           </button>

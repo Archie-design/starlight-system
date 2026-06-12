@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
+import { useModalDismiss } from '@/lib/hooks/useModalDismiss'
 import UploadDropzone from './UploadDropzone'
 import DiffTable from './DiffTable'
 import type { ImportPreviewResult } from '@/lib/supabase/types'
@@ -34,8 +35,6 @@ export default function ImportWizard() {
     return () => { if (applyTimerRef.current) clearInterval(applyTimerRef.current) }
   }, [step])
 
-  if (!importModalOpen) return null
-
   const close = () => {
     setImportModalOpen(false)
     setStep('upload')
@@ -62,6 +61,10 @@ export default function ImportWizard() {
     }
   }
 
+  // applying 進行中（不可逆）時停用 Escape/backdrop 關閉，避免中途中斷
+  const dismissible = step !== 'applying'
+  const modalRef = useModalDismiss<HTMLDivElement>(close, importModalOpen && dismissible)
+
   const handleApply = async () => {
     if (!preview) return
     setStep('applying')
@@ -82,18 +85,35 @@ export default function ImportWizard() {
     }
   }
 
+  if (!importModalOpen) return null
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={() => { if (dismissible) close() }}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-wizard-title"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">
+          <h2 id="import-wizard-title" className="text-lg font-semibold">
             {step === 'upload' && '匯入學員資料'}
             {step === 'preview' && '預覽變更'}
             {step === 'applying' && '套用中…'}
             {step === 'done' && '匯入完成'}
           </h2>
-          <button onClick={close} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button
+            onClick={close}
+            disabled={!dismissible}
+            aria-label="關閉"
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-xl leading-none"
+          >×</button>
         </div>
 
         {/* Content */}

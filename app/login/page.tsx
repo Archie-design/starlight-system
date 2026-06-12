@@ -39,26 +39,35 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="請輸入密碼"
-            required
-            autoFocus
-            className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="space-y-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              密碼
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="請輸入密碼"
+              required
+              autoFocus
+              autoComplete="current-password"
+              aria-invalid={!!error}
+              aria-describedby={error ? 'login-error' : undefined}
+              className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? '登入中…' : '登入'}
           </button>
         </form>
 
         {error && (
-          <p className="text-sm text-red-500 bg-red-50 rounded p-2 mt-4">{error}</p>
+          <p id="login-error" role="alert" className="text-sm text-red-500 bg-red-50 rounded p-2 mt-4">{error}</p>
         )}
       </div>
     </div>
