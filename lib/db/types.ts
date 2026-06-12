@@ -1,0 +1,62 @@
+import type { Student } from '@/lib/supabase/types'
+
+/**
+ * 學員清單的通用篩選器（對應 FilterBar / store filters）。
+ */
+export interface StudentFilters {
+  name?: string
+  counselor?: string
+  region?: string
+  role?: string
+  hasCourse5?: boolean
+}
+
+/**
+ * 維護專區的複查類別。null 欄位即代表該類別需要修正的資料。
+ */
+export type MaintenanceCategory = 'MISSING_GROUP' | 'MISSING_COUNSELOR' | 'MISSING_CHAIN' | null
+
+/**
+ * 分頁查詢的範圍。
+ */
+export interface PageRange {
+  page: number
+  pageSize: number
+}
+
+export interface PagedStudents {
+  rows: Student[]
+  count: number
+}
+
+/**
+ * 單一儲存格編輯的稽核資訊（給 audit log 使用）。
+ */
+export interface CellEdit {
+  id: number
+  field: string
+  value: string | null
+  oldValue: string | null
+  studentName: string | null
+}
+
+/**
+ * 學員資料存取介面 — 隔離 Supabase 細節，讓 hook 與業務邏輯不直接依賴具體資料庫。
+ */
+export interface StudentRepository {
+  /** 依 sheet_system 分頁查詢（/students 主表） */
+  findBySheet(sheet: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /** 依 group_leader 分頁查詢（/counselors） */
+  findByGroupLeader(groupLeader: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /** 依維護類別分頁查詢（/maintenance） */
+  findByMaintenanceCategory(category: MaintenanceCategory, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /** 更新單一欄位並寫入稽核 log（log 為 fire-and-forget，不阻塞） */
+  updateCell(edit: CellEdit): Promise<void>
+}
+
+/**
+ * 依賴注入用的根上下文。後續可加入 groups / aliases / overrides。
+ */
+export interface RepositoryContextValue {
+  students: StudentRepository
+}
