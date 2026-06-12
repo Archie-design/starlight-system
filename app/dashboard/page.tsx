@@ -125,29 +125,6 @@ export default async function DashboardPage() {
     .map((s) => ({ id: s.id, name: s.name, membership_expiry: s.membership_expiry }))
     .sort((a, b) => new Date(a.membership_expiry).getTime() - new Date(b.membership_expiry).getTime())
 
-  const spiritData = allStudents
-    .filter((s) => s.spirit_ambassador_join_date !== null)
-    .map((s) => ({
-      spirit_ambassador_join_date: s.spirit_ambassador_join_date,
-      cumulative_seniority: s.cumulative_seniority,
-    }))
-
-  const regionData = allStudents
-    .filter((s) => s.region !== null)
-    .map((s) => ({ region: s.region }))
-
-  const wuyunData = allStudents.map((s) => ({
-    wuyun_a: s.wuyun_a,
-    wuyun_b: s.wuyun_b,
-    wuyun_c: s.wuyun_c,
-    wuyun_d: s.wuyun_d,
-    wuyun_f: s.wuyun_f,
-  }))
-
-  const unpaidStudentsData = allStudents
-    .map((s) => ({ created_at: s.created_at, introducer: s.introducer }))
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-
   // 11. 退款完成學員清單 (有上課但退款完成)
   const unpaidAlerts = allStudents.map(s => {
     const unpaid = paymentStages.filter((stage, index) => {
@@ -190,11 +167,6 @@ export default async function DashboardPage() {
       courseFunnel={courseFunnel}
       groupStudents={groupStudents}
       membershipData={membershipData}
-      spiritData={spiritData}
-      importHistory={importResult.data ?? []}
-      regionData={regionData}
-      wuyunData={wuyunData}
-      newStudentsData={unpaidStudentsData}
       paymentDistribution={paymentDistribution}
       distributionDetail={distributionDetail as any}
       unpaidAlerts={unpaidAlerts as any[]}

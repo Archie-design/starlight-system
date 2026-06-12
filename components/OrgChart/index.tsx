@@ -1,370 +1,16 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
 import { useOrgData } from '@/hooks/useOrgData'
-import { countDescendants, findPath, type TreeNode } from '@/lib/utils/buildTree'
+import { useOrgChartInteraction } from '@/lib/hooks/useOrgChartInteraction'
+import { countDescendants } from '@/lib/utils/buildTree'
 import type { OrgStudent } from '@/lib/utils/buildTree'
-import { calculateAge } from '@/lib/utils/dateUtils'
-import { ROLE_COLORS, COURSE_LABELS } from '@/lib/constants'
+import { OrgChartNode } from './OrgChartNode'
+import { FocusedView } from './FocusedView'
+import { SearchBox } from './SearchBox'
 
-function getRoleColor(role: string | null): string {
-  return role ? (ROLE_COLORS[role] ?? 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-400'
-}
-
-interface TooltipPos { x: number; y: number }
-
-interface StudentTooltipProps {
-  student: OrgStudent
-  pos: TooltipPos
-}
-
-function StudentTooltip({ student, pos }: StudentTooltipProps) {
-  const courses = COURSE_LABELS.filter(({ key }) => !!student[key])
-  
-  const age = calculateAge(student.birthday)
-
-  const personalInfo = [
-    { label: '生理性別', value: student.gender },
-    { label: '年齡', value: age !== null ? age : null },
-    { label: '介紹人', value: student.introducer },
-    { label: '與介紹人關係', value: student.relation },
-    { label: '聯誼會籍', value: student.membership_expiry },
-    { label: '關懷員', value: student.counselor },
-    { label: '傳愛體系', value: student.business_chain },
-    { label: '關懷長', value: student.senior_counselor },
-    { label: '關懷體系', value: student.guidance_chain },
-  ].filter(item => item.value)
-
-  if (courses.length === 0 && personalInfo.length === 0) return null
-
-  return (
-    <div
-      className="fixed z-50 pointer-events-none"
-      style={{ left: pos.x + 12, top: pos.y - 8 }}
-    >
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xl px-4 py-3 min-w-[180px] max-w-[280px]">
-        
-        {personalInfo.length > 0 && (
-          <div className="mb-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <span className="w-1 h-3 rounded bg-blue-400 block" /> 個人資料
-            </p>
-            <div className="flex flex-col gap-1">
-              {personalInfo.map(({ label, value }) => (
-                <div key={label} className="flex items-start justify-between gap-4">
-                  <span className="text-[10px] text-slate-500 whitespace-nowrap">{label}</span>
-                  <span className="text-[10px] font-medium text-slate-800 text-right">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {courses.length > 0 && (
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <span className="w-1 h-3 rounded bg-emerald-400 block" /> 課程紀錄
-            </p>
-            <div className="flex flex-col gap-1">
-              {courses.map(({ key, label }) => (
-                <div key={key} className="flex items-center justify-between gap-4">
-                  <span className="text-[10px] text-slate-500 whitespace-nowrap">{label}</span>
-                  <span className="text-[10px] font-medium text-slate-800 whitespace-nowrap text-right">{String(student[key])}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── 學員名稱按鈕（含 Hover Tooltip 控制）────────────────
-interface StudentNameProps {
-  student: OrgStudent
-  onClick: () => void
-  className?: string
-}
-
-function StudentName({ student, onClick, className }: StudentNameProps) {
-  const [tooltipPos, setTooltipPos] = useState<TooltipPos | null>(null)
-
-  return (
-    <span className="relative">
-      <button
-        onClick={onClick}
-        onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
-        onMouseLeave={() => setTooltipPos(null)}
-        className={className}
-      >
-        <span className="text-slate-400 font-normal">{student.id}_</span>{student.name}
-      </button>
-      {tooltipPos && <StudentTooltip student={student} pos={tooltipPos} />}
-    </span>
-  )
-}
-
-// ── 一般樹狀節點（展開/收合用） ─────────────────────────
-interface NodeProps {
-  node: TreeNode
-  defaultExpanded: boolean
-  isLast: boolean
-  prefix: string
-  onFocus: (node: TreeNode) => void
-}
-
-function OrgNode({ node, defaultExpanded, isLast, prefix, onFocus }: NodeProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded)
-  const { student, children } = node
-  const descendantCount = countDescendants(node)
-  const hasChildren = children.length > 0
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 py-0.5">
-        <span className="whitespace-pre font-mono text-slate-300 text-xs select-none leading-none">
-          {prefix}{isLast ? '└─' : '├─'}
-        </span>
-
-        {hasChildren ? (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0"
-            title={expanded ? '收合' : '展開'}
-          >
-            <span className="text-[10px] leading-none">{expanded ? '▾' : '▸'}</span>
-          </button>
-        ) : (
-          <span className="w-4 flex-shrink-0" />
-        )}
-
-        <StudentName
-          student={student}
-          onClick={() => onFocus(node)}
-          className="text-xs text-slate-800 font-medium whitespace-nowrap hover:text-blue-600 hover:underline transition-colors"
-        />
-
-        {student.role && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${getRoleColor(student.role)}`}>
-            {student.role}
-          </span>
-        )}
-
-        {hasChildren && (
-          <span className="text-[10px] text-slate-400 tabular-nums whitespace-nowrap">
-            ({descendantCount} 人)
-          </span>
-        )}
-      </div>
-
-      {expanded && hasChildren && (
-        <div>
-          {children.map((child, i) => (
-            <OrgNode
-              key={child.student.id}
-              node={child}
-              defaultExpanded={node.depth < 1}
-              isLast={i === children.length - 1}
-              prefix={prefix + (isLast ? '  ' : '│ ')}
-              onFocus={onFocus}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 聚焦視圖：顯示上線路徑 + 聚焦節點的下線 ────────────
-interface FocusedViewProps {
-  path: TreeNode[]          // focusStack，從根到聚焦者
-  onBreadcrumb: (i: number) => void
-  onFocus: (node: TreeNode) => void
-}
-
-function FocusedView({ path, onBreadcrumb, onFocus }: FocusedViewProps) {
-  const focused = path[path.length - 1]
-
-  return (
-    <div className="font-mono">
-      {/* 上線路徑（祖先鏈） */}
-      {path.map((node, i) => {
-        const isFocused = i === path.length - 1
-        const indent = '  '.repeat(i)
-        const connector = i === 0 ? '' : (indent.slice(2) + '└─ ')
-
-        return (
-          <div key={node.student.id}>
-            <div className="flex items-center gap-1.5 py-0.5">
-              <span className="whitespace-pre font-mono text-slate-300 text-xs select-none leading-none">
-                {connector}
-              </span>
-
-              {/* 展開符號位置 */}
-              <span className="w-4 flex-shrink-0" />
-
-              {isFocused ? (
-                // 聚焦節點：顯示高亮（也帶 tooltip）
-                <StudentName
-                  student={node.student}
-                  onClick={() => {}}
-                  className="text-xs font-bold text-blue-700 whitespace-nowrap bg-blue-50 px-1.5 py-0.5 rounded cursor-default"
-                />
-              ) : (
-                // 祖先節點：可點擊跳回
-                <StudentName
-                  student={node.student}
-                  onClick={() => onBreadcrumb(i)}
-                  className="text-xs text-slate-500 font-medium whitespace-nowrap hover:text-blue-600 hover:underline transition-colors"
-                />
-              )}
-
-              {node.student.role && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${getRoleColor(node.student.role)}`}>
-                  {node.student.role}
-                </span>
-              )}
-
-              {!isFocused && (
-                <span className="text-[10px] text-slate-300 whitespace-nowrap">（上線）</span>
-              )}
-            </div>
-
-            {/* 聚焦節點後渲染其下線 */}
-            {isFocused && focused.children.length > 0 && (
-              <div>
-                {focused.children.map((child, ci) => (
-                  <OrgNode
-                    key={child.student.id}
-                    node={child}
-                    defaultExpanded={true}
-                    isLast={ci === focused.children.length - 1}
-                    prefix={'  '.repeat(i + 1)}
-                    onFocus={onFocus}
-                  />
-                ))}
-              </div>
-            )}
-
-            {isFocused && focused.children.length === 0 && (
-              <div className="flex items-center gap-1.5 py-0.5">
-                <span className="whitespace-pre font-mono text-slate-200 text-xs select-none">
-                  {'  '.repeat(i + 1)}└─{' '}
-                </span>
-                <span className="text-xs text-slate-300">（無下線）</span>
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── 搜尋框 ──────────────────────────────────────────────
-interface SearchBoxProps {
-  students: OrgStudent[]
-  onSelect: (student: OrgStudent) => void
-}
-
-function SearchBox({ students, onSelect }: SearchBoxProps) {
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Debounce 搜尋輸入（300ms）以減少過濾運算
-  useEffect(() => {
-    debounceTimerRef.current = setTimeout(() => {
-      setDebouncedQuery(query)
-    }, 300)
-
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-    }
-  }, [query])
-
-  const results = debouncedQuery.trim().length >= 1
-    ? students.filter(s => s.name.includes(debouncedQuery.trim())).slice(0, 20)
-    : []
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative">
-      <div className="relative">
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
-        <input
-          type="text"
-          placeholder="搜尋學員姓名…"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
-          onFocus={() => setOpen(true)}
-          className="border border-slate-300 rounded pl-6 pr-2 py-1 text-xs w-44 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-        />
-        {query && (
-          <button
-            onClick={() => { setQuery(''); setOpen(false) }}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 text-xs"
-          >✕</button>
-        )}
-      </div>
-
-      {open && results.length > 0 && (
-        <div className="absolute top-full mt-1 left-0 z-20 bg-white border border-slate-200 rounded shadow-lg w-56 max-h-60 overflow-auto">
-          {results.map(s => (
-            <button
-              key={s.id}
-              onClick={() => { onSelect(s); setQuery(''); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors text-left"
-            >
-              <span className="font-medium text-slate-800 flex-1">
-                <span className="text-slate-400 font-normal">{s.id}_</span>{s.name}
-              </span>
-              {s.role && (
-                <span className={`text-[10px] px-1 py-0.5 rounded-full ${getRoleColor(s.role)}`}>{s.role}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {open && query.trim().length >= 1 && results.length === 0 && (
-        <div className="absolute top-full mt-1 left-0 z-20 bg-white border border-slate-200 rounded shadow-lg w-56 px-3 py-2 text-xs text-slate-400">
-          找不到符合的學員
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 主元件 ──────────────────────────────────────────────
 export default function OrgChart() {
   const { roots, students, totalCount, isLoading } = useOrgData()
-  const [focusStack, setFocusStack] = useState<TreeNode[]>([])
-
-  const handleFocus = (node: TreeNode) => {
-    // 點擊節點時，找出完整路徑並設定 focusStack
-    const path = findPath(roots, node.student.id)
-    if (path.length > 0) setFocusStack(path)
-  }
-
-  const handleBreadcrumb = (index: number) => {
-    setFocusStack(prev => index === -1 ? [] : prev.slice(0, index + 1))
-  }
-
-  const handleSearch = (student: OrgStudent) => {
-    const path = findPath(roots, student.id)
-    if (path.length > 0) setFocusStack(path)
-  }
+  const { focusStack, focusNode, focusStudent, goToBreadcrumb } = useOrgChartInteraction(roots)
 
   if (isLoading) {
     return (
@@ -391,11 +37,11 @@ export default function OrgChart() {
     <div className="flex flex-col h-full">
       {/* 搜尋 + 麵包屑列 */}
       <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 text-xs flex items-center gap-3 flex-wrap">
-        <SearchBox students={students} onSelect={handleSearch} />
+        <SearchBox students={students} onSelect={(s: OrgStudent) => focusStudent(s.id)} />
 
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
-            onClick={() => handleBreadcrumb(-1)}
+            onClick={() => goToBreadcrumb(-1)}
             className={`font-medium transition-colors ${
               focusStack.length === 0
                 ? 'text-slate-700 cursor-default'
@@ -408,7 +54,7 @@ export default function OrgChart() {
             <span key={node.student.id} className="flex items-center gap-1.5">
               <span className="text-slate-300">›</span>
               <button
-                onClick={() => handleBreadcrumb(i)}
+                onClick={() => goToBreadcrumb(i)}
                 className={`font-medium transition-colors ${
                   i === focusStack.length - 1
                     ? 'text-slate-700 cursor-default'
@@ -432,18 +78,18 @@ export default function OrgChart() {
         {focusStack.length > 0 ? (
           <FocusedView
             path={focusStack}
-            onBreadcrumb={handleBreadcrumb}
-            onFocus={handleFocus}
+            onBreadcrumb={goToBreadcrumb}
+            onFocus={focusNode}
           />
         ) : (
           roots.map((root, i) => (
-            <OrgNode
+            <OrgChartNode
               key={root.student.id}
               node={root}
               defaultExpanded={true}
               isLast={i === roots.length - 1}
               prefix=""
-              onFocus={handleFocus}
+              onFocus={focusNode}
             />
           ))
         )}
