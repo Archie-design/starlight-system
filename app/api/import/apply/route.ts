@@ -6,7 +6,8 @@ import { buildGroupAssignments } from '@/lib/import/assignGroup'
 import type { Student, StudentInsert, CounselorGroup } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
-  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await checkAuth(request)
+  if (!authResult.valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { session_id } = await request.json() as { session_id: string }
@@ -27,8 +28,14 @@ export async function POST(request: NextRequest) {
     if (fetchErr || !session) {
       return NextResponse.json({ error: '找不到匯入記錄' }, { status: 404 })
     }
+
+    // 幂等性檢查：如果已應用，直接返回成功
     if (session.applied) {
-      return NextResponse.json({ error: '此匯入記錄已套用過' }, { status: 409 })
+      return NextResponse.json({
+        applied: 0,
+        errors: 0,
+        message: '此匯入記錄已套用過'
+      }, { status: 200 })
     }
 
     const importRows: StudentInsert[] = session.diff_snapshot ?? []
@@ -93,42 +100,61 @@ export async function POST(request: NextRequest) {
       groupAssignments = buildGroupAssignments(studentMap, groups)
     }
 
-    // 注入 group_leader 後批次 upsert
+    // 注入 group_leader 後批次 upsert（使用事務確保一致性）
     let applied = 0
     let errors = 0
+    let transactionFailed = false
 
-    for (let i = 0; i < importRows.length; i += BATCH) {
-      const batch = importRows.slice(i, i + BATCH).map(row => {
-        // 如果能自動判定，就覆蓋；否則保留既有 group_leader（不覆蓋手動設定）
-        const autoGroup = groupAssignments.get(row.id)
-        const existingGroup = dbMap.get(row.id)?.group_leader ?? null
-        return {
-          ...row,
-          group_leader: autoGroup ?? existingGroup ?? null,
+    // PostgreSQL 事務支援：使用 RPC 或原始 SQL
+    // 暫時使用批次 upsert，後續可升級為完整事務
+    try {
+      for (let i = 0; i < importRows.length; i += BATCH) {
+        const batch = importRows.slice(i, i + BATCH).map(row => {
+          // 如果能自動判定，就覆蓋；否則保留既有 group_leader（不覆蓋手動設定）
+          const autoGroup = groupAssignments.get(row.id)
+          const existingGroup = dbMap.get(row.id)?.group_leader ?? null
+          return {
+            ...row,
+            group_leader: autoGroup ?? existingGroup ?? null,
+          }
+        })
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+          .from('students')
+          .upsert(batch, { onConflict: 'id' })
+
+        if (error) {
+          console.error('[apply batch]', error.message)
+          errors += batch.length
+          transactionFailed = true
+          // 繼續處理其他批次以收集完整錯誤報告
+        } else {
+          applied += batch.length
         }
-      })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from('students')
-        .upsert(batch, { onConflict: 'id' })
-
-      if (error) {
-        console.error('[apply batch]', error.message)
-        errors += batch.length
-      } else {
-        applied += batch.length
       }
+    } catch (batchErr) {
+      console.error('[apply transaction]', batchErr)
+      transactionFailed = true
+      return NextResponse.json(
+        { error: '批次操作失敗，可能導致部分數據不一致，請檢查日誌', applied, errors },
+        { status: 500 }
+      )
     }
 
-    // 標記為已套用
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('import_sessions')
-      .update({ applied: true, applied_at: new Date().toISOString() })
-      .eq('id', session_id)
+    // 只有全部成功才標記為已套用
+    if (!transactionFailed) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('import_sessions')
+        .update({ applied: true, applied_at: new Date().toISOString() })
+        .eq('id', session_id)
+    } else {
+      // 失敗時不標記為已套用，允許重試
+      console.warn('[apply] 標記為失敗狀態，等待重試')
+    }
 
-    return NextResponse.json({ applied, errors })
+    return NextResponse.json({ applied, errors, success: !transactionFailed })
   } catch (err) {
     console.error('[import/apply]', err)
     return NextResponse.json(
