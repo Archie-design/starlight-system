@@ -58,17 +58,20 @@ export function isNewbie(s: Pick<Student, 'created_at'>, now: number = Date.now(
 }
 
 /**
- * 續報潛力：上完某階 N（1~4）但未上 N+1 階。
- * （第 5 階為最高階，無下一階，故只看 1~4）
+ * 續報潛力：已入門（至少上過一階）但「尚未上滿全部階別」者。
+ *
+ * 業務規則：一→二階須照順序，二階之後三/四/五階不拘順序，因此不再以
+ * 「下一階」判定，而是看「是否還有任一階別未上」。階別涵蓋
+ * 一、二、三、四、五、五運（共 6 個）。
+ * - 完全沒上課（全空）：不算（尚未入門）
+ * - 6 階全上滿：不算（無可續）
  */
 export function isResubscribeCandidate(
-  s: Pick<Student, 'course_1' | 'course_2' | 'course_3' | 'course_4' | 'course_5'>
+  s: Pick<Student, 'course_1' | 'course_2' | 'course_3' | 'course_4' | 'course_5' | 'course_wuyun'>
 ): boolean {
-  const c = [s.course_1, s.course_2, s.course_3, s.course_4, s.course_5].map((x) => !!x)
-  for (let i = 0; i < 4; i++) {
-    if (c[i] && !c[i + 1]) return true
-  }
-  return false
+  const taken = [s.course_1, s.course_2, s.course_3, s.course_4, s.course_5, s.course_wuyun].map((x) => !!x)
+  const count = taken.filter(Boolean).length
+  return count > 0 && count < taken.length
 }
 
 const NUMERIC = /^\d+(\.\d+)?$/
