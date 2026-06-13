@@ -1,7 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
-import type { SheetSystem } from '@/lib/supabase/types'
+import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 export type MaintenanceCategory = 'MISSING_GROUP' | 'MISSING_COUNSELOR' | 'MISSING_CHAIN'
 
@@ -20,6 +20,9 @@ const DEFAULT_FILTERS: MaintenanceFilters = {
 }
 
 interface MaintenanceStore {
+  role: UserRole
+  setRole: (r: UserRole) => void
+
   system: SheetSystem
   setSystem: (s: SheetSystem) => void
 
@@ -38,6 +41,9 @@ interface MaintenanceStore {
 }
 
 export const useMaintenanceStore = create<MaintenanceStore>((set) => ({
+  role: 'admin',
+  setRole: (role) => set({ role }),
+
   system: '星光',
   setSystem: (system) => set({ system, page: 0 }),
 

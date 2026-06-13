@@ -4,14 +4,16 @@ import { useEffect } from 'react'
 import { SWRConfig } from 'swr'
 import MaintenanceLayout from '@/components/MaintenanceLayout'
 import { useMaintenanceStore } from '@/store/useMaintenanceStore'
-import type { SheetSystem } from '@/lib/supabase/types'
+import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
-export default function MaintenanceClient({ system }: { system: SheetSystem }) {
+export default function MaintenanceClient({ role, system }: { role: UserRole; system: SheetSystem }) {
   const setSystem = useMaintenanceStore((s) => s.setSystem)
+  const setRole = useMaintenanceStore((s) => s.setRole)
 
   useEffect(() => {
+    setRole(role)
     setSystem(system)
-  }, [system, setSystem])
+  }, [role, system, setRole, setSystem])
 
   return (
     <SWRConfig value={{ revalidateOnFocus: false }}>

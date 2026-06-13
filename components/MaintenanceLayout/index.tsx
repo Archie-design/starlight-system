@@ -7,10 +7,11 @@ import NavButton from '../NavButton'
 import { useMaintenanceStudents } from '@/hooks/useMaintenanceStudents'
 import { useMaintenanceStore, MaintenanceCategory } from '@/store/useMaintenanceStore'
 import MaintenanceStudentGrid from './MaintenanceStudentGrid'
+import SystemSwitcher from '../SystemSwitcher'
 import { REGIONS, ROLES, MAINTENANCE_CATEGORIES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function MaintenanceLayout() {
-  const { activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useMaintenanceStore()
+  const { role, system, setSystem, activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useMaintenanceStore()
   const { count } = useMaintenanceStudents()
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
@@ -76,6 +77,10 @@ export default function MaintenanceLayout() {
 
         {/* 右側：工具按鈕 */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* 體系切換（僅 superadmin） */}
+          {role === 'superadmin' && (
+            <SystemSwitcher value={system} onChange={setSystem} />
+          )}
           <div className="relative" ref={colMenuRef}>
             <button
               onClick={() => setShowColMenu(v => !v)}

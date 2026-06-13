@@ -8,11 +8,12 @@ import { useCounselorStudents } from '@/hooks/useCounselorStudents'
 import { useCounselorStore } from '@/store/useCounselorStore'
 import CounselorStudentGrid from './CounselorStudentGrid'
 import GroupManageModal from './GroupManageModal'
+import SystemSwitcher from '../SystemSwitcher'
 import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function CounselorsLayout() {
   const { groups, isLoading: groupsLoading } = useCounselorGroups()
-  const { activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
+  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
   const [showColMenu, setShowColMenu] = useState(false)
@@ -45,7 +46,7 @@ export default function CounselorsLayout() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-dvh bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2.5 bg-blue-800 text-white shadow-md">
         <div className="flex items-center gap-2.5">
@@ -93,6 +94,10 @@ export default function CounselorsLayout() {
 
         {/* 右側：工具按鈕 */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+          {/* 體系切換（僅 superadmin） */}
+          {role === 'superadmin' && (
+            <SystemSwitcher value={system} onChange={setSystem} />
+          )}
           {/* 欄位顯示/隱藏 */}
           <div className="relative" ref={colMenuRef}>
             <button
