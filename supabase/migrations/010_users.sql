@@ -28,23 +28,15 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "service_all" ON users;
 CREATE POLICY "service_all" ON users FOR ALL TO service_role USING (true);
 
--- 種子初始系統管理者
--- username: starlightsystem@gmail.com
--- 初始密碼: Starlight@2026（首次登入強制修改）
+-- 種子初始系統管理者（superadmin）
 --
--- ⚠️ bcrypt 雜湊含 '$'，某些 SQL 客戶端會誤判為 dollar-quoting 而破壞字串。
---    若套用後登入顯示「帳號或密碼錯誤」，請改用 service role 以程式重設雜湊：
---      const hash = bcrypt.hashSync('Starlight@2026', 10)
---      await supabase.from('users').update({ password_hash: hash }).eq('username','starlightsystem@gmail.com')
-INSERT INTO users (username, password_hash, role, system, must_change_password)
-VALUES (
-  'starlightsystem@gmail.com',
-  '$2b$10$.4e8/5agbxf6yBkYfkXmh.01vW.H4.15XTLhsmDpiJIrNsrCHqbbm',
-  'superadmin',
-  NULL,
-  true
-)
-ON CONFLICT (username) DO NOTHING;
+-- ⚠️ 不在此處硬編碼帳號/密碼（避免複製部署時帶到別組織的帳號，且 bcrypt 雜湊
+--    含 '$' 在 SQL 編輯器易被 dollar-quoting 破壞）。
+--    請改用參數化種子腳本建立第一個 superadmin：
+--
+--      SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \
+--      SUPERADMIN_USERNAME=admin@example.com SUPERADMIN_PASSWORD='初始密碼' \
+--      npx tsx supabase/seed/seedSuperadmin.ts
 
 -- 維持 students 依 business_chain 篩選的效能
 CREATE INDEX IF NOT EXISTS idx_students_business_chain ON students(business_chain);

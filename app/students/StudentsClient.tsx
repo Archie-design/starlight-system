@@ -13,6 +13,7 @@ import LogoutButton from '@/components/LogoutButton'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
+import { APP_NAME } from '@/lib/config'
 
 // 關聯圖含 @xyflow/react，僅切到該檢視才載入，避免拖累初次載入
 const RelationshipNetwork = dynamic(() => import('@/components/RelationshipNetwork'), {
@@ -45,7 +46,7 @@ function StudentsLayout() {
       <header className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-2.5 bg-blue-800 text-white shadow-md">
         <div className="flex items-center gap-2.5">
           <span className="text-yellow-300 text-lg leading-none">★</span>
-          <h1 className="text-sm font-semibold tracking-wider text-white/95">星光超級表格系統</h1>
+          <h1 className="text-sm font-semibold tracking-wider text-white/95">{APP_NAME}</h1>
         </div>
         <div className="flex items-center gap-3">
           <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</NavButton>

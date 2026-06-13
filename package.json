@@ -6,7 +6,8 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "migrate": "npx tsx supabase/seed/migrate.ts"
+    "migrate": "npx tsx supabase/seed/migrate.ts",
+    "seed:admin": "npx tsx supabase/seed/seedSuperadmin.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

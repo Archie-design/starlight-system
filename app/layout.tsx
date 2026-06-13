@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { RepositoryProvider } from "@/lib/context/RepositoryContext";
+import { APP_NAME } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "星光超級表格系統",
+  title: APP_NAME,
   description: "學員課程管理系統",
 };
 

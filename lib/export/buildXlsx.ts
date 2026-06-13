@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs'
 import type { Student } from '@/lib/supabase/types'
+import { APP_NAME } from '@/lib/config'
 
 const HEADERS = [
   '學員ID', '姓名', '性別', '角色', '手機', 'LINE ID',
@@ -34,7 +35,7 @@ function studentToRow(s: Student): (string | number | null)[] {
 
 export async function buildStudentsXlsx(students: Student[], sheetName: string): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = '星光超級表格系統'
+  workbook.creator = APP_NAME
   workbook.created = new Date()
 
   const ws = workbook.addWorksheet(sheetName)
