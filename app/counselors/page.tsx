@@ -1,8 +1,12 @@
 import { redirect } from 'next/navigation'
-import { checkAuth } from '@/lib/auth'
+import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import CounselorsClient from './CounselorsClient'
 
 export default async function CounselorsPage() {
-  if (!(await checkAuth())) redirect('/login')
-  return <CounselorsClient />
+  const { valid, user } = await checkAuth()
+  if (!valid) redirect('/login')
+  if (user!.must_change_password) redirect('/account/change-password')
+
+  const system = await getEffectiveSystem(user!)
+  return <CounselorsClient role={user!.role} system={system} />
 }

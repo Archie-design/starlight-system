@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 export interface CounselorFilters {
   name: string
@@ -19,6 +20,12 @@ const DEFAULT_FILTERS: CounselorFilters = {
 }
 
 interface CounselorStore {
+  role: UserRole
+  setRole: (r: UserRole) => void
+
+  system: SheetSystem
+  setSystem: (s: SheetSystem) => void
+
   activeGroup: string | null
   setActiveGroup: (g: string | null) => void
 
@@ -34,6 +41,12 @@ interface CounselorStore {
 }
 
 export const useCounselorStore = create<CounselorStore>((set) => ({
+  role: 'admin',
+  setRole: (role) => set({ role }),
+
+  system: '星光',
+  setSystem: (system) => set({ system, page: 0 }),
+
   activeGroup: null,
   setActiveGroup: (activeGroup) => set({ activeGroup, page: 0 }),
 

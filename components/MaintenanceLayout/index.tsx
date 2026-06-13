@@ -7,10 +7,12 @@ import NavButton from '../NavButton'
 import { useMaintenanceStudents } from '@/hooks/useMaintenanceStudents'
 import { useMaintenanceStore, MaintenanceCategory } from '@/store/useMaintenanceStore'
 import MaintenanceStudentGrid from './MaintenanceStudentGrid'
+import SystemSwitcher from '../SystemSwitcher'
+import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, MAINTENANCE_CATEGORIES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function MaintenanceLayout() {
-  const { activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useMaintenanceStore()
+  const { role, system, setSystem, activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useMaintenanceStore()
   const { count } = useMaintenanceStudents()
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
@@ -52,6 +54,12 @@ export default function MaintenanceLayout() {
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>
+          {role === 'superadmin' && (
+            <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-300 hover:text-white transition-colors">
+              帳號管理 →
+            </NavButton>
+          )}
+          <LogoutButton className="text-xs text-slate-300 hover:text-white transition-colors disabled:opacity-50" />
         </div>
       </header>
 
@@ -76,6 +84,10 @@ export default function MaintenanceLayout() {
 
         {/* 右側：工具按鈕 */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* 體系切換（僅 superadmin） */}
+          {role === 'superadmin' && (
+            <SystemSwitcher value={system} onChange={setSystem} />
+          )}
           <div className="relative" ref={colMenuRef}>
             <button
               onClick={() => setShowColMenu(v => !v)}
@@ -110,7 +122,8 @@ export default function MaintenanceLayout() {
       </div>
 
       {/* 第二層：搜尋/篩選列 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-50 border-b border-slate-300">
+      <div className="px-4 pt-2">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg shadow-sm">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
           <input type="text" placeholder="搜尋姓名…" value={filters.name}
@@ -143,9 +156,10 @@ export default function MaintenanceLayout() {
           待修正筆數：<span className="font-bold text-slate-700">{count.toLocaleString()}</span>
         </div>
       </div>
+      </div>
 
       {/* 主表格 */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 px-4 py-2">
         <MaintenanceStudentGrid />
       </div>
     </div>

@@ -29,25 +29,26 @@ export async function POST() {
     overrideMap[o.student_id] = o.override_parent_id
   })
 
-  // 3. 取得所有學員（id、counselor、introducer）—— 分頁避開 Supabase 1000 筆上限
+  // 3. 取得所有學員（id、counselor、introducer、business_chain）—— 分頁避開 Supabase 1000 筆上限
   const PAGE = 1000
-  const students: { id: number; counselor: string | null; introducer: string | null }[] = []
+  type SEntry = { id: number; counselor: string | null; introducer: string | null; business_chain: string | null }
+  const students: SEntry[] = []
   let from = 0
   while (true) {
     const { data, error: sErr } = await supabase
       .from('students')
-      .select('id, counselor, introducer')
+      .select('id, counselor, introducer, business_chain')
       .range(from, from + PAGE - 1)
     if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
     if (!data || data.length === 0) break
-    students.push(...data)
+    students.push(...(data as SEntry[]))
     if (data.length < PAGE) break
     from += PAGE
   }
 
   // 4. 建立 Map 並運算歸屬
   const studentMap = new Map(
-    (students ?? []).map((s: { id: number; counselor: string | null; introducer: string | null }) => [s.id, s])
+    (students ?? []).map((s: SEntry) => [s.id, s])
   )
   const assignments = buildGroupAssignments(studentMap, groups ?? [], aliasMap, overrideMap)
 

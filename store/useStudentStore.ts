@@ -1,7 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
-import type { SheetSystem } from '@/lib/supabase/types'
+import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 export interface StudentFilters {
   name: string
@@ -20,7 +20,11 @@ const DEFAULT_FILTERS: StudentFilters = {
 }
 
 interface StudentStore {
-  // 目前顯示的體系 tab
+  // 登入者角色（決定體系 TAB 可否切換）
+  role: UserRole
+  setRole: (role: UserRole) => void
+
+  // 目前顯示的體系 tab（admin 鎖定其體系；superadmin 可切換）
   activeTab: SheetSystem
   setActiveTab: (tab: SheetSystem) => void
 
@@ -51,6 +55,9 @@ interface StudentStore {
 }
 
 export const useStudentStore = create<StudentStore>((set) => ({
+  role: 'admin',
+  setRole: (role) => set({ role }),
+
   activeTab: '星光',
   setActiveTab: (tab) => set({ activeTab: tab, page: 0 }),
 

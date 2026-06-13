@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Student } from '@/lib/supabase/types'
+import type { Student, SheetSystem } from '@/lib/supabase/types'
+import { applySystemFilter } from '@/lib/utils/system'
 import type {
   StudentRepository,
   StudentFilters,
@@ -46,25 +47,26 @@ class SupabaseStudentRepository implements StudentRepository {
     return { rows: data as Student[], count: count ?? 0 }
   }
 
-  async findBySheet(sheet: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
-    let query = this.baseQuery(range).eq('sheet_system', sheet)
+  async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+    let query = applySystemFilter(this.baseQuery(range), system)
     query = applyCommonFilters(query, filters, true)
     return this.run(query)
   }
 
-  async findByGroupLeader(groupLeader: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
-    let query = this.baseQuery(range).eq('group_leader', groupLeader)
+  async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+    let query = applySystemFilter(this.baseQuery(range).eq('group_leader', groupLeader), system)
     query = applyCommonFilters(query, filters, true)
     return this.run(query)
   }
 
-  async findByMaintenanceCategory(category: MaintenanceCategory, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+  async findByMaintenanceCategory(category: MaintenanceCategory, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
     let query = this.baseQuery(range)
     switch (category) {
       case 'MISSING_GROUP':     query = query.is('group_leader', null); break
       case 'MISSING_COUNSELOR': query = query.is('senior_counselor', null); break
       case 'MISSING_CHAIN':     query = query.is('guidance_chain', null); break
     }
+    query = applySystemFilter(query, system)
     // 維護專區不提供 hasCourse5 篩選
     query = applyCommonFilters(query, filters, false)
     return this.run(query)

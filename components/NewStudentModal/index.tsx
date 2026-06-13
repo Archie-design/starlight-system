@@ -56,7 +56,9 @@ export default function NewStudentModal() {
     const { error: dbErr } = await supabase.from('students').insert({
       id: numId,
       name: name.trim(),
-      sheet_system: activeTab,
+      sheet_system: '星光', // 既有欄位、非有效體系；維持 NOT NULL
+      // 體系由 business_chain 決定：太陽 → '太陽'，星光體系維持 null（非太陽即星光）
+      business_chain: activeTab === '太陽' ? '太陽' : null,
       gender: gender || null,
       role: role || null,
       region: region || null,

@@ -1,26 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { checkAuth } from '@/lib/auth'
+import { checkAuth, getEffectiveSystem } from '@/lib/auth'
+import { applySystemFilter } from '@/lib/utils/system'
 import { buildStudentsXlsx } from '@/lib/export/buildXlsx'
-import type { Student, SheetSystem } from '@/lib/supabase/types'
+import type { Student } from '@/lib/supabase/types'
 
 export async function GET(request: NextRequest) {
-  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { valid, user } = await checkAuth(request)
+  if (!valid || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { searchParams } = new URL(request.url)
-    const system = (searchParams.get('system') ?? '星光') as SheetSystem
     const name = searchParams.get('name') ?? ''
     const counselor = searchParams.get('counselor') ?? ''
     const region = searchParams.get('region') ?? ''
 
+    // 體系一律以 server session 身分為準，忽略 client 傳入的 system
+    const system = await getEffectiveSystem(user)
+
     const supabase = createServiceClient()
 
-    let query = supabase
-      .from('students')
-      .select('*')
-      .eq('sheet_system', system)
-      .order('id', { ascending: true })
+    let query = applySystemFilter(
+      supabase.from('students').select('*'),
+      system,
+    ).order('id', { ascending: true })
 
     if (name) query = query.ilike('name', `%${name}%`)
     if (counselor) query = query.ilike('counselor', `%${counselor}%`)

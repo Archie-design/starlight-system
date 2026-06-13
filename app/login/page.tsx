@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,11 +18,13 @@ export default function LoginPage() {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ username, password }),
     })
 
     if (res.ok) {
-      router.push('/students')
+      const data = await res.json()
+      // 首次登入（或被重設）需強制改密碼
+      router.push(data.mustChangePassword ? '/account/change-password' : '/students')
     } else {
       const data = await res.json()
       setError(data.error ?? '登入失敗')
@@ -35,10 +38,27 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <div className="text-4xl mb-2">⭐</div>
           <h1 className="text-xl font-bold text-gray-800">星光超級表格系統</h1>
-          <p className="text-sm text-gray-500 mt-1">請輸入密碼以繼續</p>
+          <p className="text-sm text-gray-500 mt-1">請輸入帳號與密碼以繼續</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              帳號
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="請輸入帳號"
+              required
+              autoFocus
+              autoComplete="username"
+              aria-invalid={!!error}
+              className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <div className="space-y-1">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               密碼
@@ -50,7 +70,6 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="請輸入密碼"
               required
-              autoFocus
               autoComplete="current-password"
               aria-invalid={!!error}
               aria-describedby={error ? 'login-error' : undefined}

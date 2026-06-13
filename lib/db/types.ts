@@ -1,4 +1,4 @@
-import type { Student } from '@/lib/supabase/types'
+import type { Student, SheetSystem } from '@/lib/supabase/types'
 
 /**
  * 學員清單的通用篩選器（對應 FilterBar / store filters）。
@@ -44,12 +44,12 @@ export interface CellEdit {
  * 學員資料存取介面 — 隔離 Supabase 細節，讓 hook 與業務邏輯不直接依賴具體資料庫。
  */
 export interface StudentRepository {
-  /** 依 sheet_system 分頁查詢（/students 主表） */
-  findBySheet(sheet: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
-  /** 依 group_leader 分頁查詢（/counselors） */
-  findByGroupLeader(groupLeader: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
-  /** 依維護類別分頁查詢（/maintenance） */
-  findByMaintenanceCategory(category: MaintenanceCategory, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /** 依體系（business_chain）分頁查詢（/students 主表） */
+  findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /** 依 group_leader + 體系分頁查詢（/counselors） */
+  findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /** 依維護類別 + 體系分頁查詢（/maintenance） */
+  findByMaintenanceCategory(category: MaintenanceCategory, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
   /** 更新單一欄位並寫入稽核 log（log 為 fire-and-forget，不阻塞） */
   updateCell(edit: CellEdit): Promise<void>
 }

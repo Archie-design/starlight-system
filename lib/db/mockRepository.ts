@@ -1,4 +1,5 @@
-import type { Student } from '@/lib/supabase/types'
+import type { Student, SheetSystem } from '@/lib/supabase/types'
+import { systemOf } from '@/lib/utils/system'
 import type {
   StudentRepository,
   StudentFilters,
@@ -37,23 +38,24 @@ function paginate(rows: Student[], range: PageRange): PagedStudents {
 export class MockStudentRepository implements StudentRepository {
   constructor(public data: Student[] = []) {}
 
-  async findBySheet(sheet: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+  async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
     const rows = this.data
-      .filter((s) => s.sheet_system === sheet && matchesFilters(s, filters))
+      .filter((s) => systemOf(s.business_chain) === system && matchesFilters(s, filters))
       .sort((a, b) => a.id - b.id)
     return paginate(rows, range)
   }
 
-  async findByGroupLeader(groupLeader: string, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+  async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
     const rows = this.data
-      .filter((s) => s.group_leader === groupLeader && matchesFilters(s, filters))
+      .filter((s) => s.group_leader === groupLeader && systemOf(s.business_chain) === system && matchesFilters(s, filters))
       .sort((a, b) => a.id - b.id)
     return paginate(rows, range)
   }
 
-  async findByMaintenanceCategory(category: MaintenanceCategory, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+  async findByMaintenanceCategory(category: MaintenanceCategory, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
     const rows = this.data
       .filter((s) => {
+        if (systemOf(s.business_chain) !== system) return false
         if (category === 'MISSING_GROUP' && s.group_leader != null) return false
         if (category === 'MISSING_COUNSELOR' && s.senior_counselor != null) return false
         if (category === 'MISSING_CHAIN' && s.guidance_chain != null) return false

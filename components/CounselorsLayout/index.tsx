@@ -8,20 +8,24 @@ import { useCounselorStudents } from '@/hooks/useCounselorStudents'
 import { useCounselorStore } from '@/store/useCounselorStore'
 import CounselorStudentGrid from './CounselorStudentGrid'
 import GroupManageModal from './GroupManageModal'
+import SystemSwitcher from '../SystemSwitcher'
+import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function CounselorsLayout() {
-  const { groups, isLoading: groupsLoading } = useCounselorGroups()
-  const { activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
+  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
+  const { groups, isLoading: groupsLoading } = useCounselorGroups(system)
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
 
-  // 分組載入後，自動選取第一個
+  // 分組載入後（或切換體系後），若目前選取的分組不在清單中，自動選取第一個
   useEffect(() => {
-    if (!activeGroup && groups.length > 0) {
+    if (groups.length === 0) return
+    const stillValid = activeGroup && groups.some((g) => g.name === activeGroup)
+    if (!stillValid) {
       setActiveGroup(groups[0].name)
     }
   }, [groups, activeGroup, setActiveGroup])
@@ -45,7 +49,7 @@ export default function CounselorsLayout() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-dvh bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2.5 bg-blue-800 text-white shadow-md">
         <div className="flex items-center gap-2.5">
@@ -62,6 +66,12 @@ export default function CounselorsLayout() {
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>
+          {role === 'superadmin' && (
+            <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-200/90 hover:text-white transition-colors">
+              帳號管理 →
+            </NavButton>
+          )}
+          <LogoutButton />
         </div>
       </header>
 
@@ -93,6 +103,10 @@ export default function CounselorsLayout() {
 
         {/* 右側：工具按鈕 */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+          {/* 體系切換（僅 superadmin） */}
+          {role === 'superadmin' && (
+            <SystemSwitcher value={system} onChange={setSystem} />
+          )}
           {/* 欄位顯示/隱藏 */}
           <div className="relative" ref={colMenuRef}>
             <button
@@ -135,7 +149,8 @@ export default function CounselorsLayout() {
       </div>
 
       {/* 篩選列 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-100 border-b border-slate-300">
+      <div className="px-4 pt-2">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg shadow-sm">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
           <input type="text" placeholder="搜尋姓名…" value={filters.name}
@@ -176,13 +191,14 @@ export default function CounselorsLayout() {
           </div>
         )}
       </div>
+      </div>
 
       {/* 主表格 */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 px-4 py-2">
         {activeGroup ? (
           <CounselorStudentGrid />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+          <div className="flex items-center justify-center h-full text-slate-400 text-sm border border-slate-300 rounded-lg bg-white">
             請選擇上方的關懷長分組
           </div>
         )}

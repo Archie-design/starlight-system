@@ -15,7 +15,7 @@ export function useStudents() {
 
   const { data, error, isLoading, mutate } = useSWR<{ rows: Student[]; count: number }>(
     key,
-    () => repo.findBySheet(activeTab, filters, { page, pageSize: PAGE_SIZE }),
+    () => repo.findBySystem(activeTab, filters, { page, pageSize: PAGE_SIZE }),
     {
       keepPreviousData: true,
       revalidateOnFocus: false,

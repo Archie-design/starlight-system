@@ -1,29 +1,29 @@
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import type { AuthUser } from '@/lib/supabase/types'
 
 export const SESSION_COOKIE = 'sl_session'
+export const SESSION_UID_COOKIE = 'sl_session_uid'
+export const VIEW_SYSTEM_COOKIE = 'sl_view_system'
 export const CSRF_TOKEN_COOKIE = 'csrf_token'
 export const SESSION_EXPIRY_MINUTES = 30
 
-// 生成會話令牌：使用密碼 + 時間戳 + 隨機值的 SHA-256
-export async function generateSessionToken(password: string): Promise<string> {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 15)
-  const data = `${password}:${timestamp}:${random}`
-  const encoder = new TextEncoder()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data))
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
+export type CheckAuthResult = { valid: boolean; user?: AuthUser | null }
 
-// 檢查會話是否有效（包括過期檢查）
-export async function checkAuth(request?: NextRequest): Promise<{ valid: boolean; email?: string | null }> {
+/**
+ * 檢查會話是否有效並回傳使用者身分。
+ * 流程：驗證 sl_session(=AUTH_SECRET) + 未過期 + CSRF → 以 sl_session_uid 查 users 表
+ *       並確認帳號仍存在且 active（停用即時失效）。
+ */
+export async function checkAuth(request?: NextRequest): Promise<CheckAuthResult> {
   const cookieStore = await cookies()
   const secret = process.env.AUTH_SECRET
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value
   const sessionTimestamp = cookieStore.get(`${SESSION_COOKIE}_ts`)?.value
+  const uid = cookieStore.get(SESSION_UID_COOKIE)?.value
 
-  if (!secret || !sessionToken) {
+  if (!secret || !sessionToken || !uid) {
     return { valid: false }
   }
 
@@ -38,9 +38,6 @@ export async function checkAuth(request?: NextRequest): Promise<{ valid: boolean
     const now = Date.now()
     const elapsedMinutes = (now - timestamp) / (1000 * 60)
     if (elapsedMinutes > SESSION_EXPIRY_MINUTES) {
-      // 會話過期，清除 cookie
-      cookieStore.delete(SESSION_COOKIE)
-      cookieStore.delete(`${SESSION_COOKIE}_ts`)
       return { valid: false }
     }
   }
@@ -51,7 +48,6 @@ export async function checkAuth(request?: NextRequest): Promise<{ valid: boolean
     const csrfToken = request.headers.get('x-csrf-token')
     const storedCsrfToken = cookieStore.get(CSRF_TOKEN_COOKIE)?.value
 
-    // 允許本地或相同源的請求，或提供有效的 CSRF 令牌
     const isLocalhost = !referer || referer.includes('localhost') || referer.includes('127.0.0.1')
     const isSameOrigin = referer && referer.startsWith(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
     const csrfValid = csrfToken && storedCsrfToken && csrfToken === storedCsrfToken
@@ -62,8 +58,36 @@ export async function checkAuth(request?: NextRequest): Promise<{ valid: boolean
     }
   }
 
-  // 取得用戶識別信息（暫時使用 email，可從請求頭或 session 延伸）
-  const userEmail = cookieStore.get(`${SESSION_COOKIE}_email`)?.value ?? null
+  // 以 uid 查 users 表，確認帳號存在且啟用
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, role, system, active, must_change_password')
+    .eq('id', uid)
+    .maybeSingle()
 
-  return { valid: true, email: userEmail }
+  if (error || !data || data.active !== true) {
+    return { valid: false }
+  }
+
+  const user: AuthUser = {
+    id: data.id,
+    username: data.username,
+    role: data.role,
+    system: data.system,
+    must_change_password: data.must_change_password,
+  }
+  return { valid: true, user }
+}
+
+/**
+ * 計算使用者的「有效體系」。
+ * - admin：固定為其綁定體系
+ * - superadmin：依其當前選擇（VIEW_SYSTEM_COOKIE），預設「星光」
+ */
+export async function getEffectiveSystem(user: AuthUser): Promise<'星光' | '太陽'> {
+  if (user.role === 'admin' && user.system) return user.system
+  const cookieStore = await cookies()
+  const view = cookieStore.get(VIEW_SYSTEM_COOKIE)?.value
+  return view === '太陽' ? '太陽' : '星光'
 }
