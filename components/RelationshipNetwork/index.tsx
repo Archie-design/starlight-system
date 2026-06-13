@@ -1,12 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   ReactFlow,
   Background,
   Controls,
+  Handle,
+  Position,
+  useNodesState,
+  useEdgesState,
   type Node,
   type Edge,
+  type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useOrgData } from '@/hooks/useOrgData'
@@ -57,7 +62,7 @@ export default function RelationshipNetwork() {
   )
   const groups = useMemo(() => (result ? groupRelations(result.related) : []), [result])
 
-  const { nodes, edges } = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
+  const computed = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
     if (!result) return { nodes: [], edges: [] }
     const nodes: Node[] = []
     const edges: Edge[] = []
@@ -71,25 +76,42 @@ export default function RelationshipNetwork() {
       draggable: false,
     })
 
-    // 每個群組一條放射軸；群內成員沿該軸排開
+    // 每個群組分到一個「角度扇形」，群內成員在扇形內由內而外、多環排列，
+    // 避免全部擠在同一軸線而互相重疊。
     const groupCount = groups.length || 1
+    const sector = (2 * Math.PI) / groupCount        // 每群可用角度
+    const NODE_SPACING_ANGLE = 0.16                  // 同環節點間角距
+    const RING_GAP = 130                             // 環間半徑差
+    const BASE_RADIUS = 260                          // 第一環半徑（與中心拉開距離）
+
     groups.forEach((g, gi) => {
-      const angle = (2 * Math.PI * gi) / groupCount - Math.PI / 2
+      const center0 = sector * gi - Math.PI / 2      // 此扇形中心角
       const color = g.type === 'cohort' ? COHORT_COLOR : SPIRIT_COLOR
       const shown = g.members.slice(0, MAX_PER_GROUP)
+
+      // 每環可容納的節點數（扇形寬度 / 節點角距）
+      const perRing = Math.max(3, Math.floor(sector / NODE_SPACING_ANGLE))
+
       shown.forEach((m, mi) => {
-        // 沿群軸方向、依序往外排（半徑遞增），並左右微張角分散
-        const ring = 1 + mi
-        const spread = (mi % 5 - 2) * 0.12
-        const a = angle + spread
-        const radius = 180 + ring * 14
+        const ringIdx = Math.floor(mi / perRing)
+        const posInRing = mi % perRing
+        const ringCount = Math.min(perRing, shown.length - ringIdx * perRing)
+        // 在扇形內置中分佈
+        const offset = (posInRing - (ringCount - 1) / 2) * NODE_SPACING_ANGLE
+        const a = center0 + offset
+        const radius = BASE_RADIUS + ringIdx * RING_GAP
         const id = `s-${m.student.id}`
         if (!nodes.find((n) => n.id === id)) {
+          // 關聯依據（同期哪幾階/梯 + 同組組名），供 hover 顯示
+          const reasons = [
+            ...m.cohortLabels.map((c) => `同期同學・${c}`),
+            ...(m.spiritLabel ? [`同組組員・${m.spiritLabel}`] : []),
+          ]
           nodes.push({
             id,
+            type: 'student',
             position: { x: Math.cos(a) * radius, y: Math.sin(a) * radius },
-            data: { label: m.student.name },
-            style: MEMBER_STYLE,
+            data: { label: m.student.name, reasons },
             draggable: true,
           })
         }
@@ -97,15 +119,37 @@ export default function RelationshipNetwork() {
           id: `e-${g.key}-${m.student.id}`,
           source: `c-${result.center.id}`,
           target: id,
-          label: mi === 0 ? `${g.label}${g.members.length > MAX_PER_GROUP ? `（${g.members.length}人，顯示前${MAX_PER_GROUP}）` : `（${g.members.length}）`}` : undefined,
-          style: { stroke: color, strokeWidth: 1.5 },
-          labelStyle: { fill: color, fontSize: 11, fontWeight: 600 },
-          labelBgStyle: { fill: '#fff' },
+          style: { stroke: color, strokeWidth: 1.2, opacity: 0.5 },
         })
+      })
+
+      // 群組標籤改為「獨立標籤節點」，放在扇形外緣，彼此不重疊
+      const labelRadius = BASE_RADIUS - 70
+      const total = g.members.length
+      const labelText = total > MAX_PER_GROUP
+        ? `${g.label}（${total}人，顯示前 ${MAX_PER_GROUP}）`
+        : `${g.label}（${total}）`
+      nodes.push({
+        id: `g-${g.key}`,
+        position: { x: Math.cos(center0) * labelRadius, y: Math.sin(center0) * labelRadius },
+        data: { label: labelText },
+        style: groupLabelStyle(color),
+        draggable: true,
+        selectable: false,
       })
     })
     return { nodes, edges }
   }, [result, groups])
+
+  // 受控狀態：拖曳節點時透過 onNodesChange 更新並保留位置
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  // 中心/資料改變時，以新佈局重置（使用者的暫時拖移會被新佈局取代，符合預期）
+  useEffect(() => {
+    setNodes(computed.nodes)
+    setEdges(computed.edges)
+  }, [computed, setNodes, setEdges])
 
   const handlePick = (s: OrgStudent) => setCenterId(s.id)
 
@@ -147,26 +191,59 @@ export default function RelationshipNetwork() {
             </p>
           </div>
         ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            fitView
-            minZoom={0.2}
-            maxZoom={1.5}
-            onNodeClick={(_, node) => {
-              const id = Number(String(node.id).replace(/^[cs]-/, ''))
-              if (!Number.isNaN(id) && id !== centerId) setCenterId(id)
-            }}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background />
-            <Controls showInteractive={false} />
-          </ReactFlow>
+          <div className="h-full w-full">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              fitView
+              minZoom={0.2}
+              maxZoom={1.5}
+              onNodeClick={(_, node) => {
+                // 只有成員節點（s-<id>）可切換中心；群組標籤(g-)、中心(c-)忽略
+                if (!String(node.id).startsWith('s-')) return
+                const id = Number(String(node.id).slice(2))
+                if (!Number.isNaN(id) && id !== centerId) setCenterId(id)
+              }}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background />
+              <Controls showInteractive={false} />
+            </ReactFlow>
+          </div>
         )}
       </div>
     </div>
   )
 }
+
+/** 成員節點：顯示姓名，hover 時以 tooltip 顯示關聯依據 */
+function StudentNode({ data }: NodeProps) {
+  const d = data as { label: string; reasons?: string[] }
+  const reasons = d.reasons ?? []
+  return (
+    <div className="group relative">
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <div
+        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm cursor-pointer hover:border-blue-400"
+      >
+        {d.label}
+      </div>
+      {reasons.length > 0 && (
+        <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] text-white shadow-lg group-hover:block">
+          {reasons.map((r, i) => (
+            <div key={i}>{r}</div>
+          ))}
+        </div>
+      )}
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </div>
+  )
+}
+
+const nodeTypes = { student: StudentNode }
 
 const CENTER_STYLE: React.CSSProperties = {
   background: '#1d4ed8',
@@ -179,13 +256,17 @@ const CENTER_STYLE: React.CSSProperties = {
   width: 'auto',
 }
 
-const MEMBER_STYLE: React.CSSProperties = {
-  background: '#fff',
-  color: '#1e293b',
-  border: '1px solid #cbd5e1',
-  borderRadius: 8,
-  padding: '5px 9px',
-  fontSize: 12,
-  width: 'auto',
-  cursor: 'pointer',
+/** 群組標籤節點（可拖移、不可選取），用群色描邊 */
+function groupLabelStyle(color: string): React.CSSProperties {
+  return {
+    background: '#fff',
+    color,
+    border: `1.5px solid ${color}`,
+    borderRadius: 999,
+    padding: '3px 10px',
+    fontSize: 11,
+    fontWeight: 700,
+    width: 'auto',
+    whiteSpace: 'nowrap',
+  }
 }
