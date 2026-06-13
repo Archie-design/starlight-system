@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
@@ -12,11 +13,14 @@ import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 interface NamedCount { name: string; count: number }
 interface GroupAvg { name: string; avgMonths: number; count: number }
 
+interface GroupMember { id: number; name: string; seniority: string | null }
+
 interface Props {
   role: UserRole
   system: SheetSystem
   kpi: { total: number; groupCount: number; avgMonths: number; noGroupCount: number }
   groupCounts: NamedCount[]
+  groupMembers: Record<string, GroupMember[]>
   seniorityDist: { bucket: string; count: number }[]
   groupAvgSeniority: GroupAvg[]
   alerts: {
@@ -40,9 +44,10 @@ function CardHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   )
 }
 
-export default function SpiritClient({ role, system, kpi, groupCounts, seniorityDist, groupAvgSeniority, alerts }: Props) {
+export default function SpiritClient({ role, system, kpi, groupCounts, groupMembers, seniorityDist, groupAvgSeniority, alerts }: Props) {
   const pathname = usePathname()
   const router = useRouter()
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
   const switchSystem = (s: SheetSystem) => {
     document.cookie = `sl_view_system=${encodeURIComponent(s)}; path=/; max-age=${30 * 60}; samesite=lax`
@@ -107,9 +112,9 @@ export default function SpiritClient({ role, system, kpi, groupCounts, seniority
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 各組人數 */}
+          {/* 各組人數（點長條看組員） */}
           <Card>
-            <CardHeader title="各組人數" subtitle={`共 ${groupCounts.length} 組`} />
+            <CardHeader title="各組人數" subtitle={`共 ${groupCounts.length} 組・點長條看組員`} />
             <div className="p-4 overflow-auto" style={{ maxHeight: 480 }}>
               <ResponsiveContainer width="100%" height={groupChartHeight}>
                 <BarChart data={groupCounts} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
@@ -117,7 +122,13 @@ export default function SpiritClient({ role, system, kpi, groupCounts, seniority
                   <XAxis type="number" allowDecimals={false} />
                   <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 11 }} />
                   <Tooltip cursor={{ fill: '#f1f5f9' }} />
-                  <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]}>
+                  <Bar
+                    dataKey="count"
+                    fill="#6366f1"
+                    radius={[0, 4, 4, 0]}
+                    cursor="pointer"
+                    onClick={(d: { name?: string }) => d?.name && setSelectedGroup(d.name)}
+                  >
                     <LabelList dataKey="count" position="right" />
                   </Bar>
                 </BarChart>
@@ -167,6 +178,37 @@ export default function SpiritClient({ role, system, kpi, groupCounts, seniority
           </div>
         </Card>
       </div>
+
+      {/* 組員名單 Modal */}
+      {selectedGroup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedGroup(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+              <h2 className="text-sm font-bold text-slate-800">
+                {selectedGroup} <span className="text-slate-400 font-normal">（{groupMembers[selectedGroup]?.length ?? 0} 人）</span>
+              </h2>
+              <button onClick={() => setSelectedGroup(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+            </div>
+            <div className="overflow-auto p-2">
+              {(groupMembers[selectedGroup] ?? []).map((m) => (
+                <a
+                  key={m.id}
+                  href={`/students?search=${encodeURIComponent(m.name)}`}
+                  className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-blue-50 text-sm"
+                >
+                  <span className="text-slate-800">{m.name}</span>
+                  <span className="text-xs text-slate-400">{m.seniority ?? '—'}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

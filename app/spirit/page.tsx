@@ -56,6 +56,14 @@ export default async function SpiritPage() {
     .map(([name, members]) => ({ name, count: members.length }))
     .sort((a, b) => b.count - a.count)
 
+  // 各組組員名單（供點圖展開）；組內依年資高到低
+  const groupMembers: Record<string, { id: number; name: string; seniority: string | null }[]> = {}
+  for (const [name, members] of groupMap.entries()) {
+    groupMembers[name] = members
+      .map((s) => ({ id: s.id, name: s.name, seniority: s.cumulative_seniority }))
+      .sort((a, b) => (parseSeniorityMonths(b.seniority) ?? 0) - (parseSeniorityMonths(a.seniority) ?? 0))
+  }
+
   // 年資（月）
   const months = spirits.map((s) => parseSeniorityMonths(s.cumulative_seniority)).filter((m): m is number => m != null)
   const avgMonths = months.length ? Math.round(months.reduce((a, b) => a + b, 0) / months.length) : 0
@@ -95,6 +103,7 @@ export default async function SpiritPage() {
       system={system}
       kpi={kpi}
       groupCounts={groupCounts}
+      groupMembers={groupMembers}
       seniorityDist={seniorityDist}
       groupAvgSeniority={groupAvgSeniority}
       alerts={{ noGroup, noSeniority, singletonGroups }}
