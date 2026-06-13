@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { csrfFetch } from '@/lib/utils/csrf'
 
 export default function ChangePasswordPage() {
   const [oldPassword, setOldPassword] = useState('')
@@ -25,7 +26,7 @@ export default function ChangePasswordPage() {
     }
 
     setLoading(true)
-    const res = await fetch('/api/account/password', {
+    const res = await csrfFetch('/api/account/password', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPassword, newPassword }),
