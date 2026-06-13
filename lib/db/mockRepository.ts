@@ -1,5 +1,13 @@
 import type { Student, SheetSystem } from '@/lib/supabase/types'
 import { systemOf } from '@/lib/utils/system'
+import {
+  highestStage,
+  membershipStatus,
+  isSpirit,
+  isNewbie,
+  isResubscribeCandidate,
+  owesPayment,
+} from '@/lib/utils/studentStatus'
 import type {
   StudentRepository,
   StudentFilters,
@@ -11,11 +19,26 @@ import type {
 } from './types'
 
 function matchesFilters(s: Student, filters: StudentFilters): boolean {
+  const now = Date.now()
   if (filters.name && !s.name.includes(filters.name)) return false
   if (filters.counselor && !(s.counselor ?? '').includes(filters.counselor)) return false
   if (filters.region && s.region !== filters.region) return false
   if (filters.role && s.role !== filters.role) return false
   if (filters.hasCourse5 && !s.course_5) return false
+  if (filters.isSpirit && !isSpirit(s)) return false
+  if (filters.courseStage !== '' && filters.courseStage !== undefined && highestStage(s) !== filters.courseStage) return false
+  if (filters.membershipStatus && membershipStatus(s.membership_expiry, now) !== filters.membershipStatus) return false
+  if (filters.isNewbie && !isNewbie(s, now)) return false
+  switch (filters.view) {
+    case 'resubscribe': if (!isResubscribeCandidate(s)) return false; break
+    case 'owing':       if (!owesPayment(s)) return false; break
+    case 'expiring': {
+      const m = membershipStatus(s.membership_expiry, now)
+      if (m !== 'expired' && m !== 'in30') return false
+      break
+    }
+    case 'newbie':      if (!isNewbie(s, now)) return false; break
+  }
   return true
 }
 

@@ -2,6 +2,8 @@
 
 import { create } from 'zustand'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
+import type { StudentView } from '@/lib/db/types'
+import type { MembershipStatus } from '@/lib/utils/studentStatus'
 
 export interface StudentFilters {
   name: string
@@ -9,6 +11,11 @@ export interface StudentFilters {
   region: string
   role: string
   hasCourse5: boolean
+  courseStage: 0 | 1 | 2 | 3 | 4 | 5 | ''
+  membershipStatus: MembershipStatus | ''
+  isSpirit: boolean
+  isNewbie: boolean
+  view: StudentView | null
 }
 
 const DEFAULT_FILTERS: StudentFilters = {
@@ -17,6 +24,11 @@ const DEFAULT_FILTERS: StudentFilters = {
   region: '',
   role: '',
   hasCourse5: false,
+  courseStage: '',
+  membershipStatus: '',
+  isSpirit: false,
+  isNewbie: false,
+  view: null,
 }
 
 interface StudentStore {
@@ -30,7 +42,9 @@ interface StudentStore {
 
   // 篩選條件
   filters: StudentFilters
-  setFilter: (key: keyof StudentFilters, value: string | boolean) => void
+  setFilter: (key: keyof StudentFilters, value: string | number | boolean | null) => void
+  /** 快捷視圖：點同一個則取消（互斥，一次一個） */
+  toggleQuickView: (view: StudentView) => void
   resetFilters: () => void
 
   // 分頁
@@ -65,6 +79,11 @@ export const useStudentStore = create<StudentStore>((set) => ({
   setFilter: (key, value) =>
     set((state) => ({
       filters: { ...state.filters, [key]: value },
+      page: 0,
+    })),
+  toggleQuickView: (view) =>
+    set((state) => ({
+      filters: { ...state.filters, view: state.filters.view === view ? null : view },
       page: 0,
     })),
   resetFilters: () => set({ filters: DEFAULT_FILTERS, page: 0 }),

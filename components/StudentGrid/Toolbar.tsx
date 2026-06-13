@@ -15,7 +15,7 @@ const VIEWS = [
 ] as const
 
 export default function Toolbar() {
-  const { role, activeTab, setActiveTab, setImportModalOpen, view, setView, columnVisibility, setColumnVisibility } = useStudentStore()
+  const { role, activeTab, setActiveTab, setImportModalOpen, view, setView, columnVisibility, setColumnVisibility, filters } = useStudentStore()
 
   // superadmin 切換體系：同步寫入 view cookie，讓 SSR 頁與 API 採同一體系
   const switchSystem = (tab: SheetSystem) => {
@@ -44,6 +44,16 @@ export default function Toolbar() {
 
   const handleExport = async () => {
     const params = new URLSearchParams({ system: activeTab })
+    // 帶上當前篩選，讓「匯出 = 畫面所見」
+    if (filters.name) params.set('name', filters.name)
+    if (filters.counselor) params.set('counselor', filters.counselor)
+    if (filters.region) params.set('region', filters.region)
+    if (filters.role) params.set('role', filters.role)
+    if (filters.courseStage !== '' && filters.courseStage !== undefined) params.set('courseStage', String(filters.courseStage))
+    if (filters.membershipStatus) params.set('membershipStatus', filters.membershipStatus)
+    if (filters.isSpirit) params.set('isSpirit', '1')
+    if (filters.isNewbie) params.set('isNewbie', '1')
+    if (filters.view) params.set('view', filters.view)
     const res = await csrfFetch(`/api/export?${params}`)
     if (!res.ok) return alert('匯出失敗')
     const blob = await res.blob()

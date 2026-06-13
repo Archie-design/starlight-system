@@ -5,6 +5,31 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { useStudentStore } from '@/store/useStudentStore'
 import { REGIONS, ROLES } from '@/lib/constants'
+import type { StudentView } from '@/lib/db/types'
+
+const COURSE_STAGES: { value: 0 | 1 | 2 | 3 | 4 | 5; label: string }[] = [
+  { value: 0, label: '未上課' },
+  { value: 1, label: '一階' },
+  { value: 2, label: '二階' },
+  { value: 3, label: '三階' },
+  { value: 4, label: '四階' },
+  { value: 5, label: '五階' },
+]
+
+const MEMBERSHIP_OPTIONS: { value: string; label: string }[] = [
+  { value: 'expired', label: '已過期' },
+  { value: 'in30', label: '30 天內到期' },
+  { value: 'in90', label: '90 天內到期' },
+  { value: 'valid', label: '有效' },
+  { value: 'none', label: '無資料' },
+]
+
+const QUICK_VIEWS: { value: StudentView; label: string }[] = [
+  { value: 'resubscribe', label: '續報潛力' },
+  { value: 'owing', label: '待催欠款' },
+  { value: 'expiring', label: '會籍快到期' },
+  { value: 'newbie', label: '本月新生' },
+]
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -15,9 +40,10 @@ function formatLastUpdated(iso: string | null | undefined): string {
 }
 
 export default function FilterBar() {
-  const { filters, setFilter, resetFilters } = useStudentStore()
-  const hasFilter = Object.values(filters).some((v) => v !== '' && v !== false)
-  const activeCount = Object.values(filters).filter((v) => v !== '' && v !== false).length
+  const { filters, setFilter, toggleQuickView, resetFilters } = useStudentStore()
+  const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined
+  const hasFilter = Object.values(filters).some(isActive)
+  const activeCount = Object.values(filters).filter(isActive).length
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -96,21 +122,59 @@ export default function FilterBar() {
         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
 
-      {/* 五階篩選 */}
+      {/* 課程進度（最高完成階） */}
+      <select
+        value={filters.courseStage === '' ? '' : String(filters.courseStage)}
+        onChange={(e) => setFilter('courseStage', e.target.value === '' ? '' : (Number(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5))}
+        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        title="課程進度（最高完成階）"
+      >
+        <option value="">全部進度</option>
+        {COURSE_STAGES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+      </select>
+
+      {/* 會籍狀態 */}
+      <select
+        value={filters.membershipStatus}
+        onChange={(e) => setFilter('membershipStatus', e.target.value)}
+        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        title="會籍狀態"
+      >
+        <option value="">全部會籍</option>
+        {MEMBERSHIP_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+      </select>
+
+      {/* 心之使者 */}
       <label className={`
         flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded border transition-colors select-none
-        ${filters.hasCourse5
+        ${filters.isSpirit
           ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium'
           : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}
       `}>
         <input
           type="checkbox"
-          checked={filters.hasCourse5}
-          onChange={(e) => setFilter('hasCourse5', e.target.checked)}
+          checked={filters.isSpirit}
+          onChange={(e) => setFilter('isSpirit', e.target.checked)}
           className="accent-blue-600"
         />
-        有五階
+        心之使者
       </label>
+
+      {/* 情境快捷視圖（跨欄位，一鍵套用、互斥） */}
+      <span className="text-slate-300 mx-0.5 select-none">|</span>
+      {QUICK_VIEWS.map((v) => (
+        <button
+          key={v.value}
+          onClick={() => toggleQuickView(v.value)}
+          className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
+            filters.view === v.value
+              ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm'
+              : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
 
       {/* 已啟用篩選數量 + 清除 */}
       {hasFilter && (

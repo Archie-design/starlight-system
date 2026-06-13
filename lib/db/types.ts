@@ -1,5 +1,10 @@
 import type { Student, SheetSystem } from '@/lib/supabase/types'
 
+import type { MembershipStatus } from '@/lib/utils/studentStatus'
+
+/** 情境快捷視圖（跨欄位衍生條件，一次一個） */
+export type StudentView = 'resubscribe' | 'owing' | 'expiring' | 'newbie'
+
 /**
  * 學員清單的通用篩選器（對應 FilterBar / store filters）。
  */
@@ -9,6 +14,16 @@ export interface StudentFilters {
   region?: string
   role?: string
   hasCourse5?: boolean
+  /** 課程進度：最高完成階別。'' = 不限；0 = 未上課 */
+  courseStage?: 0 | 1 | 2 | 3 | 4 | 5 | ''
+  /** 會籍狀態 */
+  membershipStatus?: MembershipStatus | ''
+  /** 心之使者 */
+  isSpirit?: boolean
+  /** 近 30 天新建檔 */
+  isNewbie?: boolean
+  /** 情境快捷視圖（與基礎篩選疊加；視圖之間互斥） */
+  view?: StudentView | null
 }
 
 /**
