@@ -1,10 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   ReactFlow,
   Background,
   Controls,
+  useNodesState,
+  useEdgesState,
   type Node,
   type Edge,
 } from '@xyflow/react'
@@ -57,7 +59,7 @@ export default function RelationshipNetwork() {
   )
   const groups = useMemo(() => (result ? groupRelations(result.related) : []), [result])
 
-  const { nodes, edges } = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
+  const computed = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
     if (!result) return { nodes: [], edges: [] }
     const nodes: Node[] = []
     const edges: Edge[] = []
@@ -131,6 +133,16 @@ export default function RelationshipNetwork() {
     return { nodes, edges }
   }, [result, groups])
 
+  // 受控狀態：拖曳節點時透過 onNodesChange 更新並保留位置
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  // 中心/資料改變時，以新佈局重置（使用者的暫時拖移會被新佈局取代，符合預期）
+  useEffect(() => {
+    setNodes(computed.nodes)
+    setEdges(computed.edges)
+  }, [computed, setNodes, setEdges])
+
   const handlePick = (s: OrgStudent) => setCenterId(s.id)
 
   return (
@@ -175,6 +187,8 @@ export default function RelationshipNetwork() {
             <ReactFlow
               nodes={nodes}
               edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
               fitView
               minZoom={0.2}
               maxZoom={1.5}
