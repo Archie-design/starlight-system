@@ -78,6 +78,9 @@ export default function CounselorsLayout() {
           <NavButton href="/maintenance" active={pathname === '/maintenance'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
             資料維護
           </NavButton>
+          <NavButton href="/spirit" active={pathname === '/spirit'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
+            心之使者
+          </NavButton>
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>

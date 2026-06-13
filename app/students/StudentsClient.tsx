@@ -52,6 +52,7 @@ function StudentsLayout() {
           <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-blue-200/70 hover:text-white transition-colors">儀表板 →</NavButton>
           <NavButton href="/maintenance" active={pathname === '/maintenance'} className="text-xs text-blue-200/70 hover:text-white transition-colors">資料維護 →</NavButton>
           <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-blue-200/70 hover:text-white transition-colors">關懷長專區 →</NavButton>
+          <NavButton href="/spirit" active={pathname === '/spirit'} className="text-xs text-blue-200/70 hover:text-white transition-colors">心之使者 →</NavButton>
           <NavButton href="/history" active={pathname === '/history'} className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</NavButton>
           {role === 'superadmin' && (
             <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-200/90 hover:text-white transition-colors">帳號管理 →</NavButton>

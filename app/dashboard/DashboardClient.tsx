@@ -150,6 +150,9 @@ export default function DashboardClient({
           <h1 className="text-lg font-bold text-slate-800 tracking-wide">系統儀表板</h1>
         </div>
         <div className="flex gap-4">
+          <Link href="/spirit" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
+            心之使者 →
+          </Link>
           <Link href="/students" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
             回學員列表 →
           </Link>

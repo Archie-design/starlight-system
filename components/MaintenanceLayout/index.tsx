@@ -51,6 +51,9 @@ export default function MaintenanceLayout() {
           <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-slate-300 hover:text-white transition-colors">
             關懷長專區
           </NavButton>
+          <NavButton href="/spirit" active={pathname === '/spirit'} className="text-xs text-slate-300 hover:text-white transition-colors">
+            心之使者
+          </NavButton>
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>
