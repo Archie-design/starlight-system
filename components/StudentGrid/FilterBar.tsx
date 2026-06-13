@@ -106,7 +106,7 @@ export default function FilterBar() {
       <select
         value={filters.region}
         onChange={(e) => setFilter('region', e.target.value)}
-        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
       >
         <option value="">全部地區</option>
         {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -116,7 +116,7 @@ export default function FilterBar() {
       <select
         value={filters.role}
         onChange={(e) => setFilter('role', e.target.value)}
-        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
       >
         <option value="">全部角色</option>
         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -126,7 +126,7 @@ export default function FilterBar() {
       <select
         value={filters.courseStage === '' ? '' : String(filters.courseStage)}
         onChange={(e) => setFilter('courseStage', e.target.value === '' ? '' : (Number(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5))}
-        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
         title="課程進度（最高完成階）"
       >
         <option value="">全部進度</option>
@@ -137,7 +137,7 @@ export default function FilterBar() {
       <select
         value={filters.membershipStatus}
         onChange={(e) => setFilter('membershipStatus', e.target.value)}
-        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
         title="會籍狀態"
       >
         <option value="">全部會籍</option>

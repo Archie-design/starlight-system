@@ -136,12 +136,12 @@ export default function MaintenanceLayout() {
           className="border border-slate-300 rounded px-2 py-1 text-xs w-28 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors"
         />
         <select value={filters.region} onChange={e => setFilter('region', e.target.value)}
-          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors">
+          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors">
           <option value="">全部地區</option>
           {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={filters.role} onChange={e => setFilter('role', e.target.value)}
-          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors">
+          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-500 transition-colors">
           <option value="">全部角色</option>
           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
