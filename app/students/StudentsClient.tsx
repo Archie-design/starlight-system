@@ -8,6 +8,7 @@ import OrgChart from '@/components/OrgChart'
 import ImportWizard from '@/components/ImportWizard'
 import NewStudentModal from '@/components/NewStudentModal'
 import NavButton from '@/components/NavButton'
+import LogoutButton from '@/components/LogoutButton'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
@@ -47,6 +48,7 @@ function StudentsLayout() {
           {role === 'superadmin' && (
             <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-200/90 hover:text-white transition-colors">帳號管理 →</NavButton>
           )}
+          <LogoutButton />
         </div>
       </header>
 

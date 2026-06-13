@@ -9,6 +9,7 @@ import { useCounselorStore } from '@/store/useCounselorStore'
 import CounselorStudentGrid from './CounselorStudentGrid'
 import GroupManageModal from './GroupManageModal'
 import SystemSwitcher from '../SystemSwitcher'
+import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function CounselorsLayout() {
@@ -68,6 +69,7 @@ export default function CounselorsLayout() {
               帳號管理 →
             </NavButton>
           )}
+          <LogoutButton />
         </div>
       </header>
 

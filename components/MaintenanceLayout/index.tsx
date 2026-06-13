@@ -8,6 +8,7 @@ import { useMaintenanceStudents } from '@/hooks/useMaintenanceStudents'
 import { useMaintenanceStore, MaintenanceCategory } from '@/store/useMaintenanceStore'
 import MaintenanceStudentGrid from './MaintenanceStudentGrid'
 import SystemSwitcher from '../SystemSwitcher'
+import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, MAINTENANCE_CATEGORIES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function MaintenanceLayout() {
@@ -58,6 +59,7 @@ export default function MaintenanceLayout() {
               帳號管理 →
             </NavButton>
           )}
+          <LogoutButton className="text-xs text-slate-300 hover:text-white transition-colors disabled:opacity-50" />
         </div>
       </header>
 
