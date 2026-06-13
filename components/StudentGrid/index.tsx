@@ -73,7 +73,7 @@ export default function StudentGrid() {
   const totalPages = Math.ceil(count / PAGE_SIZE)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
       {/* 手機版 */}
       {isMobile ? (
         <div className="flex-1 overflow-auto">

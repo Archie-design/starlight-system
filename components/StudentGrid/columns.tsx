@@ -54,7 +54,7 @@ export const studentColumns = [
     size: 60,
     enableSorting: true,
     cell: (info) => (
-      <span className="font-mono text-xs text-gray-500">{info.getValue()}</span>
+      <span className="block font-mono text-xs text-gray-500 px-2">{info.getValue()}</span>
     ),
   }),
   ch.accessor('name', {
