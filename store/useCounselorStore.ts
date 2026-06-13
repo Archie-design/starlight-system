@@ -2,6 +2,8 @@
 
 import { create } from 'zustand'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
+import type { StudentView } from '@/lib/db/types'
+import type { MembershipStatus } from '@/lib/utils/studentStatus'
 
 export interface CounselorFilters {
   name: string
@@ -9,6 +11,11 @@ export interface CounselorFilters {
   region: string
   role: string
   hasCourse5: boolean
+  courseStage: 0 | 1 | 2 | 3 | 4 | 5 | ''
+  membershipStatus: MembershipStatus | ''
+  isSpirit: boolean
+  isNewbie: boolean
+  view: StudentView | null
 }
 
 const DEFAULT_FILTERS: CounselorFilters = {
@@ -17,6 +24,11 @@ const DEFAULT_FILTERS: CounselorFilters = {
   region: '',
   role: '',
   hasCourse5: false,
+  courseStage: '',
+  membershipStatus: '',
+  isSpirit: false,
+  isNewbie: false,
+  view: null,
 }
 
 interface CounselorStore {
@@ -30,7 +42,8 @@ interface CounselorStore {
   setActiveGroup: (g: string | null) => void
 
   filters: CounselorFilters
-  setFilter: (key: keyof CounselorFilters, value: string | boolean) => void
+  setFilter: (key: keyof CounselorFilters, value: string | number | boolean | null) => void
+  toggleQuickView: (view: StudentView) => void
   resetFilters: () => void
 
   page: number
@@ -53,6 +66,11 @@ export const useCounselorStore = create<CounselorStore>((set) => ({
   filters: DEFAULT_FILTERS,
   setFilter: (key, value) =>
     set((state) => ({ filters: { ...state.filters, [key]: value }, page: 0 })),
+  toggleQuickView: (view) =>
+    set((state) => ({
+      filters: { ...state.filters, view: state.filters.view === view ? null : view },
+      page: 0,
+    })),
   resetFilters: () => set({ filters: DEFAULT_FILTERS, page: 0 }),
 
   page: 0,

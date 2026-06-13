@@ -11,9 +11,23 @@ import GroupManageModal from './GroupManageModal'
 import SystemSwitcher from '../SystemSwitcher'
 import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
+import type { StudentView } from '@/lib/db/types'
+
+const COURSE_STAGES: { value: 0 | 1 | 2 | 3 | 4 | 5; label: string }[] = [
+  { value: 0, label: '未上課' }, { value: 1, label: '一階' }, { value: 2, label: '二階' },
+  { value: 3, label: '三階' }, { value: 4, label: '四階' }, { value: 5, label: '五階' },
+]
+const MEMBERSHIP_OPTIONS: { value: string; label: string }[] = [
+  { value: 'expired', label: '已過期' }, { value: 'in30', label: '30 天內到期' },
+  { value: 'in90', label: '90 天內到期' }, { value: 'valid', label: '有效' }, { value: 'none', label: '無資料' },
+]
+const QUICK_VIEWS: { value: StudentView; label: string }[] = [
+  { value: 'resubscribe', label: '續報潛力' }, { value: 'owing', label: '待催欠款' },
+  { value: 'expiring', label: '會籍快到期' }, { value: 'newbie', label: '本月新生' },
+]
 
 export default function CounselorsLayout() {
-  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
+  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, toggleQuickView, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
   const { groups, isLoading: groupsLoading } = useCounselorGroups(system)
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
@@ -40,8 +54,9 @@ export default function CounselorsLayout() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showColMenu])
 
-  const hasFilter = Object.values(filters).some(v => v !== '' && v !== false)
-  const activeFilterCount = Object.values(filters).filter(v => v !== '' && v !== false).length
+  const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined
+  const hasFilter = Object.values(filters).some(isActive)
+  const activeFilterCount = Object.values(filters).filter(isActive).length
   const hiddenCount = Object.values(columnVisibility).filter(v => v === false).length
 
   const toggleCol = (id: string) => {
@@ -172,11 +187,33 @@ export default function CounselorsLayout() {
           <option value="">全部角色</option>
           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
+        <select value={filters.courseStage === '' ? '' : String(filters.courseStage)}
+          onChange={e => setFilter('courseStage', e.target.value === '' ? '' : (Number(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5))}
+          title="課程進度（最高完成階）"
+          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors">
+          <option value="">全部進度</option>
+          {COURSE_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <select value={filters.membershipStatus} onChange={e => setFilter('membershipStatus', e.target.value)}
+          title="會籍狀態"
+          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors">
+          <option value="">全部會籍</option>
+          {MEMBERSHIP_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
         <label className={`flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded border transition-colors select-none
-          ${filters.hasCourse5 ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
-          <input type="checkbox" checked={filters.hasCourse5} onChange={e => setFilter('hasCourse5', e.target.checked)} className="accent-blue-600" />
-          有五階
+          ${filters.isSpirit ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+          <input type="checkbox" checked={filters.isSpirit} onChange={e => setFilter('isSpirit', e.target.checked)} className="accent-blue-600" />
+          心之使者
         </label>
+        <span className="text-slate-300 mx-0.5 select-none">|</span>
+        {QUICK_VIEWS.map(v => (
+          <button key={v.value} onClick={() => toggleQuickView(v.value)}
+            className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
+              filters.view === v.value ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm' : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+            }`}>
+            {v.label}
+          </button>
+        ))}
         {hasFilter && (
           <div className="flex items-center gap-1 ml-0.5">
             <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium tabular-nums">{activeFilterCount}</span>
