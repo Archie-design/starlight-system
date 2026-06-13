@@ -53,6 +53,11 @@ export default function MaintenanceLayout() {
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>
+          {role === 'superadmin' && (
+            <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-300 hover:text-white transition-colors">
+              帳號管理 →
+            </NavButton>
+          )}
         </div>
       </header>
 
