@@ -24,6 +24,7 @@ export interface OrgStudent {
   relation?: string | null
   membership_expiry?: string | null
   birthday?: string | null
+  spirit_ambassador_group?: string | null
 }
 
 export interface TreeNode {

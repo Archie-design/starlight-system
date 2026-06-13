@@ -12,6 +12,7 @@ const ALL_SYSTEMS: SheetSystem[] = ['星光', '太陽']
 const VIEWS = [
   { key: 'grid', label: '表格' },
   { key: 'org',  label: '組織圖' },
+  { key: 'network', label: '關聯圖' },
 ] as const
 
 export default function Toolbar() {
