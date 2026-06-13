@@ -22,6 +22,14 @@ export const ROLES = [
 
 export type Role = typeof ROLES[number]
 
+/** 「關懷長以上」角色 —— 可用 ID + 手機末四碼自助登入 */
+export const LEADER_ROLES: readonly string[] = [
+  '關懷長',
+  '關懷長共同經營',
+  '體系長',
+  '體系長共同經營',
+]
+
 // ── 角色顏色 ──────────────────────────────────────────────────────────
 export const ROLE_COLORS: Record<Role | string, string> = {
   '體系長': 'bg-purple-100 text-purple-700',

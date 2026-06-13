@@ -78,6 +78,7 @@ export default function UsersClient() {
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-slate-800">帳號管理</h1>
           <div className="flex items-center gap-4">
+            <a href="/admin/login-logs" className="text-xs text-blue-600 hover:underline">登入紀錄 →</a>
             <a href="/students" className="text-xs text-blue-600 hover:underline">← 回學員管理</a>
             <LogoutButton className="text-xs text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50" />
           </div>

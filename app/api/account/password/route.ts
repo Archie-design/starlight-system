@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { compare, hash } from 'bcryptjs'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAuthUser } from '@/lib/auth/middleware'
+import { logLoginEvent } from '@/lib/auth/audit'
 
 // 使用者自行修改密碼（驗證舊密碼）
 export async function PATCH(request: NextRequest) {
@@ -45,5 +46,6 @@ export async function PATCH(request: NextRequest) {
     .eq('id', user.id)
 
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+  logLoginEvent('password_change', user.username, request)
   return NextResponse.json({ ok: true })
 }

@@ -89,6 +89,10 @@ export default function LoginPage() {
         {error && (
           <p id="login-error" role="alert" className="text-sm text-red-500 bg-red-50 rounded p-2 mt-4">{error}</p>
         )}
+
+        <p className="text-xs text-gray-400 mt-4 leading-relaxed">
+          關懷長以上首次登入：帳號為您的學員 ID、密碼為手機末四碼，登入後請立即修改密碼。
+        </p>
       </div>
     </div>
   )
