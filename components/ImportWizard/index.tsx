@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useModalDismiss } from '@/lib/hooks/useModalDismiss'
+import { csrfFetch } from '@/lib/utils/csrf'
 import UploadDropzone from './UploadDropzone'
 import DiffTable from './DiffTable'
 import type { ImportPreviewResult } from '@/lib/supabase/types'
@@ -70,7 +71,7 @@ export default function ImportWizard() {
     setStep('applying')
     setError(null)
     try {
-      const res = await fetch('/api/import/apply', {
+      const res = await csrfFetch('/api/import/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: preview.session_id }),

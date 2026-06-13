@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import LogoutButton from '@/components/LogoutButton'
+import { csrfFetch } from '@/lib/utils/csrf'
 import type { AppUser, SheetSystem, UserRole } from '@/lib/supabase/types'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+const fetcher = (url: string) => csrfFetch(url).then(r => r.json())
 
 export default function UsersClient() {
   const { data, mutate, isLoading } = useSWR<{ users: AppUser[] }>('/api/users', fetcher, {
@@ -25,7 +26,7 @@ export default function UsersClient() {
     e.preventDefault()
     setError(null)
     setSaving(true)
-    const res = await fetch('/api/users', {
+    const res = await csrfFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -46,7 +47,7 @@ export default function UsersClient() {
   }
 
   const toggleActive = async (u: AppUser) => {
-    await fetch(`/api/users/${u.id}`, {
+    await csrfFetch(`/api/users/${u.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active: !u.active }),
@@ -57,7 +58,7 @@ export default function UsersClient() {
   const resetPassword = async (u: AppUser) => {
     const np = prompt(`為「${u.username}」設定新密碼（至少 8 字元）：`)
     if (!np) return
-    const res = await fetch(`/api/users/${u.id}`, {
+    const res = await csrfFetch(`/api/users/${u.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newPassword: np }),

@@ -3,9 +3,10 @@
 import useSWR from 'swr'
 import { useMemo } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
+import { csrfFetch } from '@/lib/utils/csrf'
 import { buildTree, type TreeNode, type OrgStudent } from '@/lib/utils/buildTree'
 
-const fetcher = (url: string) => fetch(url, {
+const fetcher = (url: string) => csrfFetch(url, {
   headers: {
     'Accept': 'application/json',
   }
