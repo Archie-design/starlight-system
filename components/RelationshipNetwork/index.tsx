@@ -147,21 +147,23 @@ export default function RelationshipNetwork() {
             </p>
           </div>
         ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            fitView
-            minZoom={0.2}
-            maxZoom={1.5}
-            onNodeClick={(_, node) => {
-              const id = Number(String(node.id).replace(/^[cs]-/, ''))
-              if (!Number.isNaN(id) && id !== centerId) setCenterId(id)
-            }}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background />
-            <Controls showInteractive={false} />
-          </ReactFlow>
+          <div className="h-full w-full">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              fitView
+              minZoom={0.2}
+              maxZoom={1.5}
+              onNodeClick={(_, node) => {
+                const id = Number(String(node.id).replace(/^[cs]-/, ''))
+                if (!Number.isNaN(id) && id !== centerId) setCenterId(id)
+              }}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background />
+              <Controls showInteractive={false} />
+            </ReactFlow>
+          </div>
         )}
       </div>
     </div>
