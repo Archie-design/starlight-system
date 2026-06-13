@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showForgot, setShowForgot] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
