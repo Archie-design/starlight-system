@@ -119,7 +119,7 @@ export default function RelationshipNetwork() {
             中心：<span className="font-semibold">{result.center.name}</span>
           </span>
         )}
-        <div className="flex items-center gap-3 text-xs ml-auto">
+        <div className="flex items-center gap-3 text-xs font-medium text-slate-700 ml-auto">
           <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5" style={{ background: COHORT_COLOR }} /> 同期同學</span>
           <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5" style={{ background: SPIRIT_COLOR }} /> 同組組員</span>
         </div>
