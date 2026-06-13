@@ -31,6 +31,11 @@ CREATE POLICY "service_all" ON users FOR ALL TO service_role USING (true);
 -- 種子初始系統管理者
 -- username: starlightsystem@gmail.com
 -- 初始密碼: Starlight@2026（首次登入強制修改）
+--
+-- ⚠️ bcrypt 雜湊含 '$'，某些 SQL 客戶端會誤判為 dollar-quoting 而破壞字串。
+--    若套用後登入顯示「帳號或密碼錯誤」，請改用 service role 以程式重設雜湊：
+--      const hash = bcrypt.hashSync('Starlight@2026', 10)
+--      await supabase.from('users').update({ password_hash: hash }).eq('username','starlightsystem@gmail.com')
 INSERT INTO users (username, password_hash, role, system, must_change_password)
 VALUES (
   'starlightsystem@gmail.com',
