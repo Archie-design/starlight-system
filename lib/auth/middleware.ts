@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { checkAuth } from '@/lib/auth'
+import type { AuthUser } from '@/lib/supabase/types'
 
 /**
  * API 路由認證中間件
@@ -14,10 +15,17 @@ export async function requireAuth(request: NextRequest): Promise<boolean> {
 }
 
 /**
- * 取得經認證用戶的電子郵件
- * 如果認證失敗或未設置 email，返回 null
+ * 取得經認證的使用者（含 role / system）；認證失敗回 null。
  */
-export async function getAuthenticatedEmail(request: NextRequest): Promise<string | null> {
+export async function getAuthUser(request: NextRequest): Promise<AuthUser | null> {
   const authResult = await checkAuth(request)
-  return authResult.valid ? (authResult.email ?? null) : null
+  return authResult.valid ? (authResult.user ?? null) : null
+}
+
+/**
+ * 要求 superadmin；非 superadmin 或未登入回 null。
+ */
+export async function requireSuperadmin(request: NextRequest): Promise<AuthUser | null> {
+  const user = await getAuthUser(request)
+  return user?.role === 'superadmin' ? user : null
 }

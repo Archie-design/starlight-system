@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import type { SheetSystem } from '@/lib/supabase/types'
 
 export type MaintenanceCategory = 'MISSING_GROUP' | 'MISSING_COUNSELOR' | 'MISSING_CHAIN'
 
@@ -19,6 +20,9 @@ const DEFAULT_FILTERS: MaintenanceFilters = {
 }
 
 interface MaintenanceStore {
+  system: SheetSystem
+  setSystem: (s: SheetSystem) => void
+
   activeCategory: MaintenanceCategory
   setActiveCategory: (cat: MaintenanceCategory) => void
 
@@ -34,6 +38,9 @@ interface MaintenanceStore {
 }
 
 export const useMaintenanceStore = create<MaintenanceStore>((set) => ({
+  system: '星光',
+  setSystem: (system) => set({ system, page: 0 }),
+
   activeCategory: 'MISSING_GROUP',
   setActiveCategory: (activeCategory) => set({ activeCategory, page: 0 }),
 

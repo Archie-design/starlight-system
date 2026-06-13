@@ -11,6 +11,7 @@ import NavButton from '@/components/NavButton'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
+import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 function SearchParamHandler() {
   const searchParams = useSearchParams()
@@ -82,7 +83,16 @@ function StudentsLayout() {
   )
 }
 
-export default function StudentsClient() {
+export default function StudentsClient({ role, system }: { role: UserRole; system: SheetSystem }) {
+  const setRole = useStudentStore((s) => s.setRole)
+  const setActiveTab = useStudentStore((s) => s.setActiveTab)
+
+  // 掛載即以登入者身分覆寫 store，避免閃現他體系
+  useEffect(() => {
+    setRole(role)
+    setActiveTab(system)
+  }, [role, system, setRole, setActiveTab])
+
   return (
     <SWRConfig value={{ revalidateOnFocus: false }}>
       <StudentsLayout />

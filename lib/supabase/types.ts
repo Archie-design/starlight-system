@@ -1,5 +1,23 @@
 export type SheetSystem = '星光' | '太陽'
 
+export type UserRole = 'superadmin' | 'admin'
+
+/** 應用層使用者帳號（users 表） */
+export interface AppUser {
+  id: string
+  username: string
+  role: UserRole
+  /** admin 綁定的體系；superadmin 為 null（跨體系） */
+  system: SheetSystem | null
+  active: boolean
+  must_change_password: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** checkAuth 回傳的精簡使用者資訊（不含 password_hash） */
+export type AuthUser = Pick<AppUser, 'id' | 'username' | 'role' | 'system' | 'must_change_password'>
+
 export interface Student {
   id: number
   name: string

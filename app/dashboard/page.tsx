@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
-import { checkAuth } from '@/lib/auth'
+import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/server'
+import { applySystemFilter } from '@/lib/utils/system'
 import DashboardClient from './DashboardClient'
 
 export const metadata = {
@@ -9,43 +10,50 @@ export const metadata = {
 }
 
 export default async function DashboardPage() {
-  if (!(await checkAuth())) redirect('/login')
+  const { valid, user } = await checkAuth()
+  if (!valid) redirect('/login')
+  if (user!.must_change_password) redirect('/account/change-password')
 
+  const system = await getEffectiveSystem(user!)
   const service = createServiceClient()
 
-  // 先獲取總人數以計算分頁
-  const totalResult = await service.from('students').select('id', { count: 'exact', head: true })
+  // 先獲取本體系總人數以計算分頁
+  const totalResult = await applySystemFilter(
+    service.from('students').select('id', { count: 'exact', head: true }),
+    system,
+  )
   const totalStudents = totalResult.count ?? 0
 
   const pageSize = 1000
   const pages = Math.ceil(totalStudents / pageSize)
-  
+
   const pagePromises = []
   for (let i = 0; i < pages; i++) {
     pagePromises.push(
-      service
-        .from('students')
-        .select(`
-          id, name, group_leader, membership_expiry,
-          spirit_ambassador_join_date, cumulative_seniority,
-          region, wuyun_a, wuyun_b, wuyun_c, wuyun_d, wuyun_f,
-          created_at, introducer,
-          course_1, course_2, course_3, course_4, course_5, course_wuyun,
-          payment_1, payment_2, payment_3, payment_4, payment_5, payment_wuyun
-        `)
-        .range(i * pageSize, (i + 1) * pageSize - 1)
+      applySystemFilter(
+        service
+          .from('students')
+          .select(`
+            id, name, group_leader, membership_expiry,
+            spirit_ambassador_join_date, cumulative_seniority,
+            region, wuyun_a, wuyun_b, wuyun_c, wuyun_d, wuyun_f,
+            created_at, introducer,
+            course_1, course_2, course_3, course_4, course_5, course_wuyun,
+            payment_1, payment_2, payment_3, payment_4, payment_5, payment_wuyun
+          `),
+        system,
+      ).range(i * pageSize, (i + 1) * pageSize - 1)
     )
   }
 
   // 平行執行輔助查詢與所有分頁查詢
-  const [importResult, courseResult, ...studentsResults] = await Promise.all([
+  const [importResult, ...studentsResults] = await Promise.all([
     service
       .from('import_sessions')
       .select('imported_at, rows_updated, rows_inserted, rows_unchanged')
       .eq('applied', true)
       .order('imported_at', { ascending: true })
       .limit(20),
-    service.rpc('get_course_funnel'),
     ...pagePromises,
   ])
 
@@ -101,20 +109,14 @@ export default async function DashboardPage() {
     return { name: stage.label, ...counts }
   })
 
-  // 整理 subsets 傳遞給 Client Component 減少 JSON 大小
-  let courseFunnel: { stage: string; count: number }[] = []
-  if (courseResult.error) {
-    // fallback: 直接拉欄位做 client-side count
-    courseFunnel = [
-      { stage: '一階', count: allStudents.filter((r) => r.course_1).length },
-      { stage: '二階', count: allStudents.filter((r) => r.course_2).length },
-      { stage: '三階', count: allStudents.filter((r) => r.course_3).length },
-      { stage: '四階', count: allStudents.filter((r) => r.course_4).length },
-      { stage: '五階', count: allStudents.filter((r) => r.course_5).length },
-    ]
-  } else {
-    courseFunnel = courseResult.data ?? []
-  }
+  // 課程漏斗：由本體系已篩選的學員直接計算（get_course_funnel rpc 無體系參數，故不使用）
+  const courseFunnel: { stage: string; count: number }[] = [
+    { stage: '一階', count: allStudents.filter((r) => r.course_1).length },
+    { stage: '二階', count: allStudents.filter((r) => r.course_2).length },
+    { stage: '三階', count: allStudents.filter((r) => r.course_3).length },
+    { stage: '四階', count: allStudents.filter((r) => r.course_4).length },
+    { stage: '五階', count: allStudents.filter((r) => r.course_5).length },
+  ]
 
   const groupStudents = allStudents
     .filter((s) => s.group_leader !== null)

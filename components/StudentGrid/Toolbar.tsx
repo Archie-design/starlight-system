@@ -6,7 +6,7 @@ import { useStudents } from '@/hooks/useStudents'
 import { COLUMN_GROUPS } from '@/lib/constants'
 import type { SheetSystem } from '@/lib/supabase/types'
 
-const TABS: SheetSystem[] = ['星光']
+const ALL_SYSTEMS: SheetSystem[] = ['星光', '太陽']
 
 const VIEWS = [
   { key: 'grid', label: '表格' },
@@ -14,7 +14,13 @@ const VIEWS = [
 ] as const
 
 export default function Toolbar() {
-  const { activeTab, setActiveTab, setImportModalOpen, view, setView, columnVisibility, setColumnVisibility } = useStudentStore()
+  const { role, activeTab, setActiveTab, setImportModalOpen, view, setView, columnVisibility, setColumnVisibility } = useStudentStore()
+
+  // superadmin 切換體系：同步寫入 view cookie，讓 SSR 頁與 API 採同一體系
+  const switchSystem = (tab: SheetSystem) => {
+    document.cookie = `sl_view_system=${encodeURIComponent(tab)}; path=/; max-age=${30 * 60}; samesite=lax`
+    setActiveTab(tab)
+  }
   const { count } = useStudents()
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
@@ -50,22 +56,28 @@ export default function Toolbar() {
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white border-b border-slate-200 shadow-sm min-h-[48px]">
-      {/* 體系 Tab 切換 */}
+      {/* 體系 Tab：admin 鎖定其體系；superadmin 可切換 */}
       <div className="flex-1 flex items-center gap-1.5 sm:gap-0.5 min-w-0">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`
-              px-2 sm:px-4 py-1.5 text-xs font-semibold rounded transition-all whitespace-nowrap
-              ${activeTab === tab
-                ? 'bg-blue-700 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
-            `}
-          >
-            {tab}體系
-          </button>
-        ))}
+        {role === 'superadmin' ? (
+          ALL_SYSTEMS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => switchSystem(tab)}
+              className={`
+                px-2 sm:px-4 py-1.5 text-xs font-semibold rounded transition-all whitespace-nowrap
+                ${activeTab === tab
+                  ? 'bg-blue-700 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}
+              `}
+            >
+              {tab}體系
+            </button>
+          ))
+        ) : (
+          <span className="px-2 sm:px-4 py-1.5 text-xs font-semibold rounded bg-blue-700 text-white shadow-sm whitespace-nowrap">
+            {activeTab}體系
+          </span>
+        )}
         <span className="ml-1.5 sm:ml-3 text-[11px] text-slate-400 tabular-nums font-medium whitespace-nowrap">
           {count.toLocaleString()} 筆
         </span>

@@ -8,14 +8,14 @@ import type { Student } from '@/lib/supabase/types'
 export const MAINTENANCE_PAGE_SIZE = 100
 
 export function useMaintenanceStudents() {
-  const { activeCategory, filters, page } = useMaintenanceStore()
+  const { system, activeCategory, filters, page } = useMaintenanceStore()
   const { students: repo } = useRepository()
 
-  const key = ['maintenance-students', activeCategory, filters, page]
+  const key = ['maintenance-students', system, activeCategory, filters, page]
 
   const { data, error, isLoading, mutate } = useSWR<{ rows: Student[]; count: number }>(
     key,
-    () => repo.findByMaintenanceCategory(activeCategory, filters, { page, pageSize: MAINTENANCE_PAGE_SIZE }),
+    () => repo.findByMaintenanceCategory(activeCategory, system, filters, { page, pageSize: MAINTENANCE_PAGE_SIZE }),
     { keepPreviousData: true, revalidateOnFocus: false }
   )
 

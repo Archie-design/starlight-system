@@ -1,4 +1,5 @@
 import { parseNameWithId } from '@/lib/utils/nameUtils'
+import { systemOf } from '@/lib/utils/system'
 
 interface GroupDef {
   name: string
@@ -9,6 +10,8 @@ interface StudentEntry {
   id: number
   counselor: string | null
   introducer: string | null
+  /** 學員所屬體系來源欄位（業務脈），用於跨體系隔離 */
+  business_chain?: string | null
 }
 
 /**
@@ -85,12 +88,30 @@ export function buildGroupAssignments(
     return resolved
   }
 
-  for (const [id] of studentMap) {
+  // 各分組根節點的體系（用於跨體系隔離）：取該組第一個能判定體系的根節點
+  const groupSystem = new Map<string, ReturnType<typeof systemOf>>()
+  for (const g of groups) {
+    for (const rid of g.root_student_ids) {
+      const root = studentMap.get(rid)
+      if (root) {
+        groupSystem.set(g.name, systemOf(root.business_chain))
+        break
+      }
+    }
+  }
+
+  for (const [id, entry] of studentMap) {
     // 優先沿輔導員鏈追溯
     let group = resolveVia(id, 'counselor', counselorCache, 0)
     // 若輔導員鏈無解，再試介紹人鏈
     if (!group) group = resolveVia(id, 'introducer', introducerCache, 0)
-    if (group) result.set(id, group)
+    if (!group) continue
+
+    // 跨體系隔離：學員體系須與分組根節點體系一致，避免太陽學員被歸到星光分組（反之亦然）
+    const gSys = groupSystem.get(group)
+    if (gSys && systemOf(entry.business_chain) !== gSys) continue
+
+    result.set(id, group)
   }
 
   return result
