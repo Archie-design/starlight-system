@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { data: chunk, error } = await applySystemFilter(
       (supabase as any)
         .from('students')
-        .select('id, name, role, region, introducer, course_1, course_2, course_3, course_4, course_5, course_wuyun, life_numbers, life_numbers_advanced, life_transform, debt_release, gender, counselor, business_chain, senior_counselor, guidance_chain, relation, membership_expiry, birthday'),
+        .select('id, name, role, region, introducer, course_1, course_2, course_3, course_4, course_5, course_wuyun, life_numbers, life_numbers_advanced, life_transform, debt_release, gender, counselor, business_chain, senior_counselor, guidance_chain, relation, membership_expiry, birthday, spirit_ambassador_group'),
       system,
     )
       .order('id', { ascending: true })

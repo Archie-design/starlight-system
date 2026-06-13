@@ -60,8 +60,8 @@ interface StudentStore {
   setNewStudentOpen: (open: boolean) => void
 
   // 檢視模式
-  view: 'grid' | 'org'
-  setView: (view: 'grid' | 'org') => void
+  view: 'grid' | 'org' | 'network'
+  setView: (view: 'grid' | 'org' | 'network') => void
 
   // 欄位顯示
   columnVisibility: Record<string, boolean>

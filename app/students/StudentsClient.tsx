@@ -5,6 +5,7 @@ import StudentGrid from '@/components/StudentGrid'
 import FilterBar from '@/components/StudentGrid/FilterBar'
 import Toolbar from '@/components/StudentGrid/Toolbar'
 import OrgChart from '@/components/OrgChart'
+import dynamic from 'next/dynamic'
 import ImportWizard from '@/components/ImportWizard'
 import NewStudentModal from '@/components/NewStudentModal'
 import NavButton from '@/components/NavButton'
@@ -12,6 +13,12 @@ import LogoutButton from '@/components/LogoutButton'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
+
+// 關聯圖含 @xyflow/react，僅切到該檢視才載入，避免拖累初次載入
+const RelationshipNetwork = dynamic(() => import('@/components/RelationshipNetwork'), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-full text-slate-400 text-sm">載入關聯圖…</div>,
+})
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 function SearchParamHandler() {
@@ -68,9 +75,13 @@ function StudentsLayout() {
             <StudentGrid />
           </div>
         </>
-      ) : (
+      ) : view === 'org' ? (
         <div className="flex-1 min-h-0">
           <OrgChart />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0">
+          <RelationshipNetwork />
         </div>
       )}
 
