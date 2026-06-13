@@ -17,6 +17,8 @@ function EditableCellComponent({ value, rowId, field, type = 'text', options = [
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
+  const wasEditing = useRef(false)
   const { updateCell } = useStudents()
 
   // 外部 value 更新時同步 draft
@@ -25,7 +27,13 @@ function EditableCellComponent({ value, rowId, field, type = 'text', options = [
   }, [value, editing])
 
   useEffect(() => {
-    if (editing) inputRef.current?.focus()
+    if (editing) {
+      inputRef.current?.focus()
+    } else if (wasEditing.current) {
+      // 結束編輯後將焦點還給儲存格，鍵盤使用者不會迷失位置
+      cellRef.current?.focus()
+    }
+    wasEditing.current = editing
   }, [editing])
 
   // 穩定化 updateCell 參考，避免 useCallback 每次都重新創建
@@ -84,11 +92,22 @@ function EditableCellComponent({ value, rowId, field, type = 'text', options = [
 
   return (
     <div
+      ref={cellRef}
+      role="button"
+      tabIndex={saving ? -1 : 0}
+      aria-label={`編輯 ${field as string}${value ? `：${value}` : '（空白）'}`}
       onClick={() => setEditing(true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setEditing(true)
+        }
+      }}
       title={value ?? ''}
       className={`
         w-full h-full px-1.5 py-0.5 cursor-text truncate text-xs leading-5
-        hover:bg-blue-50 rounded transition-colors group
+        hover:bg-blue-50 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500 focus:bg-blue-50
+        rounded transition-colors group
         ${saving ? 'opacity-40' : ''}
         ${!value ? 'text-slate-300' : 'text-slate-700'}
       `}

@@ -89,9 +89,10 @@ export default function NewStudentModal() {
         <h2 id="new-student-title" className="text-sm font-semibold text-slate-800 mb-4">新增學員</h2>
 
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1">
+          <label htmlFor="new-student-id" className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">編號 <span className="text-red-500">*</span></span>
             <input
+              id="new-student-id"
               type="number"
               value={id}
               onChange={(e) => setId(e.target.value)}
@@ -100,9 +101,10 @@ export default function NewStudentModal() {
             />
           </label>
 
-          <label className="flex flex-col gap-1">
+          <label htmlFor="new-student-name" className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">姓名 <span className="text-red-500">*</span></span>
             <input
+              id="new-student-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -112,9 +114,10 @@ export default function NewStudentModal() {
           </label>
 
           <div className="flex gap-2">
-            <label className="flex flex-col gap-1 flex-1">
+            <label htmlFor="new-student-gender" className="flex flex-col gap-1 flex-1">
               <span className="text-xs text-slate-500">性別</span>
               <select
+                id="new-student-gender"
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
                 className="border border-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -125,9 +128,10 @@ export default function NewStudentModal() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 flex-1">
+            <label htmlFor="new-student-region" className="flex flex-col gap-1 flex-1">
               <span className="text-xs text-slate-500">地區</span>
               <select
+                id="new-student-region"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
                 className="border border-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -138,9 +142,10 @@ export default function NewStudentModal() {
             </label>
           </div>
 
-          <label className="flex flex-col gap-1">
+          <label htmlFor="new-student-role" className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">角色</span>
             <select
+              id="new-student-role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
               className="border border-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -150,9 +155,10 @@ export default function NewStudentModal() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1">
+          <label htmlFor="new-student-phone" className="flex flex-col gap-1">
             <span className="text-xs text-slate-500">手機</span>
             <input
+              id="new-student-phone"
               type="tel"
               inputMode="tel"
               value={phone}

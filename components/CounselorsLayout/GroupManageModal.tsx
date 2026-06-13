@@ -202,7 +202,10 @@ export default function GroupManageModal({ onClose }: Props) {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 text-center py-8 italic border-2 border-dashed border-slate-100 rounded-xl">尚無代管設定</p>
+                  <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-xl">
+                    <p className="text-xs text-slate-400 italic">尚無代管設定</p>
+                    <p className="text-[10px] text-blue-500 mt-1">↓ 使用下方表單新增第一筆代管關係</p>
+                  </div>
                 )}
               </div>
 
@@ -296,7 +299,10 @@ export default function GroupManageModal({ onClose }: Props) {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 text-center py-8 italic border-2 border-dashed border-slate-100 rounded-xl">尚無強制換線特例</p>
+                  <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-xl">
+                    <p className="text-xs text-slate-400 italic">尚無強制換線特例</p>
+                    <p className="text-[10px] text-blue-500 mt-1">↓ 使用下方表單新增第一筆換線特例</p>
+                  </div>
                 )}
               </div>
 
