@@ -109,13 +109,15 @@ export default async function DashboardPage() {
     return { name: stage.label, ...counts }
   })
 
-  // 課程漏斗：由本體系已篩選的學員直接計算（get_course_funnel rpc 無體系參數，故不使用）
+  // 各階上課人數：由本體系已篩選的學員直接計算（各階獨立計數，不假設順序）
+  // 註：三/四/五階不拘順序，故以「各階人數長條」呈現，而非暗示流失的漏斗
   const courseFunnel: { stage: string; count: number }[] = [
     { stage: '一階', count: allStudents.filter((r) => r.course_1).length },
     { stage: '二階', count: allStudents.filter((r) => r.course_2).length },
     { stage: '三階', count: allStudents.filter((r) => r.course_3).length },
     { stage: '四階', count: allStudents.filter((r) => r.course_4).length },
     { stage: '五階', count: allStudents.filter((r) => r.course_5).length },
+    { stage: '五運', count: allStudents.filter((r) => r.course_wuyun).length },
   ]
 
   const groupStudents = allStudents

@@ -9,8 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  FunnelChart,
-  Funnel,
   LabelList,
 } from 'recharts'
 import Link from 'next/link'
@@ -190,19 +188,18 @@ export default function DashboardClient({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader title="課程進度漏斗" subtitle="各階學員的留存與轉換狀況" />
+              <CardHeader title="各階上課人數" subtitle="各階別已上課之學員數（三/四/五階不拘順序，故非依序流失）" />
               <div className="h-[350px] p-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <FunnelChart>
-                    <Tooltip cursor={{fill: 'transparent'}} />
-                    <Funnel
-                      dataKey="count"
-                      data={courseFunnel}
-                      isAnimationActive
-                    >
-                      <LabelList position="right" fill="#334155" stroke="none" dataKey="stage" />
-                    </Funnel>
-                  </FunnelChart>
+                  <BarChart data={courseFunnel} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="stage" tick={{ fontSize: 12 }} />
+                    <YAxis />
+                    <Tooltip cursor={{ fill: '#f1f5f9' }} />
+                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                      <LabelList dataKey="count" position="top" />
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </Card>
