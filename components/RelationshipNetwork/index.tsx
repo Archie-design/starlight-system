@@ -5,10 +5,13 @@ import {
   ReactFlow,
   Background,
   Controls,
+  Handle,
+  Position,
   useNodesState,
   useEdgesState,
   type Node,
   type Edge,
+  type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useOrgData } from '@/hooks/useOrgData'
@@ -99,11 +102,16 @@ export default function RelationshipNetwork() {
         const radius = BASE_RADIUS + ringIdx * RING_GAP
         const id = `s-${m.student.id}`
         if (!nodes.find((n) => n.id === id)) {
+          // 關聯依據（同期哪幾階/梯 + 同組組名），供 hover 顯示
+          const reasons = [
+            ...m.cohortLabels.map((c) => `同期同學・${c}`),
+            ...(m.spiritLabel ? [`同組組員・${m.spiritLabel}`] : []),
+          ]
           nodes.push({
             id,
+            type: 'student',
             position: { x: Math.cos(a) * radius, y: Math.sin(a) * radius },
-            data: { label: m.student.name },
-            style: MEMBER_STYLE,
+            data: { label: m.student.name, reasons },
             draggable: true,
           })
         }
@@ -187,6 +195,7 @@ export default function RelationshipNetwork() {
             <ReactFlow
               nodes={nodes}
               edges={edges}
+              nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               fitView
@@ -210,6 +219,32 @@ export default function RelationshipNetwork() {
   )
 }
 
+/** 成員節點：顯示姓名，hover 時以 tooltip 顯示關聯依據 */
+function StudentNode({ data }: NodeProps) {
+  const d = data as { label: string; reasons?: string[] }
+  const reasons = d.reasons ?? []
+  return (
+    <div className="group relative">
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <div
+        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm cursor-pointer hover:border-blue-400"
+      >
+        {d.label}
+      </div>
+      {reasons.length > 0 && (
+        <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] text-white shadow-lg group-hover:block">
+          {reasons.map((r, i) => (
+            <div key={i}>{r}</div>
+          ))}
+        </div>
+      )}
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </div>
+  )
+}
+
+const nodeTypes = { student: StudentNode }
+
 const CENTER_STYLE: React.CSSProperties = {
   background: '#1d4ed8',
   color: '#fff',
@@ -219,17 +254,6 @@ const CENTER_STYLE: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   width: 'auto',
-}
-
-const MEMBER_STYLE: React.CSSProperties = {
-  background: '#fff',
-  color: '#1e293b',
-  border: '1px solid #cbd5e1',
-  borderRadius: 8,
-  padding: '5px 9px',
-  fontSize: 12,
-  width: 'auto',
-  cursor: 'pointer',
 }
 
 /** 群組標籤節點（可拖移、不可選取），用群色描邊 */
