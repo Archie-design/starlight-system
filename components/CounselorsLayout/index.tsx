@@ -13,17 +13,19 @@ import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function CounselorsLayout() {
-  const { groups, isLoading: groupsLoading } = useCounselorGroups()
   const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
+  const { groups, isLoading: groupsLoading } = useCounselorGroups(system)
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
 
-  // 分組載入後，自動選取第一個
+  // 分組載入後（或切換體系後），若目前選取的分組不在清單中，自動選取第一個
   useEffect(() => {
-    if (!activeGroup && groups.length > 0) {
+    if (groups.length === 0) return
+    const stillValid = activeGroup && groups.some((g) => g.name === activeGroup)
+    if (!stillValid) {
       setActiveGroup(groups[0].name)
     }
   }, [groups, activeGroup, setActiveGroup])
