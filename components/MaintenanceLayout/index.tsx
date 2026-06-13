@@ -110,7 +110,8 @@ export default function MaintenanceLayout() {
       </div>
 
       {/* 第二層：搜尋/篩選列 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-50 border-b border-slate-300">
+      <div className="px-4 pt-2">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg shadow-sm">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
           <input type="text" placeholder="搜尋姓名…" value={filters.name}
@@ -143,9 +144,10 @@ export default function MaintenanceLayout() {
           待修正筆數：<span className="font-bold text-slate-700">{count.toLocaleString()}</span>
         </div>
       </div>
+      </div>
 
       {/* 主表格 */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 px-4 py-2">
         <MaintenanceStudentGrid />
       </div>
     </div>

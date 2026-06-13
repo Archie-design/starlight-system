@@ -135,7 +135,8 @@ export default function CounselorsLayout() {
       </div>
 
       {/* 篩選列 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-slate-100 border-b border-slate-300">
+      <div className="px-4 pt-2">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg shadow-sm">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none">🔍</span>
           <input type="text" placeholder="搜尋姓名…" value={filters.name}
@@ -176,13 +177,14 @@ export default function CounselorsLayout() {
           </div>
         )}
       </div>
+      </div>
 
       {/* 主表格 */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 px-4 py-2">
         {activeGroup ? (
           <CounselorStudentGrid />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+          <div className="flex items-center justify-center h-full text-slate-400 text-sm border border-slate-300 rounded-lg bg-white">
             請選擇上方的關懷長分組
           </div>
         )}
