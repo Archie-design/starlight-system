@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { APP_NAME } from '@/lib/config'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -37,7 +38,7 @@ export default function LoginPage() {
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
         <div className="text-center mb-6">
           <div className="text-4xl mb-2">⭐</div>
-          <h1 className="text-xl font-bold text-gray-800">星光超級表格系統</h1>
+          <h1 className="text-xl font-bold text-gray-800">{APP_NAME}</h1>
           <p className="text-sm text-gray-500 mt-1">請輸入帳號與密碼以繼續</p>
         </div>
 

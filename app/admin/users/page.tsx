@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { checkAuth } from '@/lib/auth'
+import { APP_NAME } from '@/lib/config'
 import UsersClient from './UsersClient'
 
 export const metadata = {
-  title: '帳號管理 — 星光超級表格系統',
+  title: `帳號管理 — ${APP_NAME}`,
 }
 
 export default async function AdminUsersPage() {

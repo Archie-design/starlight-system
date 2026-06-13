@@ -2,10 +2,11 @@ import { redirect } from 'next/navigation'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import { applySystemFilter } from '@/lib/utils/system'
+import { APP_NAME } from '@/lib/config'
 import DashboardClient from './DashboardClient'
 
 export const metadata = {
-  title: '儀表板 — 星光超級表格系統',
+  title: `儀表板 — ${APP_NAME}`,
   description: '學員課程、付款、會籍、組群統計總覽',
 }
 
