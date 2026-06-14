@@ -9,7 +9,7 @@ import {
 import { createServiceClient } from '@/lib/supabase/server'
 import { logLoginEvent } from '@/lib/auth/audit'
 import { systemOf } from '@/lib/utils/system'
-import { LEADER_ROLES } from '@/lib/constants'
+import { LEADER_ROLES, SYSTEM_ADMIN_STUDENT_ROLES } from '@/lib/constants'
 import { randomBytes } from 'crypto'
 
 /** 手機末四碼（去除非數字後取尾 4 碼） */
@@ -79,14 +79,15 @@ export async function POST(req: NextRequest) {
     return fail()
   }
 
-  // 通過 → 建立該體系 admin 帳號（首次強制改密碼）
+  // 通過 → 建帳號（首次強制改密碼）。體系長 → system_admin（有管理權）；關懷長 → admin
+  const role = SYSTEM_ADMIN_STUDENT_ROLES.includes(student.role ?? '') ? 'system_admin' : 'admin'
   const password_hash = await hash(password, 10)
   const { data: created, error: insErr } = await supabase
     .from('users')
     .insert({
       username,
       password_hash,
-      role: 'admin',
+      role,
       system: systemOf(student.business_chain),
       active: true,
       must_change_password: true,

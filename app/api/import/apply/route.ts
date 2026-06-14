@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkAuth } from '@/lib/auth'
+import { logAdminAction } from '@/lib/auth/audit'
 import { computeDiff } from '@/lib/import/diff'
 import { buildGroupAssignments } from '@/lib/import/assignGroup'
 import type { Student, StudentInsert, CounselorGroup } from '@/lib/supabase/types'
@@ -152,6 +153,10 @@ export async function POST(request: NextRequest) {
     } else {
       // 失敗時不標記為已套用，允許重試
       console.warn('[apply] 標記為失敗狀態，等待重試')
+    }
+
+    if (!transactionFailed) {
+      logAdminAction('import_applied', { actor: authResult.user?.username ?? null, detail: `套用 ${applied} 筆、錯誤 ${errors}` }, request)
     }
 
     return NextResponse.json({ applied, errors, success: !transactionFailed })

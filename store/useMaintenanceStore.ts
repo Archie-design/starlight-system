@@ -20,6 +20,9 @@ const DEFAULT_FILTERS: MaintenanceFilters = {
 }
 
 interface MaintenanceStore {
+  username: string
+  setUsername: (u: string) => void
+
   role: UserRole
   setRole: (r: UserRole) => void
 
@@ -41,6 +44,9 @@ interface MaintenanceStore {
 }
 
 export const useMaintenanceStore = create<MaintenanceStore>((set) => ({
+  username: '',
+  setUsername: (username) => set({ username }),
+
   role: 'admin',
   setRole: (role) => set({ role }),
 

@@ -8,7 +8,7 @@ import type { Student } from '@/lib/supabase/types'
 export const PAGE_SIZE = 100
 
 export function useStudents() {
-  const { activeTab, filters, page } = useStudentStore()
+  const { activeTab, filters, page, username } = useStudentStore()
   const { students: repo } = useRepository()
 
   const key = ['students', activeTab, filters, page]
@@ -33,7 +33,7 @@ export function useStudents() {
     // Optimistic update
     await mutate(
       async (current) => {
-        await repo.updateCell({ id, field: field as string, value, oldValue, studentName })
+        await repo.updateCell({ id, field: field as string, value, oldValue, studentName, changedBy: username || null })
 
         return current
           ? {

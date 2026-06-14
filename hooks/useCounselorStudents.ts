@@ -8,7 +8,7 @@ import type { Student } from '@/lib/supabase/types'
 export const COUNSELOR_PAGE_SIZE = 100
 
 export function useCounselorStudents() {
-  const { system, activeGroup, filters, page } = useCounselorStore()
+  const { system, activeGroup, filters, page, username } = useCounselorStore()
   const { students: repo } = useRepository()
 
   const key = activeGroup
@@ -28,7 +28,7 @@ export function useCounselorStudents() {
 
     await mutate(
       async (current) => {
-        await repo.updateCell({ id, field: field as string, value, oldValue, studentName })
+        await repo.updateCell({ id, field: field as string, value, oldValue, studentName, changedBy: username || null })
 
         return current
           ? { ...current, rows: current.rows.map(r => r.id === id ? { ...r, [field]: value } : r) }

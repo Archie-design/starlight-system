@@ -145,16 +145,15 @@ class SupabaseStudentRepository implements StudentRepository {
     if (error) throw error
 
     // 稽核 log（fire-and-forget，不阻塞 UI）
-    this.supabase.auth.getUser().then(({ data: { user } }) => {
-      this.supabase.from('edit_logs').insert({
-        student_id: edit.id,
-        student_name: edit.studentName,
-        field: edit.field,
-        old_value: edit.oldValue,
-        new_value: edit.value,
-        changed_by: user?.email ?? null,
-      }).then(() => {})
-    })
+    // changed_by 來自登入者帳號（自訂 session，非 Supabase Auth）
+    this.supabase.from('edit_logs').insert({
+      student_id: edit.id,
+      student_name: edit.studentName,
+      field: edit.field,
+      old_value: edit.oldValue,
+      new_value: edit.value,
+      changed_by: edit.changedBy ?? null,
+    }).then(() => {})
   }
 }
 

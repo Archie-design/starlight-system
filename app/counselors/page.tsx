@@ -8,5 +8,5 @@ export default async function CounselorsPage() {
   if (user!.must_change_password) redirect('/account/change-password')
 
   const system = await getEffectiveSystem(user!)
-  return <CounselorsClient role={user!.role} system={system} />
+  return <CounselorsClient role={user!.role} system={system} username={user!.username} />
 }

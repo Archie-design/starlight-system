@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
+import { logAdminAction } from '@/lib/auth/audit'
 import { applySystemFilter } from '@/lib/utils/system'
 import {
   highestStage,
@@ -75,6 +76,8 @@ export async function GET(request: NextRequest) {
       }
       return true
     })
+
+    logAdminAction('data_export', { actor: user.username, target: system, detail: `${rows.length} 筆` }, request)
 
     const buffer = await buildStudentsXlsx(rows, `學員名單(${system})`)
     const filename = encodeURIComponent(`學員名單_${system}_${new Date().toISOString().split('T')[0]}.xlsx`)

@@ -84,7 +84,7 @@ export default function CounselorsLayout() {
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-blue-200/70 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>
-          {role === 'superadmin' && (
+          {role !== 'admin' && (
             <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-200/90 hover:text-white transition-colors">
               帳號管理 →
             </NavButton>

@@ -86,7 +86,8 @@ export async function checkAuth(request?: NextRequest): Promise<CheckAuthResult>
  * - superadmin：依其當前選擇（VIEW_SYSTEM_COOKIE），預設「星光」
  */
 export async function getEffectiveSystem(user: AuthUser): Promise<'星光' | '太陽'> {
-  if (user.role === 'admin' && user.system) return user.system
+  // 非 superadmin（admin / system_admin）鎖定其綁定體系
+  if (user.role !== 'superadmin' && user.system) return user.system
   const cookieStore = await cookies()
   const view = cookieStore.get(VIEW_SYSTEM_COOKIE)?.value
   return view === '太陽' ? '太陽' : '星光'

@@ -8,5 +8,5 @@ export default async function StudentsPage() {
   if (user!.must_change_password) redirect('/account/change-password')
 
   const system = await getEffectiveSystem(user!)
-  return <StudentsClient role={user!.role} system={system} />
+  return <StudentsClient role={user!.role} system={system} username={user!.username} />
 }

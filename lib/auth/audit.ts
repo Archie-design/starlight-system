@@ -32,3 +32,33 @@ export function logLoginEvent(event: LoginEvent, username: string | null, reques
     console.warn('[audit] logLoginEvent error:', e)
   }
 }
+
+/**
+ * 寫入操作稽核（admin_audit，fire-and-forget）。
+ * action 例：user_created / user_disabled / user_enabled / password_reset /
+ *           data_export / import_applied
+ */
+export function logAdminAction(
+  action: string,
+  opts: { actor: string | null; target?: string | null; detail?: string | null },
+  request: NextRequest,
+): void {
+  try {
+    const supabase = createServiceClient()
+    void supabase
+      .from('admin_audit')
+      .insert({
+        actor: opts.actor ?? null,
+        action,
+        target: opts.target ?? null,
+        detail: opts.detail ?? null,
+        ip: clientIp(request),
+        user_agent: request.headers.get('user-agent'),
+      })
+      .then(({ error }) => {
+        if (error) console.warn('[audit] admin_audit insert failed:', error.message)
+      })
+  } catch (e) {
+    console.warn('[audit] logAdminAction error:', e)
+  }
+}

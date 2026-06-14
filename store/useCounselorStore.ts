@@ -32,6 +32,9 @@ const DEFAULT_FILTERS: CounselorFilters = {
 }
 
 interface CounselorStore {
+  username: string
+  setUsername: (u: string) => void
+
   role: UserRole
   setRole: (r: UserRole) => void
 
@@ -54,6 +57,9 @@ interface CounselorStore {
 }
 
 export const useCounselorStore = create<CounselorStore>((set) => ({
+  username: '',
+  setUsername: (username) => set({ username }),
+
   role: 'admin',
   setRole: (role) => set({ role }),
 

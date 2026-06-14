@@ -29,3 +29,12 @@ export async function requireSuperadmin(request: NextRequest): Promise<AuthUser 
   const user = await getAuthUser(request)
   return user?.role === 'superadmin' ? user : null
 }
+
+/**
+ * 要求「可管理」角色（superadmin 或 system_admin）；否則回 null。
+ * superadmin 跨體系；system_admin 僅限同體系（由呼叫端依 user.system 過濾）。
+ */
+export async function requireManager(request: NextRequest): Promise<AuthUser | null> {
+  const user = await getAuthUser(request)
+  return user && (user.role === 'superadmin' || user.role === 'system_admin') ? user : null
+}

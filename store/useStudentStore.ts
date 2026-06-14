@@ -32,6 +32,10 @@ const DEFAULT_FILTERS: StudentFilters = {
 }
 
 interface StudentStore {
+  // 登入者帳號（寫入 edit_logs.changed_by）
+  username: string
+  setUsername: (u: string) => void
+
   // 登入者角色（決定體系 TAB 可否切換）
   role: UserRole
   setRole: (role: UserRole) => void
@@ -69,6 +73,9 @@ interface StudentStore {
 }
 
 export const useStudentStore = create<StudentStore>((set) => ({
+  username: '',
+  setUsername: (username) => set({ username }),
+
   role: 'admin',
   setRole: (role) => set({ role }),
 

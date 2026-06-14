@@ -54,7 +54,7 @@ function StudentsLayout() {
           <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-blue-200/70 hover:text-white transition-colors">關懷長專區 →</NavButton>
           <NavButton href="/spirit" active={pathname === '/spirit'} className="text-xs text-blue-200/70 hover:text-white transition-colors">心之使者 →</NavButton>
           <NavButton href="/history" active={pathname === '/history'} className="text-xs text-blue-200/70 hover:text-white transition-colors">匯入紀錄 →</NavButton>
-          {role === 'superadmin' && (
+          {role !== 'admin' && (
             <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-200/90 hover:text-white transition-colors">帳號管理 →</NavButton>
           )}
           <LogoutButton />
@@ -101,15 +101,17 @@ function StudentsLayout() {
   )
 }
 
-export default function StudentsClient({ role, system }: { role: UserRole; system: SheetSystem }) {
+export default function StudentsClient({ role, system, username }: { role: UserRole; system: SheetSystem; username: string }) {
   const setRole = useStudentStore((s) => s.setRole)
   const setActiveTab = useStudentStore((s) => s.setActiveTab)
+  const setUsername = useStudentStore((s) => s.setUsername)
 
   // 掛載即以登入者身分覆寫 store，避免閃現他體系
   useEffect(() => {
     setRole(role)
     setActiveTab(system)
-  }, [role, system, setRole, setActiveTab])
+    setUsername(username)
+  }, [role, system, username, setRole, setActiveTab, setUsername])
 
   return (
     <SWRConfig value={{ revalidateOnFocus: false }}>

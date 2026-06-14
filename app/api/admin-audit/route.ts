@@ -8,19 +8,19 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl
-  const username = searchParams.get('username') ?? ''
-  const event = searchParams.get('event') ?? ''
+  const actor = searchParams.get('actor') ?? ''
+  const action = searchParams.get('action') ?? ''
   const limit = Math.min(Number(searchParams.get('limit') ?? '500'), 1000)
 
   const supabase = createServiceClient()
   let query = supabase
-    .from('login_logs')
-    .select('id, username, event, ip, user_agent, created_at')
+    .from('admin_audit')
+    .select('id, actor, action, target, detail, ip, user_agent, created_at')
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (username) query = query.ilike('username', `%${username}%`)
-  if (event) query = query.eq('event', event)
+  if (actor) query = query.ilike('actor', `%${actor}%`)
+  if (action) query = query.eq('action', action)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

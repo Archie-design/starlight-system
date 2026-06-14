@@ -8,7 +8,7 @@ import type { Student } from '@/lib/supabase/types'
 export const MAINTENANCE_PAGE_SIZE = 100
 
 export function useMaintenanceStudents() {
-  const { system, activeCategory, filters, page } = useMaintenanceStore()
+  const { system, activeCategory, filters, page, username } = useMaintenanceStore()
   const { students: repo } = useRepository()
 
   const key = ['maintenance-students', system, activeCategory, filters, page]
@@ -26,7 +26,7 @@ export function useMaintenanceStudents() {
 
     await mutate(
       async (current) => {
-        await repo.updateCell({ id, field: field as string, value, oldValue, studentName })
+        await repo.updateCell({ id, field: field as string, value, oldValue, studentName, changedBy: username || null })
 
         // 在維護專區中，若修正了關鍵欄位導致條件不符，資料應自動從列表中移除
         // 這裡回傳 current，讓 mutate 的 revalidate 行為去處理重新抓取資料

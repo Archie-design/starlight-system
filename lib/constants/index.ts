@@ -30,6 +30,12 @@ export const LEADER_ROLES: readonly string[] = [
   '體系長共同經營',
 ]
 
+/** 自助登入時建為 system_admin（綁體系 + 帳號管理權）的學員角色 */
+export const SYSTEM_ADMIN_STUDENT_ROLES: readonly string[] = [
+  '體系長',
+  '體系長共同經營',
+]
+
 // ── 角色顏色 ──────────────────────────────────────────────────────────
 export const ROLE_COLORS: Record<Role | string, string> = {
   '體系長': 'bg-purple-100 text-purple-700',

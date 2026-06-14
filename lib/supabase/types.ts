@@ -1,6 +1,6 @@
 export type SheetSystem = '星光' | '太陽'
 
-export type UserRole = 'superadmin' | 'admin'
+export type UserRole = 'superadmin' | 'admin' | 'system_admin'
 
 /** 應用層使用者帳號（users 表） */
 export interface AppUser {

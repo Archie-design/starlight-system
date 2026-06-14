@@ -53,6 +53,8 @@ export interface CellEdit {
   value: string | null
   oldValue: string | null
   studentName: string | null
+  /** 操作者帳號（登入者 username），寫入 edit_logs.changed_by */
+  changedBy?: string | null
 }
 
 /**
