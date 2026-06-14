@@ -8,17 +8,33 @@ import type { AppUser, SheetSystem, UserRole } from '@/lib/supabase/types'
 
 const fetcher = (url: string) => csrfFetch(url).then(r => r.json())
 
-export default function UsersClient() {
+const ROLE_LABEL: Record<UserRole, string> = {
+  superadmin: '系統管理者',
+  system_admin: '體系長',
+  admin: '體系管理者',
+}
+
+export default function UsersClient({
+  actorRole,
+  actorSystem,
+}: {
+  actorRole: UserRole
+  actorSystem: SheetSystem | null
+}) {
   const { data, mutate, isLoading } = useSWR<{ users: AppUser[] }>('/api/users', fetcher, {
     revalidateOnFocus: false,
   })
   const users = data?.users ?? []
 
-  // 新增帳號表單
+  const isSuper = actorRole === 'superadmin'
+  // system_admin 只能在自己體系建帳號；superadmin 可選任一體系
+  const lockedSystem: SheetSystem = actorSystem ?? '星光'
+
+  // 新增帳號表單（非 superadmin 預設綁自己體系、角色僅能建 admin/system_admin）
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('admin')
-  const [system, setSystem] = useState<SheetSystem>('星光')
+  const [system, setSystem] = useState<SheetSystem>(isSuper ? '星光' : lockedSystem)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,6 +42,8 @@ export default function UsersClient() {
     e.preventDefault()
     setError(null)
     setSaving(true)
+    // superadmin 不綁體系；其餘角色須帶體系（非 superadmin 一律鎖自己體系）
+    const payloadSystem = role === 'superadmin' ? null : (isSuper ? system : lockedSystem)
     const res = await csrfFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -33,12 +51,12 @@ export default function UsersClient() {
         username,
         password,
         role,
-        system: role === 'admin' ? system : null,
+        system: payloadSystem,
       }),
     })
     setSaving(false)
     if (res.ok) {
-      setUsername(''); setPassword(''); setRole('admin'); setSystem('星光')
+      setUsername(''); setPassword(''); setRole('admin'); setSystem(isSuper ? '星光' : lockedSystem)
       mutate()
     } else {
       const d = await res.json()
@@ -103,17 +121,25 @@ export default function UsersClient() {
               <select id="r" value={role} onChange={e => setRole(e.target.value as UserRole)}
                 className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
                 <option value="admin">體系管理者</option>
-                <option value="superadmin">系統管理者</option>
+                <option value="system_admin">體系長</option>
+                {/* 只有 superadmin 能再建立 superadmin */}
+                {isSuper && <option value="superadmin">系統管理者</option>}
               </select>
             </div>
-            {role === 'admin' && (
+            {role !== 'superadmin' && (
               <div className="space-y-1">
                 <label htmlFor="s" className="text-xs text-slate-500">體系</label>
-                <select id="s" value={system} onChange={e => setSystem(e.target.value as SheetSystem)}
-                  className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
-                  <option value="星光">星光</option>
-                  <option value="太陽">太陽</option>
-                </select>
+                {isSuper ? (
+                  <select id="s" value={system} onChange={e => setSystem(e.target.value as SheetSystem)}
+                    className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="星光">星光</option>
+                    <option value="太陽">太陽</option>
+                  </select>
+                ) : (
+                  // 非 superadmin 鎖定自己體系，不可變更
+                  <input id="s" value={lockedSystem} disabled
+                    className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm bg-slate-50 text-slate-500" />
+                )}
               </div>
             )}
           </div>
@@ -147,7 +173,7 @@ export default function UsersClient() {
                     {u.username}
                     {u.must_change_password && <span className="ml-1.5 text-[10px] text-amber-600">（待改密碼）</span>}
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{u.role === 'superadmin' ? '系統管理者' : '體系管理者'}</td>
+                  <td className="px-3 py-2 text-slate-600">{ROLE_LABEL[u.role] ?? u.role}</td>
                   <td className="px-3 py-2 text-slate-600">{u.system ?? '—'}</td>
                   <td className="px-3 py-2">
                     <span className={u.active ? 'text-emerald-600' : 'text-red-500'}>

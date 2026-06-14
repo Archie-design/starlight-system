@@ -13,5 +13,5 @@ export default async function AdminUsersPage() {
   if (user!.role === 'admin') redirect('/students') // 僅 superadmin / system_admin 可管理
   if (user!.must_change_password) redirect('/account/change-password')
 
-  return <UsersClient />
+  return <UsersClient actorRole={user!.role} actorSystem={user!.system} />
 }

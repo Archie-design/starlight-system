@@ -18,7 +18,7 @@
 - [x] 3.3 `app/api/users/[id]/route.ts`：守門 requireManager；非 superadmin 目標帳號須同體系否則 403
 - [x] 3.4 `app/api/login-logs/route.ts`：守門改 requireManager
 - [x] 3.5 UI 各 layout「帳號管理」連結改 `role !== 'admin'` 顯示（students/counselors/maintenance/spirit/dashboard）；SystemSwitcher 維持 superadmin only
-- [ ] 3.6 `app/admin/users/UsersClient.tsx`：role 下拉依 actor 限制（system_admin 不可選 superadmin、體系鎖定） — **已延後**：後端 API（3.2/3.3）已強制限制（system_admin 不可建 superadmin/他體系），前端下拉僅為輔助提示，本次未實作以收斂範圍
+- [x] 3.6 `app/admin/users/UsersClient.tsx`：role 下拉依 actor 限制（system_admin 不可選 superadmin、體系鎖定為自己體系）；下拉補上 system_admin 選項、列表角色標籤補「體系長」；actor role/system 由 page 傳入
 
 ## 4. 稽核擴充
 
