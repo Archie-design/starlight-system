@@ -10,6 +10,7 @@ const fetcher = (url: string) => csrfFetch(url).then((r) => r.json())
 interface LoginLog {
   id: string
   username: string | null
+  display_name?: string | null
   event: 'login_success' | 'login_failure' | 'password_change'
   ip: string | null
   user_agent: string | null
@@ -30,6 +31,7 @@ const EVENT_STYLE: Record<LoginLog['event'], string> = {
 interface AuditLog {
   id: string
   actor: string | null
+  display_name?: string | null
   action: string
   target: string | null
   detail: string | null
@@ -147,7 +149,7 @@ export default function LoginLogsClient() {
                 ) : logs.map((l) => (
                   <tr key={l.id} className="border-t border-slate-100">
                     <td className="px-3 py-2 text-slate-600 tabular-nums whitespace-nowrap">{fmt(l.created_at)}</td>
-                    <td className="px-3 py-2 text-slate-800">{l.username ?? '—'}</td>
+                    <td className="px-3 py-2 text-slate-800">{l.display_name || l.username || '—'}</td>
                     <td className="px-3 py-2"><span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${EVENT_STYLE[l.event]}`}>{EVENT_LABEL[l.event]}</span></td>
                     <td className="px-3 py-2 text-slate-500 tabular-nums">{l.ip ?? '—'}</td>
                     <td className="px-3 py-2 text-slate-400 text-xs max-w-xs truncate" title={l.user_agent ?? ''}>{l.user_agent ?? '—'}</td>
@@ -174,7 +176,7 @@ export default function LoginLogsClient() {
                 ) : audits.map((l) => (
                   <tr key={l.id} className="border-t border-slate-100">
                     <td className="px-3 py-2 text-slate-600 tabular-nums whitespace-nowrap">{fmt(l.created_at)}</td>
-                    <td className="px-3 py-2 text-slate-800">{l.actor ?? '—'}</td>
+                    <td className="px-3 py-2 text-slate-800">{l.display_name || l.actor || '—'}</td>
                     <td className="px-3 py-2"><span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-violet-100 text-violet-700">{ACTION_LABEL[l.action] ?? l.action}</span></td>
                     <td className="px-3 py-2 text-slate-500">
                       {l.target ?? '—'}{l.detail ? <span className="text-slate-400 text-xs">（{l.detail}）</span> : null}

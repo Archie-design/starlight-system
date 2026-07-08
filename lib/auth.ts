@@ -62,7 +62,7 @@ export async function checkAuth(request?: NextRequest): Promise<CheckAuthResult>
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('users')
-    .select('id, username, role, system, active, must_change_password')
+    .select('id, username, role, system, display_name, active, must_change_password')
     .eq('id', uid)
     .maybeSingle()
 
@@ -75,6 +75,7 @@ export async function checkAuth(request?: NextRequest): Promise<CheckAuthResult>
     username: data.username,
     role: data.role,
     system: data.system,
+    display_name: data.display_name ?? null,
     must_change_password: data.must_change_password,
   }
   return { valid: true, user }

@@ -36,6 +36,10 @@ interface StudentStore {
   username: string
   setUsername: (u: string) => void
 
+  // 登入者顯示姓名（頂端標示；可空）
+  displayName: string | null
+  setDisplayName: (n: string | null) => void
+
   // 登入者角色（決定體系 TAB 可否切換）
   role: UserRole
   setRole: (role: UserRole) => void
@@ -75,6 +79,9 @@ interface StudentStore {
 export const useStudentStore = create<StudentStore>((set) => ({
   username: '',
   setUsername: (username) => set({ username }),
+
+  displayName: null,
+  setDisplayName: (displayName) => set({ displayName }),
 
   role: 'admin',
   setRole: (role) => set({ role }),

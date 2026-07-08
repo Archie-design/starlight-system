@@ -27,7 +27,7 @@ const QUICK_VIEWS: { value: StudentView; label: string }[] = [
 ]
 
 export default function CounselorsLayout() {
-  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, toggleQuickView, resetFilters, columnVisibility, setColumnVisibility } = useCounselorStore()
+  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, toggleQuickView, resetFilters, columnVisibility, setColumnVisibility, displayName, username } = useCounselorStore()
   const { groups, isLoading: groupsLoading } = useCounselorGroups(system)
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
@@ -88,6 +88,9 @@ export default function CounselorsLayout() {
             <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-200/90 hover:text-white transition-colors">
               帳號管理 →
             </NavButton>
+          )}
+          {(displayName || username) && (
+            <span className="text-xs text-amber-100/80">👤 {displayName || username}</span>
           )}
           <LogoutButton />
         </div>

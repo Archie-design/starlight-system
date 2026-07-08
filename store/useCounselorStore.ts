@@ -35,6 +35,9 @@ interface CounselorStore {
   username: string
   setUsername: (u: string) => void
 
+  displayName: string | null
+  setDisplayName: (n: string | null) => void
+
   role: UserRole
   setRole: (r: UserRole) => void
 
@@ -59,6 +62,9 @@ interface CounselorStore {
 export const useCounselorStore = create<CounselorStore>((set) => ({
   username: '',
   setUsername: (username) => set({ username }),
+
+  displayName: null,
+  setDisplayName: (displayName) => set({ displayName }),
 
   role: 'admin',
   setRole: (role) => set({ role }),

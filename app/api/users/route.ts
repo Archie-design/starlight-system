@@ -3,6 +3,7 @@ import { hash } from 'bcryptjs'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireManager } from '@/lib/auth/middleware'
 import { logAdminAction } from '@/lib/auth/audit'
+import { resolveDisplayNames } from '@/lib/auth/displayName'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 // 列出帳號（superadmin：全部；system_admin：僅同體系）
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   let query = supabase
     .from('users')
-    .select('id, username, role, system, active, must_change_password, created_at, updated_at')
+    .select('id, username, role, system, display_name, active, must_change_password, created_at, updated_at')
     .order('created_at', { ascending: true })
 
   // system_admin 僅見同體系
@@ -23,7 +24,16 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ users: data ?? [] })
+
+  // 對「無 display_name 的學員 ID 型帳號」補上「姓名(ID)」，供列表顯示
+  const nameMap = await resolveDisplayNames(
+    (data ?? []).map((u) => ({ username: u.username, display_name: u.display_name })),
+  )
+  const users = (data ?? []).map((u) => ({
+    ...u,
+    display_name_resolved: u.username ? nameMap.get(u.username) ?? u.username : u.username,
+  }))
+  return NextResponse.json({ users })
 }
 
 // 新增帳號（superadmin：任意；system_admin：僅同體系、不可建 superadmin）
@@ -31,11 +41,12 @@ export async function POST(request: NextRequest) {
   const actor = await requireManager(request)
   if (!actor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { username, password, role, system } = await request.json() as {
+  const { username, password, role, system, display_name } = await request.json() as {
     username?: string
     password?: string
     role?: UserRole
     system?: SheetSystem | null
+    display_name?: string | null
   }
 
   if (!username || !password || !role) {
@@ -77,9 +88,10 @@ export async function POST(request: NextRequest) {
       password_hash,
       role,
       system: role === 'superadmin' ? null : effectiveSystem,
+      display_name: display_name?.trim() || null,
       must_change_password: true,
     })
-    .select('id, username, role, system, active, must_change_password, created_at, updated_at')
+    .select('id, username, role, system, display_name, active, must_change_password, created_at, updated_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

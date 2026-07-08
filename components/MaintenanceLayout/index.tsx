@@ -12,7 +12,7 @@ import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, MAINTENANCE_CATEGORIES, COLUMN_GROUPS } from '@/lib/constants'
 
 export default function MaintenanceLayout() {
-  const { role, system, setSystem, activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility } = useMaintenanceStore()
+  const { role, system, setSystem, activeCategory, setActiveCategory, filters, setFilter, resetFilters, columnVisibility, setColumnVisibility, displayName, username } = useMaintenanceStore()
   const { count } = useMaintenanceStudents()
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
@@ -61,6 +61,9 @@ export default function MaintenanceLayout() {
             <NavButton href="/admin/users" active={pathname === '/admin/users'} className="text-xs text-amber-300 hover:text-white transition-colors">
               帳號管理 →
             </NavButton>
+          )}
+          {(displayName || username) && (
+            <span className="text-xs text-slate-300">👤 {displayName || username}</span>
           )}
           <LogoutButton className="text-xs text-slate-300 hover:text-white transition-colors disabled:opacity-50" />
         </div>

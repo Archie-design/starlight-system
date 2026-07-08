@@ -23,6 +23,9 @@ interface MaintenanceStore {
   username: string
   setUsername: (u: string) => void
 
+  displayName: string | null
+  setDisplayName: (n: string | null) => void
+
   role: UserRole
   setRole: (r: UserRole) => void
 
@@ -46,6 +49,9 @@ interface MaintenanceStore {
 export const useMaintenanceStore = create<MaintenanceStore>((set) => ({
   username: '',
   setUsername: (username) => set({ username }),
+
+  displayName: null,
+  setDisplayName: (displayName) => set({ displayName }),
 
   role: 'admin',
   setRole: (role) => set({ role }),

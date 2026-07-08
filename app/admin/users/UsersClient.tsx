@@ -14,6 +14,9 @@ const ROLE_LABEL: Record<UserRole, string> = {
   admin: '體系管理者',
 }
 
+// GET /api/users 回傳每筆多帶 display_name_resolved（已套用姓名解析）
+type UserRow = AppUser & { display_name_resolved?: string | null }
+
 export default function UsersClient({
   actorRole,
   actorSystem,
@@ -21,7 +24,7 @@ export default function UsersClient({
   actorRole: UserRole
   actorSystem: SheetSystem | null
 }) {
-  const { data, mutate, isLoading } = useSWR<{ users: AppUser[] }>('/api/users', fetcher, {
+  const { data, mutate, isLoading } = useSWR<{ users: UserRow[] }>('/api/users', fetcher, {
     revalidateOnFocus: false,
   })
   const users = data?.users ?? []
@@ -33,6 +36,7 @@ export default function UsersClient({
   // 新增帳號表單（非 superadmin 預設綁自己體系、角色僅能建 admin/system_admin）
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [role, setRole] = useState<UserRole>('admin')
   const [system, setSystem] = useState<SheetSystem>(isSuper ? '星光' : lockedSystem)
   const [saving, setSaving] = useState(false)
@@ -52,11 +56,12 @@ export default function UsersClient({
         password,
         role,
         system: payloadSystem,
+        display_name: displayName.trim() || null,
       }),
     })
     setSaving(false)
     if (res.ok) {
-      setUsername(''); setPassword(''); setRole('admin'); setSystem(isSuper ? '星光' : lockedSystem)
+      setUsername(''); setPassword(''); setDisplayName(''); setRole('admin'); setSystem(isSuper ? '星光' : lockedSystem)
       mutate()
     } else {
       const d = await res.json()
@@ -117,6 +122,11 @@ export default function UsersClient({
                 className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div className="space-y-1">
+              <label htmlFor="dn" className="text-xs text-slate-500">顯示姓名（選填）</label>
+              <input id="dn" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="留空則以帳號 / 學員姓名顯示"
+                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div className="space-y-1">
               <label htmlFor="r" className="text-xs text-slate-500">角色</label>
               <select id="r" value={role} onChange={e => setRole(e.target.value as UserRole)}
                 className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
@@ -170,8 +180,11 @@ export default function UsersClient({
               ) : users.map(u => (
                 <tr key={u.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 text-slate-800">
-                    {u.username}
+                    {u.display_name_resolved || u.username}
                     {u.must_change_password && <span className="ml-1.5 text-[10px] text-amber-600">（待改密碼）</span>}
+                    {(u.display_name_resolved || u.username) !== u.username && (
+                      <div className="text-[11px] text-slate-400">{u.username}</div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-slate-600">{ROLE_LABEL[u.role] ?? u.role}</td>
                   <td className="px-3 py-2 text-slate-600">{u.system ?? '—'}</td>

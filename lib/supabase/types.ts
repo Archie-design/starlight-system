@@ -9,6 +9,8 @@ export interface AppUser {
   role: UserRole
   /** admin 綁定的體系；superadmin 為 null（跨體系） */
   system: SheetSystem | null
+  /** 顯示姓名（可空）；留空時由姓名解析規則退回學員姓名(ID) 或 username */
+  display_name: string | null
   active: boolean
   must_change_password: boolean
   created_at: string
@@ -16,7 +18,7 @@ export interface AppUser {
 }
 
 /** checkAuth 回傳的精簡使用者資訊（不含 password_hash） */
-export type AuthUser = Pick<AppUser, 'id' | 'username' | 'role' | 'system' | 'must_change_password'>
+export type AuthUser = Pick<AppUser, 'id' | 'username' | 'role' | 'system' | 'display_name' | 'must_change_password'>
 
 export interface Student {
   id: number

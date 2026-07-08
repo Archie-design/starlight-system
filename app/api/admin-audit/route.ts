@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireManager } from '@/lib/auth/middleware'
+import { resolveByUsernames } from '@/lib/auth/displayName'
 
 export async function GET(request: NextRequest) {
   if (!(await requireManager(request))) {
@@ -24,5 +25,9 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ logs: data ?? [] })
+
+  // 附上操作者顯示姓名（display_name → 學員姓名(ID) → actor）
+  const nameMap = await resolveByUsernames((data ?? []).map((r) => r.actor))
+  const logs = (data ?? []).map((r) => ({ ...r, display_name: r.actor ? nameMap.get(r.actor) ?? r.actor : null }))
+  return NextResponse.json({ logs })
 }

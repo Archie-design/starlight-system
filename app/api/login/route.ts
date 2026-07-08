@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
   const { data: student } = await supabase
     .from('students')
-    .select('id, role, phone, business_chain')
+    .select('id, name, role, phone, business_chain')
     .eq('id', studentId)
     .maybeSingle()
 
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       password_hash,
       role,
       system: systemOf(student.business_chain),
+      display_name: student.name ?? null,
       active: true,
       must_change_password: true,
     })
