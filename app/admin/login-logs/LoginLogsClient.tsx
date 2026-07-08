@@ -47,6 +47,7 @@ const ACTION_LABEL: Record<string, string> = {
   password_reset: '重設密碼',
   data_export: '資料匯出',
   import_applied: '套用匯入',
+  display_name_updated: '改顯示姓名',
 }
 
 function fmt(iso: string): string {

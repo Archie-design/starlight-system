@@ -95,6 +95,22 @@ export default function UsersClient({
     }
   }
 
+  const editDisplayName = async (u: UserRow) => {
+    const dn = prompt(`為「${u.username}」設定顯示姓名（留空則清除，改以帳號/學員姓名顯示）：`, u.display_name ?? '')
+    if (dn === null) return // 取消
+    const res = await csrfFetch(`/api/users/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: dn.trim() || null }),
+    })
+    if (res.ok) {
+      mutate()
+    } else {
+      const d = await res.json()
+      alert(d.error ?? '更新失敗')
+    }
+  }
+
   return (
     <div className="min-h-dvh bg-slate-50 p-6">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -194,6 +210,8 @@ export default function UsersClient({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <button onClick={() => editDisplayName(u)}
+                      className="text-xs text-blue-600 hover:underline mr-3">改姓名</button>
                     <button onClick={() => resetPassword(u)}
                       className="text-xs text-blue-600 hover:underline mr-3">重設密碼</button>
                     <button onClick={() => toggleActive(u)}

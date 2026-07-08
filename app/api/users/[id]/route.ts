@@ -14,9 +14,10 @@ export async function PATCH(
   if (!actor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
-  const { active, newPassword } = await request.json() as {
+  const { active, newPassword, display_name } = await request.json() as {
     active?: boolean
     newPassword?: string
+    display_name?: string | null
   }
 
   const supabase = createServiceClient()
@@ -53,6 +54,11 @@ export async function PATCH(
     auditAction = 'password_reset'
   }
 
+  if (display_name !== undefined) {
+    update.display_name = display_name?.trim() || null
+    auditAction = 'display_name_updated'
+  }
+
   if (Object.keys(update).length === 1) {
     return NextResponse.json({ error: '無更新內容' }, { status: 400 })
   }
@@ -61,7 +67,7 @@ export async function PATCH(
     .from('users')
     .update(update)
     .eq('id', id)
-    .select('id, username, role, system, active, must_change_password')
+    .select('id, username, role, system, display_name, active, must_change_password')
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -39,8 +39,9 @@
 ### D4. 自助註冊寫入 display_name
 `app/api/login/route.ts` 自助分支已查出 student，`insert users` 時多帶 `display_name: student.name`。需在該處的 `.select` 補 `name`。
 
-### D5. 帳號管理表單加「顯示姓名」欄
-`UsersClient` 新增選填輸入；`POST /api/users` 接受並存 `display_name`。列表帳號欄改顯示解析後姓名。（本次不強制做 PATCH 編輯 display_name，可延後；以自助自動帶入 + 新增時填寫覆蓋主要情境。）
+### D5. 帳號管理表單加「顯示姓名」欄 + 既有帳號可編輯
+`UsersClient` 新增選填輸入；`POST /api/users` 接受並存 `display_name`。列表帳號欄改顯示解析後姓名。
+既有帳號（尤其信箱型 superadmin）可透過列表「改姓名」按鈕呼叫 `PATCH /api/users/[id]` 設定/清除 `display_name`（稽核 action=`display_name_updated`），補齊無學員對應的帳號姓名。
 
 ## Risks / Trade-offs
 
@@ -57,4 +58,4 @@
 
 ## Open Questions
 
-- 是否要提供「批次為既有信箱帳號補 display_name」的後台工具？本次先不做，靠新增/自助流程與（可選）PATCH 逐一補。
+- 是否要提供「批次為既有信箱帳號補 display_name」的後台工具？本次不做——已提供列表「改姓名」逐一補（PATCH），批次需求暫無。

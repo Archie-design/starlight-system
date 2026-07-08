@@ -26,6 +26,7 @@
 
 - [x] 6.1 `app/admin/login-logs/LoginLogsClient.tsx`：登入紀錄與操作稽核的「帳號 / 操作者」欄改顯示解析後姓名（退回 username）
 - [x] 6.2 `app/admin/users/UsersClient.tsx`：列表帳號欄顯示解析後姓名（並列原 username）；新增表單加「顯示姓名（選填）」輸入並送出
+- [x] 6.2b `app/api/users/[id]/route.ts` + `UsersClient`：既有帳號「改姓名」PATCH（稽核 display_name_updated），供信箱型帳號補姓名
 - [x] 6.3 各 layout 頂端登入者標示（students/counselors/maintenance）顯示 `display_name || username`；page 傳入 display_name、client 於掛載 setDisplayName
 
 ## 7. 驗證
