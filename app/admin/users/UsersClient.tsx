@@ -128,24 +128,24 @@ export default function UsersClient({
           <p className="text-sm font-semibold text-slate-700">新增帳號</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label htmlFor="u" className="text-xs text-slate-500">帳號</label>
+              <label htmlFor="u" className="text-xs font-medium text-slate-600">帳號</label>
               <input id="u" value={username} onChange={e => setUsername(e.target.value)} required
-                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full border border-slate-400 rounded px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="p" className="text-xs text-slate-500">初始密碼</label>
+              <label htmlFor="p" className="text-xs font-medium text-slate-600">初始密碼</label>
               <input id="p" type="text" value={password} onChange={e => setPassword(e.target.value)} required
-                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full border border-slate-400 rounded px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="dn" className="text-xs text-slate-500">顯示姓名（選填）</label>
+              <label htmlFor="dn" className="text-xs font-medium text-slate-600">顯示姓名（選填）</label>
               <input id="dn" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="留空則以帳號 / 學員姓名顯示"
-                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full border border-slate-400 rounded px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="r" className="text-xs text-slate-500">角色</label>
+              <label htmlFor="r" className="text-xs font-medium text-slate-600">角色</label>
               <select id="r" value={role} onChange={e => setRole(e.target.value as UserRole)}
-                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                className="w-full border border-slate-400 rounded px-2 py-1.5 text-sm text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
                 <option value="admin">體系管理者</option>
                 <option value="system_admin">體系長</option>
                 {/* 只有 superadmin 能再建立 superadmin */}
@@ -154,17 +154,17 @@ export default function UsersClient({
             </div>
             {role !== 'superadmin' && (
               <div className="space-y-1">
-                <label htmlFor="s" className="text-xs text-slate-500">體系</label>
+                <label htmlFor="s" className="text-xs font-medium text-slate-600">體系</label>
                 {isSuper ? (
                   <select id="s" value={system} onChange={e => setSystem(e.target.value as SheetSystem)}
-                    className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    className="w-full border border-slate-400 rounded px-2 py-1.5 text-sm text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <option value="星光">星光</option>
                     <option value="太陽">太陽</option>
                   </select>
                 ) : (
                   // 非 superadmin 鎖定自己體系，不可變更
                   <input id="s" value={lockedSystem} disabled
-                    className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm bg-slate-50 text-slate-500" />
+                    className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-slate-100 text-slate-600" />
                 )}
               </div>
             )}
