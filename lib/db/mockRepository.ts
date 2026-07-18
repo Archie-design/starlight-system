@@ -8,6 +8,7 @@ import {
   isResubscribeCandidate,
   owesPayment,
 } from '@/lib/utils/studentStatus'
+import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
 import type {
   StudentRepository,
   StudentFilters,
@@ -18,7 +19,7 @@ import type {
   RepositoryContextValue,
 } from './types'
 
-function matchesFilters(s: Student, filters: StudentFilters): boolean {
+function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<string>): boolean {
   const now = Date.now()
   if (filters.name && !s.name.includes(filters.name)) return false
   if (filters.counselor && !(s.counselor ?? '').includes(filters.counselor)) return false
@@ -38,6 +39,8 @@ function matchesFilters(s: Student, filters: StudentFilters): boolean {
       break
     }
     case 'newbie':      if (!isNewbie(s, now)) return false; break
+    // 同名：依呼叫端先統計的重複姓名集合判定
+    case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break
   }
   return true
 }
@@ -61,28 +64,41 @@ function paginate(rows: Student[], range: PageRange): PagedStudents {
 export class MockStudentRepository implements StudentRepository {
   constructor(public data: Student[] = []) {}
 
+  /** 同名統計母體＝該體系全體（與正式查詢層一致，不跨體系） */
+  private duplicatesFor(system: SheetSystem, filters: StudentFilters): Set<string> | undefined {
+    if (filters.view !== 'duplicate_name') return undefined
+    return buildDuplicateNameSet(this.data.filter((s) => systemOf(s.business_chain) === system))
+  }
+
   async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
-    const rows = this.data
-      .filter((s) => systemOf(s.business_chain) === system && matchesFilters(s, filters))
-      .sort((a, b) => a.id - b.id)
+    const duplicates = this.duplicatesFor(system, filters)
+    const filtered = this.data
+      .filter((s) => systemOf(s.business_chain) === system && matchesFilters(s, filters, duplicates))
+    const rows = filters.view === 'duplicate_name'
+      ? sortByNameGroup(filtered)
+      : filtered.sort((a, b) => a.id - b.id)
     return paginate(rows, range)
   }
 
   async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
-    const rows = this.data
-      .filter((s) => s.group_leader === groupLeader && systemOf(s.business_chain) === system && matchesFilters(s, filters))
-      .sort((a, b) => a.id - b.id)
+    const duplicates = this.duplicatesFor(system, filters)
+    const filtered = this.data
+      .filter((s) => s.group_leader === groupLeader && systemOf(s.business_chain) === system && matchesFilters(s, filters, duplicates))
+    const rows = filters.view === 'duplicate_name'
+      ? sortByNameGroup(filtered)
+      : filtered.sort((a, b) => a.id - b.id)
     return paginate(rows, range)
   }
 
   async findByMaintenanceCategory(category: MaintenanceCategory, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+    const duplicates = this.duplicatesFor(system, filters)
     const rows = this.data
       .filter((s) => {
         if (systemOf(s.business_chain) !== system) return false
         if (category === 'MISSING_GROUP' && s.group_leader != null) return false
         if (category === 'MISSING_COUNSELOR' && s.senior_counselor != null) return false
         if (category === 'MISSING_CHAIN' && s.guidance_chain != null) return false
-        return matchesFilters(s, filters)
+        return matchesFilters(s, filters, duplicates)
       })
       .sort((a, b) => a.id - b.id)
     return paginate(rows, range)

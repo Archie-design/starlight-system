@@ -11,6 +11,7 @@ import {
   owesPayment,
   type MembershipStatus,
 } from '@/lib/utils/studentStatus'
+import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
 import { buildStudentsXlsx } from '@/lib/export/buildXlsx'
 import type { Student } from '@/lib/supabase/types'
 import type { StudentView } from '@/lib/db/types'
@@ -61,7 +62,10 @@ export async function GET(request: NextRequest) {
 
     // 跨欄位條件 JS 後處理（與表格篩選一致）
     const now = Date.now()
-    const rows = all.filter((s) => {
+    // 同名視圖需先以全量資料統計重複姓名（跨列判定）
+    const duplicates = view === 'duplicate_name' ? buildDuplicateNameSet(all) : undefined
+
+    let rows = all.filter((s) => {
       if (courseStage !== null && highestStage(s) !== courseStage) return false
       if (memStatus && membershipStatus(s.membership_expiry, now) !== memStatus) return false
       if (wantNewbie && !isNewbie(s, now)) return false
@@ -73,9 +77,12 @@ export async function GET(request: NextRequest) {
           return m === 'expired' || m === 'in30'
         }
         case 'newbie':      return isNewbie(s, now)
+        case 'duplicate_name': return !!duplicates && isDuplicateName(s, duplicates)
       }
       return true
     })
+    // 與畫面一致：同名者相鄰排列
+    if (view === 'duplicate_name') rows = sortByNameGroup(rows)
 
     logAdminAction('data_export', { actor: user.username, target: system, detail: `${rows.length} 筆` }, request)
 

@@ -9,6 +9,7 @@ import {
   isResubscribeCandidate,
   owesPayment,
 } from '@/lib/utils/studentStatus'
+import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
 import type {
   StudentRepository,
   StudentFilters,
@@ -46,8 +47,16 @@ function needsPostFilter(filters: StudentFilters): boolean {
   )
 }
 
-/** JS 端套用課程進度 / 會籍 / 新生 / 快捷視圖條件 */
-function matchesPostFilter(s: Student, filters: StudentFilters, now: number): boolean {
+/**
+ * JS 端套用課程進度 / 會籍 / 新生 / 快捷視圖條件
+ * @param duplicates 'duplicate_name' 視圖用的重複姓名集合（由呼叫端先統計全量資料建立）
+ */
+function matchesPostFilter(
+  s: Student,
+  filters: StudentFilters,
+  now: number,
+  duplicates?: Set<string>,
+): boolean {
   if (filters.courseStage !== '' && filters.courseStage !== undefined) {
     if (highestStage(s) !== filters.courseStage) return false
   }
@@ -65,6 +74,8 @@ function matchesPostFilter(s: Student, filters: StudentFilters, now: number): bo
       break
     }
     case 'newbie':      if (!isNewbie(s, now)) return false; break
+    // 同名：依全量統計出的重複姓名集合判定（集合未建立時視為無結果）
+    case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break
   }
   return true
 }
@@ -107,7 +118,14 @@ class SupabaseStudentRepository implements StudentRepository {
       if (data.length < 1000) break
     }
     const now = Date.now()
-    const filtered = all.filter((s) => matchesPostFilter(s, filters, now))
+    // 同名視圖需先以全量資料統計重複姓名（跨列判定，無法逐列得知）
+    const duplicates =
+      filters.view === 'duplicate_name' ? buildDuplicateNameSet(all) : undefined
+
+    let filtered = all.filter((s) => matchesPostFilter(s, filters, now, duplicates))
+    // 同名者相鄰顯示，便於逐一比對
+    if (filters.view === 'duplicate_name') filtered = sortByNameGroup(filtered)
+
     const start = range.page * range.pageSize
     return { rows: filtered.slice(start, start + range.pageSize), count: filtered.length }
   }

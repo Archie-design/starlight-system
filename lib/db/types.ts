@@ -2,8 +2,12 @@ import type { Student, SheetSystem } from '@/lib/supabase/types'
 
 import type { MembershipStatus } from '@/lib/utils/studentStatus'
 
-/** 情境快捷視圖（跨欄位衍生條件，一次一個） */
-export type StudentView = 'resubscribe' | 'owing' | 'expiring' | 'newbie'
+/**
+ * 情境快捷視圖（跨欄位衍生條件，一次一個）
+ * 註：'duplicate_name' 需以「全體系姓名出現次數」判定（跨列統計），
+ *     不像其他視圖可逐列判斷。
+ */
+export type StudentView = 'resubscribe' | 'owing' | 'expiring' | 'newbie' | 'duplicate_name'
 
 /**
  * 學員清單的通用篩選器（對應 FilterBar / store filters）。

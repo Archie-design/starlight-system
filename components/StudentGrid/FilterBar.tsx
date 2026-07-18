@@ -29,6 +29,7 @@ const QUICK_VIEWS: { value: StudentView; label: string }[] = [
   { value: 'owing', label: '待催欠款' },
   { value: 'expiring', label: '會籍快到期' },
   { value: 'newbie', label: '本月新生' },
+  { value: 'duplicate_name', label: '同名學員' },
 ]
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
