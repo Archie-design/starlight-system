@@ -220,6 +220,7 @@ export const studentColumns = [
     id: 'name_with_id',
     header: '學員(含學編)',
     size: 120,
+    enableSorting: false,
     cell: (info) => (
       <span className="text-gray-400 text-xs">{info.row.original.name_with_id}</span>
     ),

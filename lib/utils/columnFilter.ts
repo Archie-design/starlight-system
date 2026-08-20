@@ -34,17 +34,34 @@ export const COLUMN_FILTER_FIELDS: Record<string, ColumnFilterValue['type']> = {
 }
 
 /**
- * 表頭排序的白名單：僅原生資料庫欄位可排序，須與 `columns.tsx` 各欄位
- * 的 `enableSorting` 標記一致——衍生計算欄（課程進度、上課梯次彙總等）
- * 不開放排序，避免要在已下推分頁的資料上做二次排序而導致跨頁排序錯誤。
+ * 表頭排序的白名單：所有對應 `Student` 原生欄位的表格欄位皆可排序，
+ * 須與 `columns.tsx` 各欄位的 `enableSorting` 標記一致——僅 `ch.display()`
+ * 建立的衍生計算欄（`name_with_id`、`course_summary`）不開放排序，因為
+ * 它們沒有底層資料庫欄位可供 `.order()` 或比較排序。
  * `columns.tsx`（決定表頭是否顯示排序圖示）與兩個 repository（決定
  * `.order()`/JS 排序是否真的套用）都從這裡讀取，避免兩邊各自維護
  * 一份清單而漂移（曾發生：欄位顯示排序圖示，但後端白名單沒有該欄位，
  * 點擊排序圖示後資料順序沒有任何變化）。
+ *
+ * 這裡的每個欄位都是 `students` 表的實際資料庫欄位，PostgREST 可直接
+ * 對其 `.order()` 下推排序，不需要退化成全量載入 + JS 排序。
  */
-export const SORTABLE_FIELDS = new Set([
-  'id', 'name', 'birthday', 'membership_expiry',
+export const SORTABLE_FIELDS = new Set<string>([
+  'id', 'name', 'gender', 'role', 'phone', 'line_id',
+  'introducer', 'relation', 'business_chain', 'counselor', 'little_angel',
+  'birthday', 'dream_interpreter', 'senior_counselor', 'region', 'guidance_chain',
+  'membership_expiry',
+  'course_1', 'payment_1', 'parent_1',
+  'course_2', 'payment_2',
+  'course_3', 'payment_3',
+  'course_4', 'payment_4',
+  'course_5', 'payment_5',
+  'course_wuyun', 'payment_wuyun',
+  'wuyun_a', 'wuyun_b', 'wuyun_c', 'wuyun_d', 'wuyun_f',
+  'life_numbers', 'life_numbers_advanced', 'life_transform', 'debt_release',
+  'group_leader',
   'spirit_ambassador_join_date', 'love_giving_start_date',
+  'spirit_ambassador_group', 'cumulative_seniority',
 ])
 
 /** 只保留白名單內、型態相符的欄位篩選，過濾掉未知或型態不符的 key */
