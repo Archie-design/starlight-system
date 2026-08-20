@@ -13,10 +13,12 @@ interface MultiSelectDropdownProps {
   selected: string[]
   onChange: (next: string[]) => void
   title?: string
+  /** 精簡模式：僅顯示放大鏡圖示（用於表頭欄位篩選），不顯示文字/箭頭 */
+  iconOnly?: boolean
 }
 
 /** 通用多選下拉：以 checkbox 清單勾選多個值，按鈕上顯示已選數量 */
-export default function MultiSelectDropdown({ label, options, selected, onChange, title }: MultiSelectDropdownProps) {
+export default function MultiSelectDropdown({ label, options, selected, onChange, title, iconOnly }: MultiSelectDropdownProps) {
   const { open, setOpen, ref } = usePopoverToggle<HTMLDivElement>()
 
   const toggle = (value: string) => {
@@ -27,24 +29,39 @@ export default function MultiSelectDropdown({ label, options, selected, onChange
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        title={title}
-        className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors select-none ${
-          active
-            ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium'
-            : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
-        }`}
-      >
-        {label}
-        {active && (
-          <span className="px-1 bg-blue-500 text-white rounded-full text-[10px] leading-tight tabular-nums">
-            {selected.length}
-          </span>
-        )}
-        <span className="text-slate-400 text-[10px]">▾</span>
-      </button>
+      {iconOnly ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          title={active ? `${title ?? label}（已選 ${selected.length} 項，點擊調整）` : title}
+          className={`flex items-center justify-center w-4 h-4 rounded transition-colors ${
+            active
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+          }`}
+        >
+          <span className="text-[10px]">🔍</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          title={title}
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors select-none ${
+            active
+              ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium'
+              : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          {label}
+          {active && (
+            <span className="px-1 bg-blue-500 text-white rounded-full text-[10px] leading-tight tabular-nums">
+              {selected.length}
+            </span>
+          )}
+          <span className="text-slate-400 text-[10px]">▾</span>
+        </button>
+      )}
 
       {open && (
         <div className="absolute z-50 mt-1 min-w-[9rem] bg-white border border-slate-300 rounded shadow-lg py-1">

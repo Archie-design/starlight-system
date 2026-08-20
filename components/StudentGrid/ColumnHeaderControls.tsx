@@ -36,7 +36,8 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
     const selected = current?.type === 'enum' ? current.values : []
     return (
       <MultiSelectDropdown
-        label=""
+        iconOnly
+        label={String(column.columnDef.header)}
         title={`篩選「${String(column.columnDef.header)}」`}
         options={(meta.enumOptions ?? []).map((v) => ({ value: v, label: v }))}
         selected={selected}
