@@ -89,8 +89,10 @@ export default function CounselorsLayout() {
   }, [showColMenu])
 
   const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)
-  const hasFilter = Object.values(filters).some(isActive)
-  const activeFilterCount = Object.values(filters).filter(isActive).length
+  const { columnFilters, ...baseFilters } = filters
+  const columnFilterCount = Object.keys(columnFilters).length
+  const hasFilter = columnFilterCount > 0 || Object.values(baseFilters).some(isActive)
+  const activeFilterCount = columnFilterCount + Object.values(baseFilters).filter(isActive).length
   const isExpiringActive =
     filters.membershipStatus.length === EXPIRING_STATUSES.length &&
     EXPIRING_STATUSES.every((s) => filters.membershipStatus.includes(s))

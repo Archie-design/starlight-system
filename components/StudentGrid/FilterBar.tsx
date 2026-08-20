@@ -51,8 +51,10 @@ function formatLastUpdated(iso: string | null | undefined): string {
 export default function FilterBar() {
   const { filters, setFilter, setMembershipStatus, toggleQuickView, resetFilters, setColumnFilter, sort, setSort } = useStudentStore()
   const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)
-  const hasFilter = Object.values(filters).some(isActive)
-  const activeCount = Object.values(filters).filter(isActive).length
+  const { columnFilters, ...baseFilters } = filters
+  const columnFilterCount = Object.keys(columnFilters).length
+  const hasFilter = columnFilterCount > 0 || Object.values(baseFilters).some(isActive)
+  const activeCount = columnFilterCount + Object.values(baseFilters).filter(isActive).length
   const isExpiringActive =
     filters.membershipStatus.length === EXPIRING_STATUSES.length &&
     EXPIRING_STATUSES.every((s) => filters.membershipStatus.includes(s))
