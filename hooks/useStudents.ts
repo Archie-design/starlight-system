@@ -8,14 +8,14 @@ import type { Student } from '@/lib/supabase/types'
 export const PAGE_SIZE = 100
 
 export function useStudents() {
-  const { activeTab, filters, page, username } = useStudentStore()
+  const { activeTab, filters, page, username, sort } = useStudentStore()
   const { students: repo } = useRepository()
 
-  const key = ['students', activeTab, filters, page]
+  const key = ['students', activeTab, filters, page, sort]
 
   const { data, error, isLoading, mutate } = useSWR<{ rows: Student[]; count: number }>(
     key,
-    () => repo.findBySystem(activeTab, filters, { page, pageSize: PAGE_SIZE }),
+    () => repo.findBySystem(activeTab, filters, { page, pageSize: PAGE_SIZE }, sort),
     {
       keepPreviousData: true,
       revalidateOnFocus: false,

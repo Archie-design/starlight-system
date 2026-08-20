@@ -8,16 +8,16 @@ import type { Student } from '@/lib/supabase/types'
 export const COUNSELOR_PAGE_SIZE = 100
 
 export function useCounselorStudents() {
-  const { system, activeGroup, filters, page, username } = useCounselorStore()
+  const { system, activeGroup, filters, page, username, sort } = useCounselorStore()
   const { students: repo } = useRepository()
 
   const key = activeGroup
-    ? ['counselor-students', system, activeGroup, filters, page]
+    ? ['counselor-students', system, activeGroup, filters, page, sort]
     : null  // null → SWR 不發請求
 
   const { data, error, isLoading, mutate } = useSWR<{ rows: Student[]; count: number }>(
     key,
-    () => repo.findByGroupLeader(activeGroup!, system, filters, { page, pageSize: COUNSELOR_PAGE_SIZE }),
+    () => repo.findByGroupLeader(activeGroup!, system, filters, { page, pageSize: COUNSELOR_PAGE_SIZE }, sort),
     { keepPreviousData: true, revalidateOnFocus: false }
   )
 

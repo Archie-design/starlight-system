@@ -4,10 +4,30 @@ import EditableCell from './EditableCell'
 
 const ch = createColumnHelper<Student>()
 
-const editable = (field: keyof Student, header: string, width = 100) =>
+/**
+ * 表頭逐欄篩選/排序的白名單中介資料。
+ * - `filterable`：該欄位表頭要不要顯示篩選圖示、用哪種篩選面板
+ *   （'text' 包含比對／'enum' 複選／'range' 日期或數值區間）。
+ * - `sortable`：該欄位要不要顯示排序控制。僅原生資料庫欄位可標記，
+ *   衍生計算欄（如課程進度、上課梯次彙總）不開放排序，避免要在
+ *   已下推分頁的資料上做二次排序而導致跨頁排序錯誤。
+ * 後端只信任這份白名單內的 key，其餘一律忽略。
+ */
+export interface StudentColumnMeta {
+  filterable?: 'text' | 'enum' | 'range'
+  enumOptions?: string[]
+}
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> extends StudentColumnMeta {}
+}
+
+const editable = (field: keyof Student, header: string, width = 100, meta?: StudentColumnMeta) =>
   ch.accessor(field, {
     header,
     size: width,
+    meta,
     cell: (info) => (
       <EditableCell
         value={info.getValue() as string | null}
@@ -26,6 +46,7 @@ const selectCell = (
   ch.accessor(field, {
     header,
     size: width,
+    meta: { filterable: 'enum', enumOptions: options },
     cell: (info) => (
       <EditableCell
         value={info.getValue() as string | null}
@@ -61,6 +82,7 @@ export const studentColumns = [
     header: '姓名',
     size: 100,
     enableSorting: true,
+    meta: { filterable: 'text' },
     cell: (info) => (
       <EditableCell
         value={info.getValue()}
@@ -73,6 +95,8 @@ export const studentColumns = [
   ch.accessor('birthday', {
     header: '生日',
     size: 110,
+    enableSorting: true,
+    meta: { filterable: 'range' },
     cell: (info) => (
       <EditableCell
         value={info.getValue()}
@@ -90,20 +114,22 @@ export const studentColumns = [
   ], 120),
 
   // ── 聯絡資訊 ──────────────────────────────────────────────
-  editable('phone', '手機', 120),
-  editable('line_id', 'LINE ID', 120),
+  editable('phone', '手機', 120, { filterable: 'text' }),
+  editable('line_id', 'LINE ID', 120, { filterable: 'text' }),
 
   // ── 組織脈絡 ──────────────────────────────────────────────
-  editable('introducer', '介紹人', 120),
-  editable('relation', '關係人', 100),
-  editable('business_chain', '業務脈', 80),
-  editable('counselor', '關懷員', 120),
-  editable('little_angel', '小天使', 100),
+  editable('introducer', '介紹人', 120, { filterable: 'text' }),
+  editable('relation', '關係人', 100, { filterable: 'text' }),
+  editable('business_chain', '業務脈', 80, { filterable: 'text' }),
+  editable('counselor', '關懷員', 120, { filterable: 'text' }),
+  editable('little_angel', '小天使', 100, { filterable: 'text' }),
 
   // ── 心之使者 ──────────────────────────────────────────────
   ch.accessor('spirit_ambassador_join_date', {
     header: '心之使者加入日',
     size: 120,
+    enableSorting: true,
+    meta: { filterable: 'range' },
     cell: (info) => (
       <EditableCell value={info.getValue()} rowId={info.row.original.id}
         field="spirit_ambassador_join_date" type="date" />
@@ -112,21 +138,25 @@ export const studentColumns = [
   ch.accessor('love_giving_start_date', {
     header: '大愛付出起始日',
     size: 120,
+    enableSorting: true,
+    meta: { filterable: 'range' },
     cell: (info) => (
       <EditableCell value={info.getValue()} rowId={info.row.original.id}
         field="love_giving_start_date" type="date" />
     ),
   }),
-  editable('spirit_ambassador_group', '心之使者組別', 100),
+  editable('spirit_ambassador_group', '心之使者組別', 100, { filterable: 'text' }),
   editable('cumulative_seniority', '累積年資', 80),
 
-  editable('dream_interpreter', '圓夢解盤員', 100),
-  editable('senior_counselor', '關懷長', 120),
+  editable('dream_interpreter', '圓夢解盤員', 100, { filterable: 'text' }),
+  editable('senior_counselor', '關懷長', 120, { filterable: 'text' }),
   selectCell('region', '地區', ['北區', '中區', '南區'], 80),
-  editable('guidance_chain', '關懷脈', 80),
+  editable('guidance_chain', '關懷脈', 80, { filterable: 'text' }),
   ch.accessor('membership_expiry', {
     header: '社團會籍',
     size: 110,
+    enableSorting: true,
+    meta: { filterable: 'range' },
     cell: (info) => (
       <EditableCell
         value={info.getValue()}
@@ -174,7 +204,7 @@ export const studentColumns = [
   editable('debt_release', '生生世世告別負債貧窮', 150),
 
   // ── 關懷長分組 ───────────────────────────────────────────────
-  editable('group_leader', '所屬分組', 120),
+  editable('group_leader', '所屬分組', 120, { filterable: 'text' }),
 
   // ── 計算欄 (唯讀) ─────────────────────────────────────────
   ch.display({

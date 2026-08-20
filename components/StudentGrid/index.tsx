@@ -3,9 +3,7 @@
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
   flexRender,
-  type SortingState,
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -13,6 +11,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useStudents, PAGE_SIZE } from '@/hooks/useStudents'
 import { useStudentStore } from '@/store/useStudentStore'
 import { studentColumns } from './columns'
+import { ColumnHeaderFilter, ColumnHeaderSort } from './ColumnHeaderControls'
 import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
@@ -23,8 +22,10 @@ const ROW_HEIGHT = 28
 
 export default function StudentGrid() {
   const { students, count, isLoading } = useStudents()
-  const { page, setPage, columnVisibility, setColumnVisibility } = useStudentStore()
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: false }])
+  const {
+    page, setPage, columnVisibility, setColumnVisibility,
+    filters, setColumnFilter, sort, setSort,
+  } = useStudentStore()
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -35,16 +36,16 @@ export default function StudentGrid() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // 排序改為伺服器端（見 design.md 決策 2）：table 本身不再排序，
+  // sorting state 僅用於讓表頭圖示反映目前的 `sort` store 狀態。
   const table = useReactTable({
     data: students,
     columns: studentColumns,
-    state: { sorting, columnVisibility },
-    onSortingChange: setSorting,
+    state: { columnVisibility },
     onColumnVisibilityChange: (updater) => {
       setColumnVisibility(typeof updater === 'function' ? updater(columnVisibility) : updater)
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     columnResizeMode: 'onChange' as ColumnResizeMode,
     enableColumnResizing: true,
     defaultColumn: { minSize: 50 },
@@ -102,15 +103,21 @@ export default function StudentGrid() {
                       className={`
                         relative px-1.5 py-1.5 text-left font-bold text-slate-700 border-r border-slate-300
                         select-none whitespace-nowrap text-xs
-                        ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700 active:bg-slate-300' : ''}
                         ${isPinned ? 'sticky z-30 bg-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : ''}
                       `}
-                      onClick={header.column.getToggleSortingHandler()}
                     >
-                      <span className="truncate block pr-2">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === 'asc' && <span className="text-blue-600 ml-0.5">↑</span>}
-                        {header.column.getIsSorted() === 'desc' && <span className="text-blue-600 ml-0.5">↓</span>}
+                      <span className="flex items-center gap-1 pr-2">
+                        <span className="truncate">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </span>
+                        {header.column.getCanSort() && (
+                          <ColumnHeaderSort field={header.column.id} sort={sort} setSort={setSort} />
+                        )}
+                        <ColumnHeaderFilter
+                          column={header.column}
+                          columnFilters={filters.columnFilters}
+                          setColumnFilter={setColumnFilter}
+                        />
                       </span>
                       {/* 欄寬調整把手 */}
                       {!isPinned && (

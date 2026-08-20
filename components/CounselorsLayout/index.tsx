@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import NavButton from '../NavButton'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
 import { useCounselorStudents } from '@/hooks/useCounselorStudents'
@@ -14,6 +14,10 @@ import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
 import type { StudentView } from '@/lib/db/types'
 import type { MembershipStatus } from '@/lib/utils/studentStatus'
 import MultiSelectDropdown from '../shared/MultiSelectDropdown'
+import {
+  encodeColumnFiltersToParams, decodeColumnFiltersFromParams,
+  encodeSortToParams, decodeSortFromParams,
+} from '@/lib/utils/columnFilterUrl'
 
 const COURSE_STAGES: { value: 0 | 1 | 2 | 3 | 4 | 5; label: string }[] = [
   { value: 0, label: '未上課' }, { value: 1, label: '一階' }, { value: 2, label: '二階' },
@@ -32,13 +36,38 @@ const QUICK_VIEWS: { value: StudentView; label: string }[] = [
 const EXPIRING_STATUSES: MembershipStatus[] = ['expired', 'in30']
 
 export default function CounselorsLayout() {
-  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, setMembershipStatus, toggleQuickView, resetFilters, columnVisibility, setColumnVisibility, displayName, username } = useCounselorStore()
+  const {
+    role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, setMembershipStatus,
+    toggleQuickView, resetFilters, columnVisibility, setColumnVisibility, displayName, username,
+    setColumnFilter, sort, setSort,
+  } = useCounselorStore()
   const { groups, isLoading: groupsLoading } = useCounselorGroups(system)
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
   const [showColMenu, setShowColMenu] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // 初次載入：從 URL 還原表頭篩選與排序
+  useEffect(() => {
+    const columnFilters = decodeColumnFiltersFromParams(searchParams)
+    for (const [field, value] of Object.entries(columnFilters)) setColumnFilter(field, value)
+
+    const restoredSort = decodeSortFromParams(searchParams)
+    if (restoredSort) setSort(restoredSort)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 表頭篩選與排序變更時同步 URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    encodeColumnFiltersToParams(params, filters.columnFilters)
+    encodeSortToParams(params, sort)
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [filters.columnFilters, sort, pathname, router])
 
   // 分組載入後（或切換體系後），若目前選取的分組不在清單中，自動選取第一個
   useEffect(() => {

@@ -8,6 +8,10 @@ import { REGIONS, ROLES } from '@/lib/constants'
 import type { StudentView } from '@/lib/db/types'
 import type { MembershipStatus } from '@/lib/utils/studentStatus'
 import MultiSelectDropdown from '@/components/shared/MultiSelectDropdown'
+import {
+  encodeColumnFiltersToParams, decodeColumnFiltersFromParams,
+  encodeSortToParams, decodeSortFromParams,
+} from '@/lib/utils/columnFilterUrl'
 
 const COURSE_STAGES: { value: 0 | 1 | 2 | 3 | 4 | 5; label: string }[] = [
   { value: 0, label: '未上課' },
@@ -45,7 +49,7 @@ function formatLastUpdated(iso: string | null | undefined): string {
 }
 
 export default function FilterBar() {
-  const { filters, setFilter, setMembershipStatus, toggleQuickView, resetFilters } = useStudentStore()
+  const { filters, setFilter, setMembershipStatus, toggleQuickView, resetFilters, setColumnFilter, sort, setSort } = useStudentStore()
   const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)
   const hasFilter = Object.values(filters).some(isActive)
   const activeCount = Object.values(filters).filter(isActive).length
@@ -72,6 +76,12 @@ export default function FilterBar() {
     if (region) setFilter('region', region)
     if (role) setFilter('role', role)
     if (hasCourse5) setFilter('hasCourse5', true)
+
+    const columnFilters = decodeColumnFiltersFromParams(searchParams)
+    for (const [field, value] of Object.entries(columnFilters)) setColumnFilter(field, value)
+
+    const restoredSort = decodeSortFromParams(searchParams)
+    if (restoredSort) setSort(restoredSort)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -83,9 +93,11 @@ export default function FilterBar() {
     if (filters.region) params.set('region', filters.region)
     if (filters.role) params.set('role', filters.role)
     if (filters.hasCourse5) params.set('hasCourse5', '1')
+    encodeColumnFiltersToParams(params, filters.columnFilters)
+    encodeSortToParams(params, sort)
     const qs = params.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-  }, [filters, pathname, router])
+  }, [filters, sort, pathname, router])
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg shadow-sm">

@@ -2,19 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { logAdminAction } from '@/lib/auth/audit'
-import { applySystemFilter } from '@/lib/utils/system'
-import {
-  highestStage,
-  membershipStatus,
-  isNewbie,
-  isResubscribeCandidate,
-  owesPayment,
-  type MembershipStatus,
-} from '@/lib/utils/studentStatus'
-import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
+import { SupabaseStudentRepository } from '@/lib/db/supabaseRepository'
+import { decodeColumnFiltersFromParams, decodeSortFromParams } from '@/lib/utils/columnFilterUrl'
 import { buildStudentsXlsx } from '@/lib/export/buildXlsx'
 import type { Student } from '@/lib/supabase/types'
-import type { StudentView } from '@/lib/db/types'
+import type { StudentFilters, StudentView } from '@/lib/db/types'
+import type { MembershipStatus } from '@/lib/utils/studentStatus'
+
+// 匯出全量結果的分頁批次大小（避開 Supabase 單次查詢筆數上限）
+const EXPORT_PAGE_SIZE = 1000
 
 export async function GET(request: NextRequest) {
   const { valid, user } = await checkAuth(request)
@@ -22,68 +18,47 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const name = searchParams.get('name') ?? ''
-    const counselor = searchParams.get('counselor') ?? ''
-    const region = searchParams.get('region') ?? ''
-    const role = searchParams.get('role') ?? ''
     const courseStageRaw = searchParams.get('courseStage')
-    const courseStage = courseStageRaw === null || courseStageRaw === '' ? null : Number(courseStageRaw)
+    const courseStage = courseStageRaw === null || courseStageRaw === ''
+      ? undefined
+      : (Number(courseStageRaw) as 0 | 1 | 2 | 3 | 4 | 5)
     const memStatusRaw = searchParams.get('membershipStatus') ?? ''
     const memStatuses = memStatusRaw ? (memStatusRaw.split(',') as MembershipStatus[]) : []
-    const wantSpirit = searchParams.get('isSpirit') === '1'
-    const wantNewbie = searchParams.get('isNewbie') === '1'
-    const view = (searchParams.get('view') ?? '') as StudentView | ''
+
+    // 篩選條件與畫面共用同一組 StudentFilters，交由 repository 套用
+    // （可下推 SQL 的欄位篩選 + JS 後處理的 enum/range/課程進度/快捷視圖），
+    // 確保「匯出 = 畫面所見」不再是第三份獨立邏輯。
+    const filters: StudentFilters = {
+      name: searchParams.get('name') ?? '',
+      counselor: searchParams.get('counselor') ?? '',
+      region: searchParams.get('region') ?? '',
+      role: searchParams.get('role') ?? '',
+      courseStage: courseStage ?? '',
+      membershipStatus: memStatuses,
+      isSpirit: searchParams.get('isSpirit') === '1',
+      isNewbie: searchParams.get('isNewbie') === '1',
+      view: (searchParams.get('view') as StudentView | '') || null,
+      columnFilters: decodeColumnFiltersFromParams(searchParams),
+    }
+    const sort = decodeSortFromParams(searchParams)
 
     // 體系一律以 server session 身分為準，忽略 client 傳入的 system
     const system = await getEffectiveSystem(user)
 
-    const supabase = createServiceClient()
+    // service-role client（繞過 RLS），與畫面查詢用的 anon client 分開
+    const repo = new SupabaseStudentRepository(createServiceClient())
 
-    let query = applySystemFilter(
-      supabase.from('students').select('*'),
-      system,
-    ).order('id', { ascending: true })
-
-    // 可下推的單欄位條件
-    if (name) query = query.ilike('name', `%${name}%`)
-    if (counselor) query = query.ilike('counselor', `%${counselor}%`)
-    if (region) query = query.eq('region', region)
-    if (role) query = query.eq('role', role)
-    if (wantSpirit) query = query.not('spirit_ambassador_join_date', 'is', null)
-
-    // 全量載入（分頁避開 Supabase 1000 筆上限）
+    // 全量載入：以大 pageSize 分頁迴圈取得符合條件的完整結果（非畫面分頁的單頁）
     const all: Student[] = []
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await query.range(from, from + 999)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      if (!data || data.length === 0) break
-      all.push(...(data as Student[]))
-      if (data.length < 1000) break
+    for (let page = 0; ; page++) {
+      const { rows, count } = await repo.findBySystem(system, filters, { page, pageSize: EXPORT_PAGE_SIZE }, sort)
+      all.push(...rows)
+      if (all.length >= count || rows.length === 0) break
     }
 
-    // 跨欄位條件 JS 後處理（與表格篩選一致）
-    const now = Date.now()
-    // 同名視圖需先以全量資料統計重複姓名（跨列判定）
-    const duplicates = view === 'duplicate_name' ? buildDuplicateNameSet(all) : undefined
+    logAdminAction('data_export', { actor: user.username, target: system, detail: `${all.length} 筆` }, request)
 
-    let rows = all.filter((s) => {
-      if (courseStage !== null && highestStage(s) !== courseStage) return false
-      if (memStatuses.length > 0 && !memStatuses.includes(membershipStatus(s.membership_expiry, now))) return false
-      if (wantNewbie && !isNewbie(s, now)) return false
-      switch (view) {
-        case 'resubscribe': return isResubscribeCandidate(s)
-        case 'owing':       return owesPayment(s)
-        case 'newbie':      return isNewbie(s, now)
-        case 'duplicate_name': return !!duplicates && isDuplicateName(s, duplicates)
-      }
-      return true
-    })
-    // 與畫面一致：同名者相鄰排列
-    if (view === 'duplicate_name') rows = sortByNameGroup(rows)
-
-    logAdminAction('data_export', { actor: user.username, target: system, detail: `${rows.length} 筆` }, request)
-
-    const buffer = await buildStudentsXlsx(rows, `學員名單(${system})`)
+    const buffer = await buildStudentsXlsx(all, `學員名單(${system})`)
     const filename = encodeURIComponent(`學員名單_${system}_${new Date().toISOString().split('T')[0]}.xlsx`)
 
     return new NextResponse(buffer as unknown as BodyInit, {

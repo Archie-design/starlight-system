@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { usePopoverToggle } from './usePopoverToggle'
 
 interface Option {
   value: string
@@ -17,17 +17,7 @@ interface MultiSelectDropdownProps {
 
 /** 通用多選下拉：以 checkbox 清單勾選多個值，按鈕上顯示已選數量 */
 export default function MultiSelectDropdown({ label, options, selected, onChange, title }: MultiSelectDropdownProps) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+  const { open, setOpen, ref } = usePopoverToggle<HTMLDivElement>()
 
   const toggle = (value: string) => {
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])

@@ -3,9 +3,7 @@
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
   flexRender,
-  type SortingState,
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -13,6 +11,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useCounselorStudents, COUNSELOR_PAGE_SIZE } from '@/hooks/useCounselorStudents'
 import { useCounselorStore } from '@/store/useCounselorStore'
 import { studentColumns } from '@/components/StudentGrid/columns'
+import { ColumnHeaderFilter, ColumnHeaderSort } from '@/components/StudentGrid/ColumnHeaderControls'
 import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
@@ -21,8 +20,10 @@ const ROW_HEIGHT = 28
 
 export default function CounselorStudentGrid() {
   const { students, count, isLoading } = useCounselorStudents()
-  const { page, setPage, columnVisibility, setColumnVisibility } = useCounselorStore()
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: false }])
+  const {
+    page, setPage, columnVisibility, setColumnVisibility,
+    filters, setColumnFilter, sort, setSort,
+  } = useCounselorStore()
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -33,16 +34,15 @@ export default function CounselorStudentGrid() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // 排序改為伺服器端（見 design.md 決策 2），與 StudentGrid 相同模式
   const table = useReactTable({
     data: students,
     columns: studentColumns,
-    state: { sorting, columnVisibility },
-    onSortingChange: setSorting,
+    state: { columnVisibility },
     onColumnVisibilityChange: (updater) => {
       setColumnVisibility(typeof updater === 'function' ? updater(columnVisibility) : updater)
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     columnResizeMode: 'onChange' as ColumnResizeMode,
     enableColumnResizing: true,
     defaultColumn: { minSize: 50 },
@@ -92,15 +92,21 @@ export default function CounselorStudentGrid() {
                       className={`
                         relative px-1.5 py-1.5 text-left font-bold text-slate-700 border-r border-slate-300
                         select-none whitespace-nowrap text-xs
-                        ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700' : ''}
                         ${isPinned ? 'sticky z-30 bg-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : ''}
                       `}
-                      onClick={header.column.getToggleSortingHandler()}
                     >
-                      <span className="truncate block pr-2">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === 'asc' && <span className="text-blue-600 ml-0.5">↑</span>}
-                        {header.column.getIsSorted() === 'desc' && <span className="text-blue-600 ml-0.5">↓</span>}
+                      <span className="flex items-center gap-1 pr-2">
+                        <span className="truncate">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </span>
+                        {header.column.getCanSort() && (
+                          <ColumnHeaderSort field={header.column.id} sort={sort} setSort={setSort} />
+                        )}
+                        <ColumnHeaderFilter
+                          column={header.column}
+                          columnFilters={filters.columnFilters}
+                          setColumnFilter={setColumnFilter}
+                        />
                       </span>
                       {!isPinned && (
                         <div

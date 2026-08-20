@@ -6,6 +6,7 @@ import { useStudents } from '@/hooks/useStudents'
 import { csrfFetch } from '@/lib/utils/csrf'
 import { COLUMN_GROUPS } from '@/lib/constants'
 import type { SheetSystem } from '@/lib/supabase/types'
+import { encodeColumnFiltersToParams, encodeSortToParams } from '@/lib/utils/columnFilterUrl'
 
 const ALL_SYSTEMS: SheetSystem[] = ['星光', '太陽']
 
@@ -16,7 +17,7 @@ const VIEWS = [
 ] as const
 
 export default function Toolbar() {
-  const { role, activeTab, setActiveTab, setImportModalOpen, view, setView, columnVisibility, setColumnVisibility, filters } = useStudentStore()
+  const { role, activeTab, setActiveTab, setImportModalOpen, view, setView, columnVisibility, setColumnVisibility, filters, sort } = useStudentStore()
 
   // superadmin 切換體系：同步寫入 view cookie，讓 SSR 頁與 API 採同一體系
   const switchSystem = (tab: SheetSystem) => {
@@ -55,6 +56,8 @@ export default function Toolbar() {
     if (filters.isSpirit) params.set('isSpirit', '1')
     if (filters.isNewbie) params.set('isNewbie', '1')
     if (filters.view) params.set('view', filters.view)
+    encodeColumnFiltersToParams(params, filters.columnFilters)
+    encodeSortToParams(params, sort)
     const res = await csrfFetch(`/api/export?${params}`)
     if (!res.ok) return alert('匯出失敗')
     const blob = await res.blob()

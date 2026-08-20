@@ -9,6 +9,7 @@ import {
   owesPayment,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
+import { sanitizeColumnFilters, matchesColumnFilters } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -17,7 +18,14 @@ import type {
   PagedStudents,
   CellEdit,
   RepositoryContextValue,
+  SortState,
 } from './types'
+
+/** 排序白名單：須與 `supabaseRepository.ts` 的 SORTABLE_FIELDS 一致 */
+const SORTABLE_FIELDS = new Set([
+  'id', 'name', 'birthday', 'membership_expiry',
+  'spirit_ambassador_join_date', 'love_giving_start_date',
+])
 
 function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<string>): boolean {
   const now = Date.now()
@@ -30,6 +38,7 @@ function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<st
   if (filters.courseStage !== '' && filters.courseStage !== undefined && highestStage(s) !== filters.courseStage) return false
   if (filters.membershipStatus && filters.membershipStatus.length > 0 && !filters.membershipStatus.includes(membershipStatus(s.membership_expiry, now))) return false
   if (filters.isNewbie && !isNewbie(s, now)) return false
+  if (!matchesColumnFilters(s, sanitizeColumnFilters(filters.columnFilters))) return false
   switch (filters.view) {
     case 'resubscribe': if (!isResubscribeCandidate(s)) return false; break
     case 'owing':       if (!owesPayment(s)) return false; break
@@ -38,6 +47,24 @@ function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<st
     case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break
   }
   return true
+}
+
+/** 依 sort 對結果排序；field 不在白名單內時原樣返回 */
+function applySort(rows: Student[], sort?: SortState | null): Student[] {
+  if (!sort || !SORTABLE_FIELDS.has(sort.field)) return rows
+  const { field, direction } = sort
+  const sorted = [...rows].sort((a, b) => {
+    const av = (a as unknown as Record<string, unknown>)[field]
+    const bv = (b as unknown as Record<string, unknown>)[field]
+    if (av == null && bv == null) return 0
+    if (av == null) return 1
+    if (bv == null) return -1
+    if (av < bv) return -1
+    if (av > bv) return 1
+    return 0
+  })
+  if (direction === 'desc') sorted.reverse()
+  return sorted
 }
 
 function paginate(rows: Student[], range: PageRange): PagedStudents {
@@ -65,23 +92,23 @@ export class MockStudentRepository implements StudentRepository {
     return buildDuplicateNameSet(this.data.filter((s) => systemOf(s.business_chain) === system))
   }
 
-  async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+  async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents> {
     const duplicates = this.duplicatesFor(system, filters)
     const filtered = this.data
       .filter((s) => systemOf(s.business_chain) === system && matchesFilters(s, filters, duplicates))
     const rows = filters.view === 'duplicate_name'
       ? sortByNameGroup(filtered)
-      : filtered.sort((a, b) => a.id - b.id)
+      : applySort(filtered.sort((a, b) => a.id - b.id), sort)
     return paginate(rows, range)
   }
 
-  async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents> {
+  async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents> {
     const duplicates = this.duplicatesFor(system, filters)
     const filtered = this.data
       .filter((s) => s.group_leader === groupLeader && systemOf(s.business_chain) === system && matchesFilters(s, filters, duplicates))
     const rows = filters.view === 'duplicate_name'
       ? sortByNameGroup(filtered)
-      : filtered.sort((a, b) => a.id - b.id)
+      : applySort(filtered.sort((a, b) => a.id - b.id), sort)
     return paginate(rows, range)
   }
 
