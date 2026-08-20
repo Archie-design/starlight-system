@@ -1,8 +1,15 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import type { Student } from '@/lib/supabase/types'
+import { SORTABLE_FIELDS } from '@/lib/utils/columnFilter'
 import EditableCell from './EditableCell'
 
 const ch = createColumnHelper<Student>()
+
+/**
+ * 是否顯示排序控制，讀取跟後端共用的同一份白名單（`SORTABLE_FIELDS`），
+ * 避免表頭顯示排序圖示、但後端未支援排序該欄位（點了沒反應）的落差。
+ */
+const isSortable = (field: string) => SORTABLE_FIELDS.has(field)
 
 /**
  * 表頭逐欄篩選/排序的白名單中介資料。
@@ -28,6 +35,7 @@ const editable = (field: keyof Student, header: string, width = 100, meta?: Stud
     header,
     size: width,
     meta,
+    enableSorting: isSortable(field),
     cell: (info) => (
       <EditableCell
         value={info.getValue() as string | null}
@@ -47,6 +55,7 @@ const selectCell = (
     header,
     size: width,
     meta: { filterable: 'enum', enumOptions: options },
+    enableSorting: isSortable(field),
     cell: (info) => (
       <EditableCell
         value={info.getValue() as string | null}

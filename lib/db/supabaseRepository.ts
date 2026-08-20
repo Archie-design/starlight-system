@@ -10,7 +10,7 @@ import {
   owesPayment,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
-import { COLUMN_FILTER_FIELDS, sanitizeColumnFilters, matchesColumnFilters } from '@/lib/utils/columnFilter'
+import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -24,12 +24,6 @@ import type {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Query = any
-
-/** 排序白名單：僅原生資料庫欄位可下推 `.order()`，須與 columns.tsx 的 sortable 標記一致 */
-const SORTABLE_FIELDS = new Set([
-  'id', 'name', 'birthday', 'membership_expiry',
-  'spirit_ambassador_join_date', 'love_giving_start_date',
-])
 
 /** 套用 FilterBar 的通用篩選條件（可下推到 SQL 的單欄位條件） */
 function applyCommonFilters(query: Query, filters: StudentFilters, withCourse5: boolean): Query {

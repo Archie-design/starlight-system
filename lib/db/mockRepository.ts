@@ -9,7 +9,7 @@ import {
   owesPayment,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
-import { sanitizeColumnFilters, matchesColumnFilters } from '@/lib/utils/columnFilter'
+import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -20,12 +20,6 @@ import type {
   RepositoryContextValue,
   SortState,
 } from './types'
-
-/** 排序白名單：須與 `supabaseRepository.ts` 的 SORTABLE_FIELDS 一致 */
-const SORTABLE_FIELDS = new Set([
-  'id', 'name', 'birthday', 'membership_expiry',
-  'spirit_ambassador_join_date', 'love_giving_start_date',
-])
 
 function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<string>): boolean {
   const now = Date.now()

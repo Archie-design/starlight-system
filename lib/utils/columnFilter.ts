@@ -33,6 +33,20 @@ export const COLUMN_FILTER_FIELDS: Record<string, ColumnFilterValue['type']> = {
   love_giving_start_date: 'range',
 }
 
+/**
+ * 表頭排序的白名單：僅原生資料庫欄位可排序，須與 `columns.tsx` 各欄位
+ * 的 `enableSorting` 標記一致——衍生計算欄（課程進度、上課梯次彙總等）
+ * 不開放排序，避免要在已下推分頁的資料上做二次排序而導致跨頁排序錯誤。
+ * `columns.tsx`（決定表頭是否顯示排序圖示）與兩個 repository（決定
+ * `.order()`/JS 排序是否真的套用）都從這裡讀取，避免兩邊各自維護
+ * 一份清單而漂移（曾發生：欄位顯示排序圖示，但後端白名單沒有該欄位，
+ * 點擊排序圖示後資料順序沒有任何變化）。
+ */
+export const SORTABLE_FIELDS = new Set([
+  'id', 'name', 'birthday', 'membership_expiry',
+  'spirit_ambassador_join_date', 'love_giving_start_date',
+])
+
 /** 只保留白名單內、型態相符的欄位篩選，過濾掉未知或型態不符的 key */
 export function sanitizeColumnFilters(
   columnFilters: Record<string, ColumnFilterValue> | undefined | null
