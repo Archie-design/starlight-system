@@ -6,8 +6,10 @@ import type { MembershipStatus } from '@/lib/utils/studentStatus'
  * 情境快捷視圖（跨欄位衍生條件，一次一個）
  * 註：'duplicate_name' 需以「全體系姓名出現次數」判定（跨列統計），
  *     不像其他視圖可逐列判斷。
+ * 註：「會籍快到期」不走這個機制，而是快捷按鈕直接勾選
+ *     membershipStatus 的 'expired' + 'in30'，與會籍下拉共用同一套邏輯。
  */
-export type StudentView = 'resubscribe' | 'owing' | 'expiring' | 'newbie' | 'duplicate_name'
+export type StudentView = 'resubscribe' | 'owing' | 'newbie' | 'duplicate_name'
 
 /**
  * 學員清單的通用篩選器（對應 FilterBar / store filters）。
@@ -20,8 +22,8 @@ export interface StudentFilters {
   hasCourse5?: boolean
   /** 課程進度：最高完成階別。'' = 不限；0 = 未上課 */
   courseStage?: 0 | 1 | 2 | 3 | 4 | 5 | ''
-  /** 會籍狀態 */
-  membershipStatus?: MembershipStatus | ''
+  /** 會籍狀態（可複選；空陣列 = 不限） */
+  membershipStatus?: MembershipStatus[]
   /** 心之使者 */
   isSpirit?: boolean
   /** 近 30 天新建檔 */

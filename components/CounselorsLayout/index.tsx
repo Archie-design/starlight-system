@@ -12,6 +12,8 @@ import SystemSwitcher from '../SystemSwitcher'
 import LogoutButton from '../LogoutButton'
 import { REGIONS, ROLES, COLUMN_GROUPS } from '@/lib/constants'
 import type { StudentView } from '@/lib/db/types'
+import type { MembershipStatus } from '@/lib/utils/studentStatus'
+import MultiSelectDropdown from '../shared/MultiSelectDropdown'
 
 const COURSE_STAGES: { value: 0 | 1 | 2 | 3 | 4 | 5; label: string }[] = [
   { value: 0, label: '未上課' }, { value: 1, label: '一階' }, { value: 2, label: '二階' },
@@ -23,11 +25,14 @@ const MEMBERSHIP_OPTIONS: { value: string; label: string }[] = [
 ]
 const QUICK_VIEWS: { value: StudentView; label: string }[] = [
   { value: 'resubscribe', label: '續報潛力' }, { value: 'owing', label: '待催欠款' },
-  { value: 'expiring', label: '會籍快到期' }, { value: 'newbie', label: '本月新生' },
+  { value: 'newbie', label: '本月新生' },
 ]
 
+/** 「會籍快到期」快捷鍵勾選的會籍狀態組合，與會籍下拉共用同一套邏輯 */
+const EXPIRING_STATUSES: MembershipStatus[] = ['expired', 'in30']
+
 export default function CounselorsLayout() {
-  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, toggleQuickView, resetFilters, columnVisibility, setColumnVisibility, displayName, username } = useCounselorStore()
+  const { role, system, setSystem, activeGroup, setActiveGroup, filters, setFilter, setMembershipStatus, toggleQuickView, resetFilters, columnVisibility, setColumnVisibility, displayName, username } = useCounselorStore()
   const { groups, isLoading: groupsLoading } = useCounselorGroups(system)
   const { count } = useCounselorStudents()
   const [showManage, setShowManage] = useState(false)
@@ -54,9 +59,12 @@ export default function CounselorsLayout() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showColMenu])
 
-  const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined
+  const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)
   const hasFilter = Object.values(filters).some(isActive)
   const activeFilterCount = Object.values(filters).filter(isActive).length
+  const isExpiringActive =
+    filters.membershipStatus.length === EXPIRING_STATUSES.length &&
+    EXPIRING_STATUSES.every((s) => filters.membershipStatus.includes(s))
   const hiddenCount = Object.values(columnVisibility).filter(v => v === false).length
 
   const toggleCol = (id: string) => {
@@ -200,19 +208,36 @@ export default function CounselorsLayout() {
           <option value="">全部進度</option>
           {COURSE_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <select value={filters.membershipStatus} onChange={e => setFilter('membershipStatus', e.target.value)}
-          title="會籍狀態"
-          className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors">
-          <option value="">全部會籍</option>
-          {MEMBERSHIP_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
+        <MultiSelectDropdown
+          label="會籍狀態"
+          title="會籍狀態（可複選）"
+          options={MEMBERSHIP_OPTIONS}
+          selected={filters.membershipStatus}
+          onChange={(next) => setMembershipStatus(next as MembershipStatus[])}
+        />
         <label className={`flex items-center gap-1.5 text-xs cursor-pointer px-2 py-1 rounded border transition-colors select-none
           ${filters.isSpirit ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
           <input type="checkbox" checked={filters.isSpirit} onChange={e => setFilter('isSpirit', e.target.checked)} className="accent-blue-600" />
           心之使者
         </label>
         <span className="text-slate-300 mx-0.5 select-none">|</span>
-        {QUICK_VIEWS.map(v => (
+        {QUICK_VIEWS.slice(0, 2).map(v => (
+          <button key={v.value} onClick={() => toggleQuickView(v.value)}
+            className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
+              filters.view === v.value ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm' : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+            }`}>
+            {v.label}
+          </button>
+        ))}
+        {/* 會籍快到期：勾選會籍下拉的「已過期＋30 天內到期」，與下拉共用同一套邏輯 */}
+        <button onClick={() => setMembershipStatus(isExpiringActive ? [] : EXPIRING_STATUSES)}
+          title="等同於勾選會籍狀態：已過期 + 30 天內到期"
+          className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
+            isExpiringActive ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm' : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+          }`}>
+          會籍快到期
+        </button>
+        {QUICK_VIEWS.slice(2).map(v => (
           <button key={v.value} onClick={() => toggleQuickView(v.value)}
             className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
               filters.view === v.value ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm' : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'

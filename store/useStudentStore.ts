@@ -12,7 +12,8 @@ export interface StudentFilters {
   role: string
   hasCourse5: boolean
   courseStage: 0 | 1 | 2 | 3 | 4 | 5 | ''
-  membershipStatus: MembershipStatus | ''
+  /** 會籍狀態（可複選；空陣列 = 不限） */
+  membershipStatus: MembershipStatus[]
   isSpirit: boolean
   isNewbie: boolean
   view: StudentView | null
@@ -25,7 +26,7 @@ const DEFAULT_FILTERS: StudentFilters = {
   role: '',
   hasCourse5: false,
   courseStage: '',
-  membershipStatus: '',
+  membershipStatus: [],
   isSpirit: false,
   isNewbie: false,
   view: null,
@@ -51,6 +52,8 @@ interface StudentStore {
   // 篩選條件
   filters: StudentFilters
   setFilter: (key: keyof StudentFilters, value: string | number | boolean | null) => void
+  /** 會籍狀態複選 */
+  setMembershipStatus: (statuses: MembershipStatus[]) => void
   /** 快捷視圖：點同一個則取消（互斥，一次一個） */
   toggleQuickView: (view: StudentView) => void
   resetFilters: () => void
@@ -93,6 +96,11 @@ export const useStudentStore = create<StudentStore>((set) => ({
   setFilter: (key, value) =>
     set((state) => ({
       filters: { ...state.filters, [key]: value },
+      page: 0,
+    })),
+  setMembershipStatus: (membershipStatus) =>
+    set((state) => ({
+      filters: { ...state.filters, membershipStatus },
       page: 0,
     })),
   toggleQuickView: (view) =>

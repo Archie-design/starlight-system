@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get('role') ?? ''
     const courseStageRaw = searchParams.get('courseStage')
     const courseStage = courseStageRaw === null || courseStageRaw === '' ? null : Number(courseStageRaw)
-    const memStatus = (searchParams.get('membershipStatus') ?? '') as MembershipStatus | ''
+    const memStatusRaw = searchParams.get('membershipStatus') ?? ''
+    const memStatuses = memStatusRaw ? (memStatusRaw.split(',') as MembershipStatus[]) : []
     const wantSpirit = searchParams.get('isSpirit') === '1'
     const wantNewbie = searchParams.get('isNewbie') === '1'
     const view = (searchParams.get('view') ?? '') as StudentView | ''
@@ -67,15 +68,11 @@ export async function GET(request: NextRequest) {
 
     let rows = all.filter((s) => {
       if (courseStage !== null && highestStage(s) !== courseStage) return false
-      if (memStatus && membershipStatus(s.membership_expiry, now) !== memStatus) return false
+      if (memStatuses.length > 0 && !memStatuses.includes(membershipStatus(s.membership_expiry, now))) return false
       if (wantNewbie && !isNewbie(s, now)) return false
       switch (view) {
         case 'resubscribe': return isResubscribeCandidate(s)
         case 'owing':       return owesPayment(s)
-        case 'expiring': {
-          const m = membershipStatus(s.membership_expiry, now)
-          return m === 'expired' || m === 'in30'
-        }
         case 'newbie':      return isNewbie(s, now)
         case 'duplicate_name': return !!duplicates && isDuplicateName(s, duplicates)
       }

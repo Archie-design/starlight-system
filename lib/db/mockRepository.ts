@@ -28,16 +28,11 @@ function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<st
   if (filters.hasCourse5 && !s.course_5) return false
   if (filters.isSpirit && !isSpirit(s)) return false
   if (filters.courseStage !== '' && filters.courseStage !== undefined && highestStage(s) !== filters.courseStage) return false
-  if (filters.membershipStatus && membershipStatus(s.membership_expiry, now) !== filters.membershipStatus) return false
+  if (filters.membershipStatus && filters.membershipStatus.length > 0 && !filters.membershipStatus.includes(membershipStatus(s.membership_expiry, now))) return false
   if (filters.isNewbie && !isNewbie(s, now)) return false
   switch (filters.view) {
     case 'resubscribe': if (!isResubscribeCandidate(s)) return false; break
     case 'owing':       if (!owesPayment(s)) return false; break
-    case 'expiring': {
-      const m = membershipStatus(s.membership_expiry, now)
-      if (m !== 'expired' && m !== 'in30') return false
-      break
-    }
     case 'newbie':      if (!isNewbie(s, now)) return false; break
     // 同名：依呼叫端先統計的重複姓名集合判定
     case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break

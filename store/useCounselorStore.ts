@@ -12,7 +12,8 @@ export interface CounselorFilters {
   role: string
   hasCourse5: boolean
   courseStage: 0 | 1 | 2 | 3 | 4 | 5 | ''
-  membershipStatus: MembershipStatus | ''
+  /** 會籍狀態（可複選；空陣列 = 不限） */
+  membershipStatus: MembershipStatus[]
   isSpirit: boolean
   isNewbie: boolean
   view: StudentView | null
@@ -25,7 +26,7 @@ const DEFAULT_FILTERS: CounselorFilters = {
   role: '',
   hasCourse5: false,
   courseStage: '',
-  membershipStatus: '',
+  membershipStatus: [],
   isSpirit: false,
   isNewbie: false,
   view: null,
@@ -49,6 +50,8 @@ interface CounselorStore {
 
   filters: CounselorFilters
   setFilter: (key: keyof CounselorFilters, value: string | number | boolean | null) => void
+  /** 會籍狀態複選 */
+  setMembershipStatus: (statuses: MembershipStatus[]) => void
   toggleQuickView: (view: StudentView) => void
   resetFilters: () => void
 
@@ -78,6 +81,8 @@ export const useCounselorStore = create<CounselorStore>((set) => ({
   filters: DEFAULT_FILTERS,
   setFilter: (key, value) =>
     set((state) => ({ filters: { ...state.filters, [key]: value }, page: 0 })),
+  setMembershipStatus: (membershipStatus) =>
+    set((state) => ({ filters: { ...state.filters, membershipStatus }, page: 0 })),
   toggleQuickView: (view) =>
     set((state) => ({
       filters: { ...state.filters, view: state.filters.view === view ? null : view },

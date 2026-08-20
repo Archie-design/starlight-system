@@ -6,6 +6,8 @@ import useSWR from 'swr'
 import { useStudentStore } from '@/store/useStudentStore'
 import { REGIONS, ROLES } from '@/lib/constants'
 import type { StudentView } from '@/lib/db/types'
+import type { MembershipStatus } from '@/lib/utils/studentStatus'
+import MultiSelectDropdown from '@/components/shared/MultiSelectDropdown'
 
 const COURSE_STAGES: { value: 0 | 1 | 2 | 3 | 4 | 5; label: string }[] = [
   { value: 0, label: '未上課' },
@@ -27,10 +29,12 @@ const MEMBERSHIP_OPTIONS: { value: string; label: string }[] = [
 const QUICK_VIEWS: { value: StudentView; label: string }[] = [
   { value: 'resubscribe', label: '續報潛力' },
   { value: 'owing', label: '待催欠款' },
-  { value: 'expiring', label: '會籍快到期' },
   { value: 'newbie', label: '本月新生' },
   { value: 'duplicate_name', label: '同名學員' },
 ]
+
+/** 「會籍快到期」快捷鍵勾選的會籍狀態組合，與會籍下拉共用同一套邏輯 */
+const EXPIRING_STATUSES: MembershipStatus[] = ['expired', 'in30']
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -41,10 +45,13 @@ function formatLastUpdated(iso: string | null | undefined): string {
 }
 
 export default function FilterBar() {
-  const { filters, setFilter, toggleQuickView, resetFilters } = useStudentStore()
-  const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined
+  const { filters, setFilter, setMembershipStatus, toggleQuickView, resetFilters } = useStudentStore()
+  const isActive = (v: unknown) => v !== '' && v !== false && v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)
   const hasFilter = Object.values(filters).some(isActive)
   const activeCount = Object.values(filters).filter(isActive).length
+  const isExpiringActive =
+    filters.membershipStatus.length === EXPIRING_STATUSES.length &&
+    EXPIRING_STATUSES.every((s) => filters.membershipStatus.includes(s))
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -134,16 +141,14 @@ export default function FilterBar() {
         {COURSE_STAGES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
       </select>
 
-      {/* 會籍狀態 */}
-      <select
-        value={filters.membershipStatus}
-        onChange={(e) => setFilter('membershipStatus', e.target.value)}
-        className="border border-slate-300 rounded px-2 py-1 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-        title="會籍狀態"
-      >
-        <option value="">全部會籍</option>
-        {MEMBERSHIP_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-      </select>
+      {/* 會籍狀態（可複選） */}
+      <MultiSelectDropdown
+        label="會籍狀態"
+        title="會籍狀態（可複選）"
+        options={MEMBERSHIP_OPTIONS}
+        selected={filters.membershipStatus}
+        onChange={(next) => setMembershipStatus(next as MembershipStatus[])}
+      />
 
       {/* 心之使者 */}
       <label className={`
@@ -163,7 +168,32 @@ export default function FilterBar() {
 
       {/* 情境快捷視圖（跨欄位，一鍵套用、互斥） */}
       <span className="text-slate-300 mx-0.5 select-none">|</span>
-      {QUICK_VIEWS.map((v) => (
+      {QUICK_VIEWS.slice(0, 2).map((v) => (
+        <button
+          key={v.value}
+          onClick={() => toggleQuickView(v.value)}
+          className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
+            filters.view === v.value
+              ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm'
+              : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
+      {/* 會籍快到期：勾選會籍下拉的「已過期＋30 天內到期」，與下拉共用同一套邏輯 */}
+      <button
+        onClick={() => setMembershipStatus(isExpiringActive ? [] : EXPIRING_STATUSES)}
+        title="等同於勾選會籍狀態：已過期 + 30 天內到期"
+        className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
+          isExpiringActive
+            ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm'
+            : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+        }`}
+      >
+        會籍快到期
+      </button>
+      {QUICK_VIEWS.slice(2).map((v) => (
         <button
           key={v.value}
           onClick={() => toggleQuickView(v.value)}

@@ -41,7 +41,7 @@ function applyCommonFilters(query: Query, filters: StudentFilters, withCourse5: 
 function needsPostFilter(filters: StudentFilters): boolean {
   return (
     (filters.courseStage !== '' && filters.courseStage !== undefined) ||
-    (!!filters.membershipStatus) ||
+    (!!filters.membershipStatus && filters.membershipStatus.length > 0) ||
     !!filters.isNewbie ||
     !!filters.view
   )
@@ -60,19 +60,14 @@ function matchesPostFilter(
   if (filters.courseStage !== '' && filters.courseStage !== undefined) {
     if (highestStage(s) !== filters.courseStage) return false
   }
-  if (filters.membershipStatus) {
-    if (membershipStatus(s.membership_expiry, now) !== filters.membershipStatus) return false
+  if (filters.membershipStatus && filters.membershipStatus.length > 0) {
+    if (!filters.membershipStatus.includes(membershipStatus(s.membership_expiry, now))) return false
   }
   if (filters.isNewbie && !isNewbie(s, now)) return false
 
   switch (filters.view) {
     case 'resubscribe': if (!isResubscribeCandidate(s)) return false; break
     case 'owing':       if (!owesPayment(s)) return false; break
-    case 'expiring': {
-      const m = membershipStatus(s.membership_expiry, now)
-      if (m !== 'expired' && m !== 'in30') return false
-      break
-    }
     case 'newbie':      if (!isNewbie(s, now)) return false; break
     // 同名：依全量統計出的重複姓名集合判定（集合未建立時視為無結果）
     case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break

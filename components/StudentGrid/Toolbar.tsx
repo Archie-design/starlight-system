@@ -51,7 +51,7 @@ export default function Toolbar() {
     if (filters.region) params.set('region', filters.region)
     if (filters.role) params.set('role', filters.role)
     if (filters.courseStage !== '' && filters.courseStage !== undefined) params.set('courseStage', String(filters.courseStage))
-    if (filters.membershipStatus) params.set('membershipStatus', filters.membershipStatus)
+    if (filters.membershipStatus.length > 0) params.set('membershipStatus', filters.membershipStatus.join(','))
     if (filters.isSpirit) params.set('isSpirit', '1')
     if (filters.isNewbie) params.set('isNewbie', '1')
     if (filters.view) params.set('view', filters.view)
