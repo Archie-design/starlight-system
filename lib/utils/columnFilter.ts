@@ -31,6 +31,15 @@ export const COLUMN_FILTER_FIELDS: Record<string, ColumnFilterValue['type']> = {
   membership_expiry: 'range',
   spirit_ambassador_join_date: 'range',
   love_giving_start_date: 'range',
+  // 課程欄位（梯次代碼/完款狀態皆為自由格式字串，用包含比對）
+  course_1: 'text', payment_1: 'text', parent_1: 'text',
+  course_2: 'text', payment_2: 'text',
+  course_3: 'text', payment_3: 'text',
+  course_4: 'text', payment_4: 'text',
+  course_5: 'text', payment_5: 'text',
+  course_wuyun: 'text', payment_wuyun: 'text',
+  wuyun_a: 'text', wuyun_b: 'text', wuyun_c: 'text', wuyun_d: 'text', wuyun_f: 'text',
+  life_numbers: 'text', life_numbers_advanced: 'text', life_transform: 'text', debt_release: 'text',
 }
 
 /**

@@ -177,40 +177,40 @@ export const studentColumns = [
   }),
 
   // ── 一階課程 ──────────────────────────────────────────────
-  editable('course_1', '一階', 100),
-  editable('payment_1', '一階完款/餘額', 110),
-  editable('parent_1', '一階家長', 100),
+  editable('course_1', '一階', 100, { filterable: 'text' }),
+  editable('payment_1', '一階完款/餘額', 110, { filterable: 'text' }),
+  editable('parent_1', '一階家長', 100, { filterable: 'text' }),
 
   // ── 二階 ─────────────────────────────────────────────────
-  editable('course_2', '二階', 100),
-  editable('payment_2', '二階完款/餘額', 110),
+  editable('course_2', '二階', 100, { filterable: 'text' }),
+  editable('payment_2', '二階完款/餘額', 110, { filterable: 'text' }),
 
   // ── 三階 ─────────────────────────────────────────────────
-  editable('course_3', '三階', 100),
-  editable('payment_3', '三階完款/餘額', 110),
+  editable('course_3', '三階', 100, { filterable: 'text' }),
+  editable('payment_3', '三階完款/餘額', 110, { filterable: 'text' }),
 
   // ── 四階 ─────────────────────────────────────────────────
-  editable('course_4', '四階', 100),
-  editable('payment_4', '四階完款/餘額', 110),
+  editable('course_4', '四階', 100, { filterable: 'text' }),
+  editable('payment_4', '四階完款/餘額', 110, { filterable: 'text' }),
 
   // ── 五階 ─────────────────────────────────────────────────
-  editable('course_5', '五階', 100),
-  editable('payment_5', '五階完款/餘額', 110),
+  editable('course_5', '五階', 100, { filterable: 'text' }),
+  editable('payment_5', '五階完款/餘額', 110, { filterable: 'text' }),
 
   // ── 五運班 ────────────────────────────────────────────────
-  editable('course_wuyun', '五運', 80),
-  editable('payment_wuyun', '五運完款/餘額', 110),
-  editable('wuyun_a', '五運A', 80),
-  editable('wuyun_b', '五運B', 80),
-  editable('wuyun_c', '五運C', 80),
-  editable('wuyun_d', '五運D', 80),
-  editable('wuyun_f', '五運F', 80),
+  editable('course_wuyun', '五運', 80, { filterable: 'text' }),
+  editable('payment_wuyun', '五運完款/餘額', 110, { filterable: 'text' }),
+  editable('wuyun_a', '五運A', 80, { filterable: 'text' }),
+  editable('wuyun_b', '五運B', 80, { filterable: 'text' }),
+  editable('wuyun_c', '五運C', 80, { filterable: 'text' }),
+  editable('wuyun_d', '五運D', 80, { filterable: 'text' }),
+  editable('wuyun_f', '五運F', 80, { filterable: 'text' }),
 
   // ── 特殊課程 ──────────────────────────────────────────────
-  editable('life_numbers', '生命數字', 100),
-  editable('life_numbers_advanced', '生命數字實戰班', 110),
-  editable('life_transform', '生命蛻變', 100),
-  editable('debt_release', '生生世世告別負債貧窮', 150),
+  editable('life_numbers', '生命數字', 100, { filterable: 'text' }),
+  editable('life_numbers_advanced', '生命數字實戰班', 110, { filterable: 'text' }),
+  editable('life_transform', '生命蛻變', 100, { filterable: 'text' }),
+  editable('debt_release', '生生世世告別負債貧窮', 150, { filterable: 'text' }),
 
   // ── 關懷長分組 ───────────────────────────────────────────────
   editable('group_leader', '所屬分組', 120, { filterable: 'text' }),
