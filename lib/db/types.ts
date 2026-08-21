@@ -17,7 +17,7 @@ export type StudentView = 'resubscribe' | 'owing' | 'newbie' | 'duplicate_name'
  */
 export type ColumnFilterValue =
   | { type: 'text'; value: string }              // 包含比對
-  | { type: 'enum'; values: string[] }            // 複選
+  | { type: 'enum'; values: string[]; mode?: 'include' | 'exclude' } // 複選；mode 預設 'include'（勾選才顯示），'exclude' 為排除勾選的值
   | { type: 'range'; min?: string; max?: string } // 日期或數值區間（字串保留來源格式）
 
 /**

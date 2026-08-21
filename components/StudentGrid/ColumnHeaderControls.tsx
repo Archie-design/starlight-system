@@ -34,6 +34,7 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
 
   if (meta.filterable === 'enum') {
     const selected = current?.type === 'enum' ? current.values : []
+    const mode = current?.type === 'enum' ? (current.mode ?? 'include') : 'include'
     return (
       <MultiSelectDropdown
         iconOnly
@@ -41,8 +42,12 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
         title={`篩選「${String(column.columnDef.header)}」`}
         options={(meta.enumOptions ?? []).map((v) => ({ value: v, label: v }))}
         selected={selected}
+        mode={mode}
         onChange={(values) =>
-          setColumnFilter(field, values.length > 0 ? { type: 'enum', values } : null)
+          setColumnFilter(field, values.length > 0 ? { type: 'enum', values, mode } : null)
+        }
+        onModeChange={(nextMode) =>
+          setColumnFilter(field, selected.length > 0 ? { type: 'enum', values: selected, mode: nextMode } : null)
         }
       />
     )

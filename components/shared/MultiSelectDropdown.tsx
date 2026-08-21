@@ -7,6 +7,8 @@ interface Option {
   label: string
 }
 
+export type MultiSelectMode = 'include' | 'exclude'
+
 interface MultiSelectDropdownProps {
   label: string
   options: Option[]
@@ -15,10 +17,20 @@ interface MultiSelectDropdownProps {
   title?: string
   /** 精簡模式：僅顯示放大鏡圖示（用於表頭欄位篩選），不顯示文字/箭頭 */
   iconOnly?: boolean
+  /**
+   * 包含/排除模式（選用）。傳入時面板會顯示模式切換鈕：
+   * 'include'（預設）＝勾選才顯示；'exclude'＝隱藏勾選的、顯示其餘。
+   * 未傳入 mode/onModeChange 時不顯示切換鈕，維持原本純複選行為
+   * （會籍狀態等既有用法不受影響）。
+   */
+  mode?: MultiSelectMode
+  onModeChange?: (mode: MultiSelectMode) => void
 }
 
 /** 通用多選下拉：以 checkbox 清單勾選多個值，按鈕上顯示已選數量 */
-export default function MultiSelectDropdown({ label, options, selected, onChange, title, iconOnly }: MultiSelectDropdownProps) {
+export default function MultiSelectDropdown({
+  label, options, selected, onChange, title, iconOnly, mode, onModeChange,
+}: MultiSelectDropdownProps) {
   const { open, setOpen, ref } = usePopoverToggle<HTMLDivElement>()
 
   const toggle = (value: string) => {
@@ -26,6 +38,15 @@ export default function MultiSelectDropdown({ label, options, selected, onChange
   }
 
   const active = selected.length > 0
+  const showModeToggle = !!onModeChange
+  const isExclude = mode === 'exclude'
+  // 排除模式啟用時用琥珀色系跟一般（包含）模式的藍色系區分，避免誤讀成一般篩選
+  const activeColorClasses = isExclude
+    ? { icon: 'bg-amber-500 text-white', pill: 'bg-amber-50 border-amber-400 text-amber-700', badge: 'bg-amber-500' }
+    : { icon: 'bg-blue-600 text-white', pill: 'bg-blue-50 border-blue-400 text-blue-700', badge: 'bg-blue-500' }
+
+  const modeLabel = isExclude ? '排除' : '包含'
+  const statusSuffix = active ? `（${modeLabel} ${selected.length} 項，點擊調整）` : ''
 
   return (
     <div className="relative" ref={ref}>
@@ -33,11 +54,9 @@ export default function MultiSelectDropdown({ label, options, selected, onChange
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          title={active ? `${title ?? label}（已選 ${selected.length} 項，點擊調整）` : title}
+          title={active ? `${title ?? label}${statusSuffix}` : title}
           className={`flex items-center justify-center w-4 h-4 rounded transition-colors ${
-            active
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+            active ? `${activeColorClasses.icon} shadow-sm` : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
           }`}
         >
           <span className="text-[10px]">🔍</span>
@@ -48,15 +67,13 @@ export default function MultiSelectDropdown({ label, options, selected, onChange
           onClick={() => setOpen((o) => !o)}
           title={title}
           className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors select-none ${
-            active
-              ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium'
-              : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+            active ? `${activeColorClasses.pill} font-medium` : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
           }`}
         >
           {label}
           {active && (
-            <span className="px-1 bg-blue-500 text-white rounded-full text-[10px] leading-tight tabular-nums">
-              {selected.length}
+            <span className={`px-1 text-white rounded-full text-[10px] leading-tight tabular-nums ${activeColorClasses.badge}`}>
+              {isExclude ? '排除' : selected.length}
             </span>
           )}
           <span className="text-slate-400 text-[10px]">▾</span>
@@ -65,6 +82,28 @@ export default function MultiSelectDropdown({ label, options, selected, onChange
 
       {open && (
         <div className="absolute z-50 mt-1 min-w-[9rem] bg-white border border-slate-300 rounded shadow-lg py-1">
+          {showModeToggle && (
+            <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-slate-100">
+              <button
+                type="button"
+                onClick={() => onModeChange!('include')}
+                className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
+                  !isExclude ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                包含
+              </button>
+              <button
+                type="button"
+                onClick={() => onModeChange!('exclude')}
+                className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
+                  isExclude ? 'bg-amber-500 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                排除
+              </button>
+            </div>
+          )}
           {options.map((opt) => (
             <label
               key={opt.value}

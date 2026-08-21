@@ -97,7 +97,9 @@ function matchesOne(s: Student, field: string, value: ColumnFilterValue): boolea
 
   if (value.type === 'enum') {
     if (value.values.length === 0) return true
-    return typeof raw === 'string' && value.values.includes(raw)
+    const matches = typeof raw === 'string' && value.values.includes(raw)
+    // exclude：欄位值「不在」勾選清單內才顯示（含空值/null，因為 null 本來就不在清單裡）
+    return value.mode === 'exclude' ? !matches : matches
   }
 
   if (value.type === 'range') {
