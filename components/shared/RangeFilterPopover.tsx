@@ -3,38 +3,45 @@
 import { useState, useEffect } from 'react'
 import { usePopoverToggle } from './usePopoverToggle'
 
+export type RangeFilterMode = 'include' | 'exclude'
+
 interface RangeFilterPopoverProps {
   label: string
   min: string | undefined
   max: string | undefined
-  onChange: (min: string | undefined, max: string | undefined) => void
+  onChange: (min: string | undefined, max: string | undefined, mode: RangeFilterMode) => void
   /** 輸入型態，日期欄用 'date'，數值欄用 'number'（目前欄位皆為日期） */
   inputType?: 'date' | 'number'
   title?: string
+  /** 目前的包含/排除模式，預設 'include' */
+  mode?: RangeFilterMode
 }
 
-/** 表頭區間篩選：日期或數值的 min/max，兩端皆可留空（僅設下限或上限） */
-export default function RangeFilterPopover({ label, min, max, onChange, inputType = 'date', title }: RangeFilterPopoverProps) {
+/** 表頭區間篩選：日期或數值的 min/max，兩端皆可留空（僅設下限或上限），支援包含/排除該區間 */
+export default function RangeFilterPopover({ label, min, max, onChange, inputType = 'date', title, mode = 'include' }: RangeFilterPopoverProps) {
   const { open, setOpen, ref } = usePopoverToggle<HTMLDivElement>()
   const [draftMin, setDraftMin] = useState(min ?? '')
   const [draftMax, setDraftMax] = useState(max ?? '')
+  const [draftMode, setDraftMode] = useState<RangeFilterMode>(mode)
 
   useEffect(() => {
     if (open) {
       setDraftMin(min ?? '')
       setDraftMax(max ?? '')
+      setDraftMode(mode)
     }
-  }, [open, min, max])
+  }, [open, min, max, mode])
 
   const active = !!min || !!max
+  const isExclude = mode === 'exclude'
 
   const apply = () => {
-    onChange(draftMin || undefined, draftMax || undefined)
+    onChange(draftMin || undefined, draftMax || undefined, draftMode)
     setOpen(false)
   }
 
   const clear = () => {
-    onChange(undefined, undefined)
+    onChange(undefined, undefined, draftMode)
     setDraftMin('')
     setDraftMax('')
     setOpen(false)
@@ -45,10 +52,10 @@ export default function RangeFilterPopover({ label, min, max, onChange, inputTyp
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title={active ? `「${label}」已套用篩選，點擊調整` : title}
+        title={active ? `「${label}」已套用${isExclude ? '排除' : ''}篩選，點擊調整` : title}
         className={`flex items-center justify-center w-4 h-4 rounded transition-colors ${
           active
-            ? 'bg-blue-600 text-white shadow-sm'
+            ? isExclude ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm'
             : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
         }`}
       >
@@ -60,7 +67,29 @@ export default function RangeFilterPopover({ label, min, max, onChange, inputTyp
           className="absolute z-50 mt-1 right-0 w-48 bg-white border border-slate-300 rounded shadow-lg p-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="text-[10px] text-slate-400 mb-1">篩選「{label}」區間</div>
+          <div className="flex items-center gap-1 mb-1.5">
+            <button
+              type="button"
+              onClick={() => setDraftMode('include')}
+              className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
+                draftMode === 'include' ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              包含
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraftMode('exclude')}
+              className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
+                draftMode === 'exclude' ? 'bg-amber-500 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              排除
+            </button>
+          </div>
+          <div className="text-[10px] text-slate-400 mb-1">
+            {draftMode === 'exclude' ? '排除' : '篩選'}「{label}」區間
+          </div>
           <div className="flex flex-col gap-1">
             <input
               type={inputType}

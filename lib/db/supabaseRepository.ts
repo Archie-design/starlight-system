@@ -34,20 +34,21 @@ function applyCommonFilters(query: Query, filters: StudentFilters, withCourse5: 
   if (withCourse5 && filters.hasCourse5) query = query.not('course_5', 'is', null)
   if (filters.isSpirit)  query = query.not('spirit_ambassador_join_date', 'is', null)
 
-  // 表頭逐欄篩選：文字型可下推 ilike；enum/range 留給 JS 後處理（needsPostFilter）
+  // 表頭逐欄篩選：僅「包含」模式的文字型可下推 ilike；
+  // 排除模式（text/enum/range 皆是）與 enum/range 留給 JS 後處理（needsPostFilter）
   const columnFilters = sanitizeColumnFilters(filters.columnFilters)
   for (const [field, value] of Object.entries(columnFilters)) {
-    if (value.type === 'text' && value.value) {
+    if (value.type === 'text' && value.value && value.mode !== 'exclude') {
       query = query.ilike(field, `%${value.value}%`)
     }
   }
   return query
 }
 
-/** 表頭逐欄篩選中，無法下推 SQL、須留給 JS 後處理的部分（enum/range） */
+/** 表頭逐欄篩選中，無法下推 SQL、須留給 JS 後處理的部分（enum/range，以及所有排除模式） */
 function hasNonPushableColumnFilters(filters: StudentFilters): boolean {
   const columnFilters = sanitizeColumnFilters(filters.columnFilters)
-  return Object.values(columnFilters).some((v) => v.type !== 'text')
+  return Object.values(columnFilters).some((v) => v.type !== 'text' || v.mode === 'exclude')
 }
 
 /**

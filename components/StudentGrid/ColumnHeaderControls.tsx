@@ -21,12 +21,14 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
   const current = columnFilters[field]
 
   if (meta.filterable === 'text') {
+    const mode = current?.type === 'text' ? (current.mode ?? 'include') : 'include'
     return (
       <TextFilterPopover
         label={String(column.columnDef.header)}
         value={current?.type === 'text' ? current.value : ''}
-        onChange={(value) =>
-          setColumnFilter(field, value ? { type: 'text', value } : null)
+        mode={mode}
+        onChange={(value, nextMode) =>
+          setColumnFilter(field, value ? { type: 'text', value, mode: nextMode } : null)
         }
       />
     )
@@ -56,15 +58,17 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
   if (meta.filterable === 'range') {
     const min = current?.type === 'range' ? current.min : undefined
     const max = current?.type === 'range' ? current.max : undefined
+    const mode = current?.type === 'range' ? (current.mode ?? 'include') : 'include'
     return (
       <RangeFilterPopover
         label={String(column.columnDef.header)}
         min={min}
         max={max}
-        onChange={(next_min, next_max) =>
+        mode={mode}
+        onChange={(next_min, next_max, nextMode) =>
           setColumnFilter(
             field,
-            next_min || next_max ? { type: 'range', min: next_min, max: next_max } : null
+            next_min || next_max ? { type: 'range', min: next_min, max: next_max, mode: nextMode } : null
           )
         }
       />

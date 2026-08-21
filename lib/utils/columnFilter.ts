@@ -88,26 +88,29 @@ export function sanitizeColumnFilters(
 /** 單一欄位、單一條件是否命中 */
 function matchesOne(s: Student, field: string, value: ColumnFilterValue): boolean {
   const raw = (s as unknown as Record<string, unknown>)[field]
+  const isExclude = value.mode === 'exclude'
 
   if (value.type === 'text') {
     if (!value.value) return true
     const text = typeof raw === 'string' ? raw : ''
-    return text.includes(value.value)
+    const matches = text.includes(value.value)
+    // exclude：欄位「不包含」該文字才顯示（含空值/null，因為空值本來就不包含任何文字）
+    return isExclude ? !matches : matches
   }
 
   if (value.type === 'enum') {
     if (value.values.length === 0) return true
     const matches = typeof raw === 'string' && value.values.includes(raw)
     // exclude：欄位值「不在」勾選清單內才顯示（含空值/null，因為 null 本來就不在清單裡）
-    return value.mode === 'exclude' ? !matches : matches
+    return isExclude ? !matches : matches
   }
 
   if (value.type === 'range') {
     if (!value.min && !value.max) return true
-    if (typeof raw !== 'string' || !raw) return false
-    if (value.min && raw < value.min) return false
-    if (value.max && raw > value.max) return false
-    return true
+    const hasValue = typeof raw === 'string' && !!raw
+    const withinRange = hasValue && !(value.min && raw < value.min) && !(value.max && raw > value.max)
+    // exclude：欄位值「不在」該區間內才顯示（含空值/null，因為空值本來就不落在任何區間內）
+    return isExclude ? !withinRange : withinRange
   }
 
   return true

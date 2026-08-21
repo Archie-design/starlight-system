@@ -11,14 +11,21 @@ import type { MembershipStatus } from '@/lib/utils/studentStatus'
  */
 export type StudentView = 'resubscribe' | 'owing' | 'newbie' | 'duplicate_name'
 
+/** 篩選模式：'include'（預設）＝符合條件才顯示；'exclude' ＝符合條件的隱藏，其餘顯示 */
+export type ColumnFilterMode = 'include' | 'exclude'
+
 /**
- * 表頭逐欄篩選的條件值，依欄位型態分三種。
+ * 表頭逐欄篩選的條件值，依欄位型態分三種，皆支援 `mode` 切換包含/排除
+ * （省略時預設 'include'，向下相容舊資料）：
+ * - text：mode='exclude' 時排除「包含」該文字的資料
+ * - enum：mode='exclude' 時排除勾選的值，顯示其餘（含空值）
+ * - range：mode='exclude' 時排除落在該區間內的資料，顯示區間外（含空值）
  * key 為 `Student` 的欄位名（見 `columns.tsx` 的 `filterable` 白名單）。
  */
 export type ColumnFilterValue =
-  | { type: 'text'; value: string }              // 包含比對
-  | { type: 'enum'; values: string[]; mode?: 'include' | 'exclude' } // 複選；mode 預設 'include'（勾選才顯示），'exclude' 為排除勾選的值
-  | { type: 'range'; min?: string; max?: string } // 日期或數值區間（字串保留來源格式）
+  | { type: 'text'; value: string; mode?: ColumnFilterMode }
+  | { type: 'enum'; values: string[]; mode?: ColumnFilterMode }
+  | { type: 'range'; min?: string; max?: string; mode?: ColumnFilterMode } // 日期或數值區間（字串保留來源格式）
 
 /**
  * 表頭欄位排序狀態。一次僅套用單一欄位，field 須為 `columns.tsx` 標記
