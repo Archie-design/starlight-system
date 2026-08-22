@@ -15,16 +15,30 @@ export type StudentView = 'resubscribe' | 'owing' | 'newbie' | 'duplicate_name'
 export type ColumnFilterMode = 'include' | 'exclude'
 
 /**
- * 表頭逐欄篩選的條件值，依欄位型態分三種，皆支援 `mode` 切換包含/排除
- * （省略時預設 'include'，向下相容舊資料）：
- * - text：mode='exclude' 時排除「包含」該文字的資料
- * - enum：mode='exclude' 時排除勾選的值，顯示其餘（含空值）
- * - range：mode='exclude' 時排除落在該區間內的資料，顯示區間外（含空值）
- * key 為 `Student` 的欄位名（見 `columns.tsx` 的 `filterable` 白名單）。
+ * text 型欄位的比對條件（依條件篩選）。
+ * - contains/not_contains：對應舊格式的 mode 'include'/'exclude'
+ * - equals：精確等於
+ * - starts_with / ends_with：字首/字尾比對
+ * - is_empty / is_not_empty：欄位是否為空值，此時 `value` 忽略
+ */
+export type TextOperator =
+  | 'contains' | 'not_contains' | 'equals'
+  | 'starts_with' | 'ends_with'
+  | 'is_empty' | 'is_not_empty'
+
+/**
+ * 表頭逐欄篩選的條件值，依欄位型態分三種，key 為 `Student` 的欄位名
+ * （見 `columns.tsx` 的 `filterable` 白名單）：
+ * - text：以 `operator` 決定比對方式（見 `TextOperator`）。`mode` 為舊格式
+ *   殘留欄位，僅供向下相容解碼用（新資料一律寫 `operator`，不再寫 `mode`）。
+ * - enum：`mode='exclude'` 時排除勾選的值，顯示其餘（含空值）；
+ *   `isEmpty` 有值時忽略 `values`/`mode`，改比對欄位是否為空
+ *   （`true` = 為空、`false` = 不為空）
+ * - range：`mode='exclude'` 時排除落在該區間內的資料，顯示區間外（含空值）
  */
 export type ColumnFilterValue =
-  | { type: 'text'; value: string; mode?: ColumnFilterMode }
-  | { type: 'enum'; values: string[]; mode?: ColumnFilterMode }
+  | { type: 'text'; operator: TextOperator; value: string; mode?: ColumnFilterMode }
+  | { type: 'enum'; values: string[]; mode?: ColumnFilterMode; isEmpty?: boolean }
   | { type: 'range'; min?: string; max?: string; mode?: ColumnFilterMode } // 日期或數值區間（字串保留來源格式）
 
 /**
@@ -100,6 +114,12 @@ export interface StudentRepository {
   findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents>
   /** 依維護類別 + 體系分頁查詢（/maintenance） */
   findByMaintenanceCategory(category: MaintenanceCategory, system: SheetSystem, filters: StudentFilters, range: PageRange): Promise<PagedStudents>
+  /**
+   * 取得指定欄位在目前查詢範圍（體系 + 其他已生效篩選，排除該欄位自身
+   * 的表頭篩選）內的不重複值，供表頭「依值篩選」的值清單使用。
+   * `field` 須為 `COLUMN_FILTER_FIELDS` 白名單內的欄位。
+   */
+  getDistinctValues(field: string, system: SheetSystem, filters: StudentFilters, scope?: { groupLeader?: string }): Promise<string[]>
   /** 更新單一欄位並寫入稽核 log（log 為 fire-and-forget，不阻塞） */
   updateCell(edit: CellEdit): Promise<void>
 }

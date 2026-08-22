@@ -1,5 +1,5 @@
 import type { Student } from '@/lib/supabase/types'
-import type { ColumnFilterValue } from '@/lib/db/types'
+import type { ColumnFilterValue, ColumnFilterMode } from '@/lib/db/types'
 
 /**
  * 表頭逐欄篩選的白名單：key 為 `Student` 欄位名，僅在
@@ -7,39 +7,56 @@ import type { ColumnFilterValue } from '@/lib/db/types'
  * 後端不信任前端傳來的任意 key——不在白名單內一律忽略，避免對未建索引
  * 的欄位下推查詢，見 design.md「Risks / Trade-offs」。
  *
+ * 值為該欄位**允許**的 `ColumnFilterValue.type` 集合（而非單一型態）：
+ * 原本標記 `filterable: 'text'` 的欄位，除了依條件篩選（type: 'text'）
+ * 外，依值篩選（動態值清單勾選）沿用 `type: 'enum'` 的既有多選/包含-排除
+ * 語意（values 來源改為 `getDistinctValues()` 查詢結果而非固定選項），
+ * 因此 text 型欄位同時允許 'text' 與 'enum' 兩種篩選型態並存於
+ * `columnFilters`（互斥使用，切換依值/依條件籤頁即等於換用哪一型態）。
+ * enum 型（gender/role/region）、range 型欄位維持單一允許型態。
+ *
  * 這裡刻意用一份獨立白名單（而非讀取 columns.tsx 的 meta），保持
  * `lib/` 不依賴 UI 元件模組；新增可篩選欄位時記得同步這兩處。
  */
-export const COLUMN_FILTER_FIELDS: Record<string, ColumnFilterValue['type']> = {
-  name: 'text',
-  phone: 'text',
-  line_id: 'text',
-  introducer: 'text',
-  relation: 'text',
-  business_chain: 'text',
-  counselor: 'text',
-  little_angel: 'text',
-  spirit_ambassador_group: 'text',
-  dream_interpreter: 'text',
-  senior_counselor: 'text',
-  guidance_chain: 'text',
-  group_leader: 'text',
-  gender: 'enum',
-  role: 'enum',
-  region: 'enum',
-  birthday: 'range',
-  membership_expiry: 'range',
-  spirit_ambassador_join_date: 'range',
-  love_giving_start_date: 'range',
-  // 課程欄位（梯次代碼/完款狀態皆為自由格式字串，用包含比對）
-  course_1: 'text', payment_1: 'text', parent_1: 'text',
-  course_2: 'text', payment_2: 'text',
-  course_3: 'text', payment_3: 'text',
-  course_4: 'text', payment_4: 'text',
-  course_5: 'text', payment_5: 'text',
-  course_wuyun: 'text', payment_wuyun: 'text',
-  wuyun_a: 'text', wuyun_b: 'text', wuyun_c: 'text', wuyun_d: 'text', wuyun_f: 'text',
-  life_numbers: 'text', life_numbers_advanced: 'text', life_transform: 'text', debt_release: 'text',
+const TEXT_FIELD_ALLOWED_TYPES: ColumnFilterValue['type'][] = ['text', 'enum']
+
+export const COLUMN_FILTER_FIELDS: Record<string, ColumnFilterValue['type'][]> = {
+  name: TEXT_FIELD_ALLOWED_TYPES,
+  phone: TEXT_FIELD_ALLOWED_TYPES,
+  line_id: TEXT_FIELD_ALLOWED_TYPES,
+  introducer: TEXT_FIELD_ALLOWED_TYPES,
+  relation: TEXT_FIELD_ALLOWED_TYPES,
+  business_chain: TEXT_FIELD_ALLOWED_TYPES,
+  counselor: TEXT_FIELD_ALLOWED_TYPES,
+  little_angel: TEXT_FIELD_ALLOWED_TYPES,
+  spirit_ambassador_group: TEXT_FIELD_ALLOWED_TYPES,
+  dream_interpreter: TEXT_FIELD_ALLOWED_TYPES,
+  senior_counselor: TEXT_FIELD_ALLOWED_TYPES,
+  guidance_chain: TEXT_FIELD_ALLOWED_TYPES,
+  group_leader: TEXT_FIELD_ALLOWED_TYPES,
+  gender: ['enum'],
+  role: ['enum'],
+  region: ['enum'],
+  birthday: ['range'],
+  membership_expiry: ['range'],
+  spirit_ambassador_join_date: ['range'],
+  love_giving_start_date: ['range'],
+  // 課程欄位（梯次代碼/完款狀態皆為自由格式字串，用包含比對／依值勾選）
+  course_1: TEXT_FIELD_ALLOWED_TYPES, payment_1: TEXT_FIELD_ALLOWED_TYPES, parent_1: TEXT_FIELD_ALLOWED_TYPES,
+  course_2: TEXT_FIELD_ALLOWED_TYPES, payment_2: TEXT_FIELD_ALLOWED_TYPES,
+  course_3: TEXT_FIELD_ALLOWED_TYPES, payment_3: TEXT_FIELD_ALLOWED_TYPES,
+  course_4: TEXT_FIELD_ALLOWED_TYPES, payment_4: TEXT_FIELD_ALLOWED_TYPES,
+  course_5: TEXT_FIELD_ALLOWED_TYPES, payment_5: TEXT_FIELD_ALLOWED_TYPES,
+  course_wuyun: TEXT_FIELD_ALLOWED_TYPES, payment_wuyun: TEXT_FIELD_ALLOWED_TYPES,
+  wuyun_a: TEXT_FIELD_ALLOWED_TYPES, wuyun_b: TEXT_FIELD_ALLOWED_TYPES, wuyun_c: TEXT_FIELD_ALLOWED_TYPES,
+  wuyun_d: TEXT_FIELD_ALLOWED_TYPES, wuyun_f: TEXT_FIELD_ALLOWED_TYPES,
+  life_numbers: TEXT_FIELD_ALLOWED_TYPES, life_numbers_advanced: TEXT_FIELD_ALLOWED_TYPES,
+  life_transform: TEXT_FIELD_ALLOWED_TYPES, debt_release: TEXT_FIELD_ALLOWED_TYPES,
+}
+
+/** 該欄位「預設／主要」篩選型態，供 `columns.tsx` 判斷面板顯示哪種 UI 入口（text 或 enum） */
+export function primaryFilterType(field: string): ColumnFilterValue['type'] | undefined {
+  return COLUMN_FILTER_FIELDS[field]?.[0]
 }
 
 /**
@@ -73,14 +90,29 @@ export const SORTABLE_FIELDS = new Set<string>([
   'spirit_ambassador_group', 'cumulative_seniority',
 ])
 
-/** 只保留白名單內、型態相符的欄位篩選，過濾掉未知或型態不符的 key */
+/**
+ * 將舊格式的 text 篩選（僅有 `mode`、沒有 `operator`，來自本次變更之前
+ * 儲存的 URL／狀態）轉換成新格式（`operator`）的等效篩選。新資料一律
+ * 帶 `operator`，此函式只在讀取到舊資料時觸發一次性轉換，見 design.md
+ * Migration Plan。
+ */
+export function normalizeColumnFilterValue(value: ColumnFilterValue): ColumnFilterValue {
+  if (value.type === 'text' && !('operator' in value && value.operator)) {
+    const legacyMode = (value as { mode?: ColumnFilterMode }).mode
+    return { type: 'text', operator: legacyMode === 'exclude' ? 'not_contains' : 'contains', value: value.value }
+  }
+  return value
+}
+
+/** 只保留白名單內、型態相符的欄位篩選，過濾掉未知欄位或不在該欄位允許型態集合內的 key；並套用舊格式轉換 */
 export function sanitizeColumnFilters(
   columnFilters: Record<string, ColumnFilterValue> | undefined | null
 ): Record<string, ColumnFilterValue> {
   if (!columnFilters) return {}
   const result: Record<string, ColumnFilterValue> = {}
-  for (const [field, value] of Object.entries(columnFilters)) {
-    if (COLUMN_FILTER_FIELDS[field] === value.type) result[field] = value
+  for (const [field, rawValue] of Object.entries(columnFilters)) {
+    if (!COLUMN_FILTER_FIELDS[field]?.includes(rawValue.type)) continue
+    result[field] = normalizeColumnFilterValue(rawValue)
   }
   return result
 }
@@ -88,21 +120,30 @@ export function sanitizeColumnFilters(
 /** 單一欄位、單一條件是否命中 */
 function matchesOne(s: Student, field: string, value: ColumnFilterValue): boolean {
   const raw = (s as unknown as Record<string, unknown>)[field]
-  const isExclude = value.mode === 'exclude'
 
   if (value.type === 'text') {
-    if (!value.value) return true
     const text = typeof raw === 'string' ? raw : ''
-    const matches = text.includes(value.value)
-    // exclude：欄位「不包含」該文字才顯示（含空值/null，因為空值本來就不包含任何文字）
-    return isExclude ? !matches : matches
+    const hasValue = typeof raw === 'string' && raw !== ''
+    switch (value.operator) {
+      case 'is_empty':     return !hasValue
+      case 'is_not_empty': return hasValue
+      case 'contains':     return !value.value || text.includes(value.value)
+      case 'not_contains': return !value.value || !text.includes(value.value)
+      case 'equals':       return !value.value || text === value.value
+      case 'starts_with':  return !value.value || text.startsWith(value.value)
+      case 'ends_with':    return !value.value || text.endsWith(value.value)
+      default:              return true
+    }
   }
 
   if (value.type === 'enum') {
+    const hasValue = typeof raw === 'string' && raw !== ''
+    // isEmpty: true = 篩「為空」、false = 篩「不為空」、undefined = 不使用此模式
+    if (value.isEmpty !== undefined) return value.isEmpty ? !hasValue : hasValue
     if (value.values.length === 0) return true
-    const matches = typeof raw === 'string' && value.values.includes(raw)
+    const matches = hasValue && value.values.includes(raw as string)
     // exclude：欄位值「不在」勾選清單內才顯示（含空值/null，因為 null 本來就不在清單裡）
-    return isExclude ? !matches : matches
+    return value.mode === 'exclude' ? !matches : matches
   }
 
   if (value.type === 'range') {
@@ -110,7 +151,7 @@ function matchesOne(s: Student, field: string, value: ColumnFilterValue): boolea
     const hasValue = typeof raw === 'string' && !!raw
     const withinRange = hasValue && !(value.min && raw < value.min) && !(value.max && raw > value.max)
     // exclude：欄位值「不在」該區間內才顯示（含空值/null，因為空值本來就不落在任何區間內）
-    return isExclude ? !withinRange : withinRange
+    return value.mode === 'exclude' ? !withinRange : withinRange
   }
 
   return true

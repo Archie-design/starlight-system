@@ -9,7 +9,7 @@ import {
   owesPayment,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
-import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS } from '@/lib/utils/columnFilter'
+import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS, COLUMN_FILTER_FIELDS } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -118,6 +118,30 @@ export class MockStudentRepository implements StudentRepository {
       })
       .sort((a, b) => a.id - b.id)
     return paginate(rows, range)
+  }
+
+  /** 同 SupabaseStudentRepository：排除 field 自身的表頭篩選，套用其餘查詢範圍後取不重複值 */
+  async getDistinctValues(
+    field: string,
+    system: SheetSystem,
+    filters: StudentFilters,
+    scope?: { groupLeader?: string }
+  ): Promise<string[]> {
+    if (!(field in COLUMN_FILTER_FIELDS)) return []
+
+    const { [field]: _omit, ...restColumnFilters } = filters.columnFilters ?? {}
+    const scopedFilters: StudentFilters = { ...filters, columnFilters: restColumnFilters }
+    const duplicates = this.duplicatesFor(system, scopedFilters)
+
+    const values = new Set<string>()
+    for (const s of this.data) {
+      if (systemOf(s.business_chain) !== system) continue
+      if (scope?.groupLeader && s.group_leader !== scope.groupLeader) continue
+      if (!matchesFilters(s, scopedFilters, duplicates)) continue
+      const raw = (s as unknown as Record<string, unknown>)[field]
+      if (typeof raw === 'string' && raw !== '') values.add(raw)
+    }
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
   }
 
   async updateCell(edit: CellEdit): Promise<void> {

@@ -1,34 +1,50 @@
 'use client'
 
+import { useCallback } from 'react'
 import type { Column } from '@tanstack/react-table'
 import type { Student } from '@/lib/supabase/types'
 import type { ColumnFilterValue, SortState } from '@/lib/db/types'
 import MultiSelectDropdown from '@/components/shared/MultiSelectDropdown'
-import TextFilterPopover from '@/components/shared/TextFilterPopover'
+import TextFilterPopover, { type TextConditionValue, type TextValueListValue } from '@/components/shared/TextFilterPopover'
 import RangeFilterPopover from '@/components/shared/RangeFilterPopover'
 
 interface ColumnHeaderFilterProps {
   column: Column<Student, unknown>
   columnFilters: Record<string, ColumnFilterValue>
   setColumnFilter: (field: string, value: ColumnFilterValue | null) => void
+  /** 取得指定欄位在目前查詢範圍內的不重複值（表頭「依值篩選」用），由呼叫端綁定體系/分組/其他篩選範圍 */
+  fetchDistinctValues: (field: string) => Promise<string[]>
 }
 
 /** 依欄位 meta.filterable 掛載對應的表頭篩選面板；欄位未標記則不渲染 */
-export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: ColumnHeaderFilterProps) {
+export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter, fetchDistinctValues }: ColumnHeaderFilterProps) {
   const meta = column.columnDef.meta
   const field = column.id
+  // hooks 需在任何 early return 之前呼叫；未標記 filterable 的欄位仍不會渲染面板
+  const fetchValues = useCallback(() => fetchDistinctValues(field), [fetchDistinctValues, field])
   if (!meta?.filterable) return null
   const current = columnFilters[field]
 
   if (meta.filterable === 'text') {
-    const mode = current?.type === 'text' ? (current.mode ?? 'include') : 'include'
+    // text 型欄位的依值篩選沿用 enum 型別（見 lib/utils/columnFilter.ts 的
+    // COLUMN_FILTER_FIELDS 說明：text 欄位同時允許 'text'（依條件）與
+    // 'enum'（依值）兩種篩選型態，互斥使用）
+    const condition: TextConditionValue | undefined =
+      current?.type === 'text' ? { operator: current.operator, value: current.value } : undefined
+    const valueList: TextValueListValue | undefined =
+      current?.type === 'enum' ? { values: current.values, mode: current.mode ?? 'include' } : undefined
+
     return (
       <TextFilterPopover
         label={String(column.columnDef.header)}
-        value={current?.type === 'text' ? current.value : ''}
-        mode={mode}
-        onChange={(value, nextMode) =>
-          setColumnFilter(field, value ? { type: 'text', value, mode: nextMode } : null)
+        condition={condition}
+        valueList={valueList}
+        fetchDistinctValues={fetchValues}
+        onApplyCondition={(next) =>
+          setColumnFilter(field, next ? { type: 'text', operator: next.operator, value: next.value } : null)
+        }
+        onApplyValueList={(next) =>
+          setColumnFilter(field, next ? { type: 'enum', values: next.values, mode: next.mode } : null)
         }
       />
     )
@@ -37,6 +53,7 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
   if (meta.filterable === 'enum') {
     const selected = current?.type === 'enum' ? current.values : []
     const mode = current?.type === 'enum' ? (current.mode ?? 'include') : 'include'
+    const isEmpty = current?.type === 'enum' ? current.isEmpty : undefined
     return (
       <MultiSelectDropdown
         iconOnly
@@ -45,11 +62,15 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter }: C
         options={(meta.enumOptions ?? []).map((v) => ({ value: v, label: v }))}
         selected={selected}
         mode={mode}
+        isEmpty={isEmpty}
         onChange={(values) =>
           setColumnFilter(field, values.length > 0 ? { type: 'enum', values, mode } : null)
         }
         onModeChange={(nextMode) =>
           setColumnFilter(field, selected.length > 0 ? { type: 'enum', values: selected, mode: nextMode } : null)
+        }
+        onIsEmptyChange={(nextIsEmpty) =>
+          setColumnFilter(field, nextIsEmpty !== null ? { type: 'enum', values: [], isEmpty: nextIsEmpty } : null)
         }
       />
     )

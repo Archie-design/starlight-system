@@ -1,5 +1,5 @@
 import type { ColumnFilterValue, SortState } from '@/lib/db/types'
-import { COLUMN_FILTER_FIELDS } from './columnFilter'
+import { COLUMN_FILTER_FIELDS, normalizeColumnFilterValue } from './columnFilter'
 
 const CF_PREFIX = 'cf.'
 
@@ -28,7 +28,7 @@ export function decodeColumnFiltersFromParams(params: URLSearchParams): Record<s
     if (!(field in COLUMN_FILTER_FIELDS)) continue
     try {
       const value = JSON.parse(raw) as ColumnFilterValue
-      if (value.type === COLUMN_FILTER_FIELDS[field]) result[field] = value
+      if (COLUMN_FILTER_FIELDS[field]?.includes(value.type)) result[field] = normalizeColumnFilterValue(value)
     } catch {
       // 忽略無法解析的值
     }

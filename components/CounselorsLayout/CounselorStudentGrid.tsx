@@ -7,9 +7,10 @@ import {
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useCounselorStudents, COUNSELOR_PAGE_SIZE } from '@/hooks/useCounselorStudents'
 import { useCounselorStore } from '@/store/useCounselorStore'
+import { useRepository } from '@/lib/context/RepositoryContext'
 import { studentColumns } from '@/components/StudentGrid/columns'
 import { ColumnHeaderFilter, ColumnHeaderSort } from '@/components/StudentGrid/ColumnHeaderControls'
 import MobileStudentList from '@/components/MobileStudentList'
@@ -21,11 +22,17 @@ const ROW_HEIGHT = 28
 export default function CounselorStudentGrid() {
   const { students, count, isLoading } = useCounselorStudents()
   const {
-    page, setPage, columnVisibility, setColumnVisibility,
+    system, activeGroup, page, setPage, columnVisibility, setColumnVisibility,
     filters, setColumnFilter, sort, setSort,
   } = useCounselorStore()
+  const { students: repo } = useRepository()
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const fetchDistinctValues = useCallback(
+    (field: string) => repo.getDistinctValues(field, system, filters, { groupLeader: activeGroup ?? undefined }),
+    [repo, system, filters, activeGroup]
+  )
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -106,6 +113,7 @@ export default function CounselorStudentGrid() {
                           column={header.column}
                           columnFilters={filters.columnFilters}
                           setColumnFilter={setColumnFilter}
+                          fetchDistinctValues={fetchDistinctValues}
                         />
                       </span>
                       {!isPinned && (

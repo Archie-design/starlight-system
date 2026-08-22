@@ -10,7 +10,7 @@ import {
   owesPayment,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
-import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS } from '@/lib/utils/columnFilter'
+import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS, COLUMN_FILTER_FIELDS } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -34,21 +34,22 @@ function applyCommonFilters(query: Query, filters: StudentFilters, withCourse5: 
   if (withCourse5 && filters.hasCourse5) query = query.not('course_5', 'is', null)
   if (filters.isSpirit)  query = query.not('spirit_ambassador_join_date', 'is', null)
 
-  // 表頭逐欄篩選：僅「包含」模式的文字型可下推 ilike；
-  // 排除模式（text/enum/range 皆是）與 enum/range 留給 JS 後處理（needsPostFilter）
+  // 表頭逐欄篩選：僅 text 型的「包含」條件（operator: 'contains'）可下推 ilike；
+  // 其餘 operator（not_contains/equals/starts_with/ends_with/is_empty/is_not_empty）
+  // 與 enum/range 型一律留給 JS 後處理（needsPostFilter）
   const columnFilters = sanitizeColumnFilters(filters.columnFilters)
   for (const [field, value] of Object.entries(columnFilters)) {
-    if (value.type === 'text' && value.value && value.mode !== 'exclude') {
+    if (value.type === 'text' && value.operator === 'contains' && value.value) {
       query = query.ilike(field, `%${value.value}%`)
     }
   }
   return query
 }
 
-/** 表頭逐欄篩選中，無法下推 SQL、須留給 JS 後處理的部分（enum/range，以及所有排除模式） */
+/** 表頭逐欄篩選中，無法下推 SQL、須留給 JS 後處理的部分（enum/range，以及非「包含」的 text operator） */
 function hasNonPushableColumnFilters(filters: StudentFilters): boolean {
   const columnFilters = sanitizeColumnFilters(filters.columnFilters)
-  return Object.values(columnFilters).some((v) => v.type !== 'text' || v.mode === 'exclude')
+  return Object.values(columnFilters).some((v) => v.type !== 'text' || v.operator !== 'contains')
 }
 
 /**
@@ -201,6 +202,66 @@ export class SupabaseStudentRepository implements StudentRepository {
     // 維護專區不提供 hasCourse5 篩選
     query = applyCommonFilters(query, filters, false)
     return this.runPaged(query, filters, range)
+  }
+
+  /**
+   * 取得指定欄位的不重複值清單（表頭「依值篩選」用）。查詢範圍套用體系隔離、
+   * 選用的 group_leader（關懷長分組表格），以及其他已生效的表頭篩選——但明確
+   * 排除 `field` 自身的篩選條件，否則已勾選的值會讓其他選項在下次開面板時消失
+   * （見 design.md 決策 3）。
+   */
+  async getDistinctValues(
+    field: string,
+    system: SheetSystem,
+    filters: StudentFilters,
+    scope?: { groupLeader?: string }
+  ): Promise<string[]> {
+    if (!(field in COLUMN_FILTER_FIELDS)) return []
+
+    const { [field]: _omit, ...restColumnFilters } = filters.columnFilters ?? {}
+    const scopedFilters: StudentFilters = { ...filters, columnFilters: restColumnFilters }
+
+    let query: Query = this.supabase.from('students').select(field)
+    query = applySystemFilter(query, system)
+    if (scope?.groupLeader) query = query.eq('group_leader', scope.groupLeader)
+    query = applyCommonFilters(query, scopedFilters, true)
+
+    const values = new Set<string>()
+    const now = Date.now()
+    // 需要 JS 後處理的條件（enum/range/課程進度/會籍/快捷視圖等）無法在
+    // .select(field) 的窄查詢上直接套用，因此改為全量載入完整欄位後在
+    // JS 端同時做後處理過濾與去重。
+    if (needsPostFilter(scopedFilters)) {
+      let fullQuery = applySystemFilter(this.baseSelect(), system)
+      if (scope?.groupLeader) fullQuery = fullQuery.eq('group_leader', scope.groupLeader)
+      fullQuery = applyCommonFilters(fullQuery, scopedFilters, true)
+      const all: Student[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await fullQuery.range(from, from + 999)
+        if (error) throw error
+        if (!data || data.length === 0) break
+        all.push(...(data as Student[]))
+        if (data.length < 1000) break
+      }
+      for (const s of all) {
+        if (!matchesPostFilter(s, scopedFilters, now)) continue
+        const raw = (s as unknown as Record<string, unknown>)[field]
+        if (typeof raw === 'string' && raw !== '') values.add(raw)
+      }
+      return Array.from(values).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+    }
+
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await query.range(from, from + 999)
+      if (error) throw error
+      if (!data || data.length === 0) break
+      for (const row of data as Record<string, unknown>[]) {
+        const raw = row[field]
+        if (typeof raw === 'string' && raw !== '') values.add(raw)
+      }
+      if (data.length < 1000) break
+    }
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
   }
 
   async updateCell(edit: CellEdit): Promise<void> {

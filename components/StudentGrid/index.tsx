@@ -7,9 +7,10 @@ import {
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useStudents, PAGE_SIZE } from '@/hooks/useStudents'
 import { useStudentStore } from '@/store/useStudentStore'
+import { useRepository } from '@/lib/context/RepositoryContext'
 import { studentColumns } from './columns'
 import { ColumnHeaderFilter, ColumnHeaderSort } from './ColumnHeaderControls'
 import MobileStudentList from '@/components/MobileStudentList'
@@ -23,11 +24,17 @@ const ROW_HEIGHT = 28
 export default function StudentGrid() {
   const { students, count, isLoading } = useStudents()
   const {
-    page, setPage, columnVisibility, setColumnVisibility,
+    activeTab, page, setPage, columnVisibility, setColumnVisibility,
     filters, setColumnFilter, sort, setSort,
   } = useStudentStore()
+  const { students: repo } = useRepository()
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const fetchDistinctValues = useCallback(
+    (field: string) => repo.getDistinctValues(field, activeTab, filters),
+    [repo, activeTab, filters]
+  )
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -117,6 +124,7 @@ export default function StudentGrid() {
                           column={header.column}
                           columnFilters={filters.columnFilters}
                           setColumnFilter={setColumnFilter}
+                          fetchDistinctValues={fetchDistinctValues}
                         />
                       </span>
                       {/* 欄寬調整把手 */}
