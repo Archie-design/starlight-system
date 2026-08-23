@@ -44,8 +44,12 @@ export default function MultiSelectDropdown({
   const isEmptyActive = isEmpty !== undefined
 
   const toggle = (value: string) => {
+    // 只呼叫 onChange：它會用 setColumnFilter 寫入完整的新 ColumnFilterValue
+    // （不含 isEmpty 欄位），下一輪渲染時 `isEmpty` prop 自然變回 undefined，
+    // 不需要另外呼叫 onIsEmptyChange(null) ——兩個回呼各自獨立呼叫
+    // setColumnFilter 會互相覆蓋，導致淨效果變成清空篩選（見「為空」點了
+    // 沒反應的除錯記錄）。
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
-    if (isEmptyActive) onIsEmptyChange?.(null)
   }
 
   const active = selected.length > 0 || isEmptyActive
@@ -138,7 +142,7 @@ export default function MultiSelectDropdown({
             <div className="flex items-center gap-1 px-2.5 py-1.5 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => { onChange([]); onIsEmptyChange!(isEmpty === true ? null : true) }}
+                onClick={() => onIsEmptyChange!(isEmpty === true ? null : true)}
                 className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
                   isEmpty === true ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -147,7 +151,7 @@ export default function MultiSelectDropdown({
               </button>
               <button
                 type="button"
-                onClick={() => { onChange([]); onIsEmptyChange!(isEmpty === false ? null : false) }}
+                onClick={() => onIsEmptyChange!(isEmpty === false ? null : false)}
                 className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
                   isEmpty === false ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -159,6 +163,8 @@ export default function MultiSelectDropdown({
           {active && (
             <button
               type="button"
+              // 兩個回呼在「清除」情境下都會寫入 null，順序無關緊要——
+              // 跟其他按鈕的「一個寫非 null、另一個寫 null」不同，這裡安全
               onClick={() => { onChange([]); onIsEmptyChange?.(null) }}
               className="w-full text-left px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-500 border-t border-slate-100 transition-colors"
             >

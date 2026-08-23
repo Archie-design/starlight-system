@@ -40,12 +40,14 @@ export function ColumnHeaderFilter({ column, columnFilters, setColumnFilter, fet
         condition={condition}
         valueList={valueList}
         fetchDistinctValues={fetchValues}
-        onApplyCondition={(next) =>
-          setColumnFilter(field, next ? { type: 'text', operator: next.operator, value: next.value } : null)
-        }
-        onApplyValueList={(next) =>
-          setColumnFilter(field, next ? { type: 'enum', values: next.values, mode: next.mode } : null)
-        }
+        onApply={(result) => {
+          if (!result) return setColumnFilter(field, null)
+          if (result.kind === 'condition') {
+            setColumnFilter(field, { type: 'text', operator: result.value.operator, value: result.value.value })
+          } else {
+            setColumnFilter(field, { type: 'enum', values: result.value.values, mode: result.value.mode })
+          }
+        }}
       />
     )
   }

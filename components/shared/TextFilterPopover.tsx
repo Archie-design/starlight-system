@@ -21,6 +21,11 @@ const MANY_VALUES_THRESHOLD = 200
 
 export type TextConditionValue = { operator: TextOperator; value: string }
 export type TextValueListValue = { values: string[]; mode: ColumnFilterMode }
+/** 套用結果：依條件、依值、或清除（null）——擇一，一次呼叫只會產生其中一種 */
+export type TextFilterResult =
+  | { kind: 'condition'; value: TextConditionValue }
+  | { kind: 'valueList'; value: TextValueListValue }
+  | null
 
 interface TextFilterPopoverProps {
   label: string
@@ -28,10 +33,14 @@ interface TextFilterPopoverProps {
   condition?: TextConditionValue
   /** 目前生效的依值篩選（無則 undefined） */
   valueList?: TextValueListValue
-  /** 套用依條件篩選；傳 null 清除 */
-  onApplyCondition: (next: TextConditionValue | null) => void
-  /** 套用依值篩選；傳 null 清除 */
-  onApplyValueList: (next: TextValueListValue | null) => void
+  /**
+   * 套用或清除篩選，單一入口——呼叫端只需依 `result.kind` 寫回對應的
+   * `ColumnFilterValue`，一次動作只觸發一次狀態更新。（先前版本拆成
+   * `onApplyCondition`/`onApplyValueList` 兩個回呼，套用其中一種時仍會
+   * 呼叫另一個回呼傳 null 來「清空另一籤頁」，導致兩次連續呼叫互相
+   * 覆蓋、篩選淨效果變成沒有套用，見「為空」點了沒反應的回報。）
+   */
+  onApply: (result: TextFilterResult) => void
   /** 開啟「依值」籤頁時延遲呼叫，取得該欄位目前查詢範圍內的不重複值 */
   fetchDistinctValues: () => Promise<string[]>
   title?: string
@@ -45,7 +54,7 @@ interface TextFilterPopoverProps {
  * 只會生效一種篩選型態。
  */
 export default function TextFilterPopover({
-  label, condition, valueList, onApplyCondition, onApplyValueList, fetchDistinctValues, title,
+  label, condition, valueList, onApply, fetchDistinctValues, title,
 }: TextFilterPopoverProps) {
   const { open, setOpen, ref } = usePopoverToggle<HTMLDivElement>()
   const [tab, setTab] = useState<'value' | 'condition'>(valueList ? 'value' : 'condition')
@@ -96,20 +105,20 @@ export default function TextFilterPopover({
   }
 
   const applyValueList = () => {
-    onApplyValueList(draftSelected.length > 0 ? { values: draftSelected, mode: draftMode } : null)
-    onApplyCondition(null)
+    onApply(draftSelected.length > 0 ? { kind: 'valueList', value: { values: draftSelected, mode: draftMode } } : null)
     setOpen(false)
   }
 
   const applyCondition = () => {
-    onApplyCondition({ operator: draftOperator, value: NO_VALUE_OPERATORS.includes(draftOperator) ? '' : draftValue })
-    onApplyValueList(null)
+    onApply({
+      kind: 'condition',
+      value: { operator: draftOperator, value: NO_VALUE_OPERATORS.includes(draftOperator) ? '' : draftValue },
+    })
     setOpen(false)
   }
 
   const clearAll = () => {
-    onApplyCondition(null)
-    onApplyValueList(null)
+    onApply(null)
     setOpen(false)
   }
 
