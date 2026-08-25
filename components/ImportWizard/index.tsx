@@ -50,7 +50,9 @@ export default function ImportWizard() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/import', { method: 'POST', body: form })
+      // 正式站/preview 部署下 checkAuth(request) 需要 x-csrf-token header，
+      // 這裡原本漏用 csrfFetch（同檔案下方 /api/import/apply 有正確用），已修正
+      const res = await csrfFetch('/api/import', { method: 'POST', body: form })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setPreview(data)

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   SESSION_COOKIE,
   SESSION_UID_COOKIE,
+  SESSION_VERSION_COOKIE,
   VIEW_SYSTEM_COOKIE,
   CSRF_TOKEN_COOKIE,
 } from '@/lib/auth'
@@ -13,6 +14,7 @@ export async function POST() {
     `${SESSION_COOKIE}_ts`,
     `${SESSION_COOKIE}_email`, // 清除既有舊 cookie（向後相容）
     SESSION_UID_COOKIE,
+    SESSION_VERSION_COOKIE,
     VIEW_SYSTEM_COOKIE,
     CSRF_TOKEN_COOKIE,
   ]) {

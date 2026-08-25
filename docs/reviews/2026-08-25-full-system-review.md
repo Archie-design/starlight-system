@@ -160,7 +160,7 @@
 
 ---
 
-### 11. 🔧 `applySystemFilter` 對星光體系用未建索引的 OR 查詢，是所有查詢的必經路徑
+### 11. ✅ `applySystemFilter` 對星光體系用未建索引的 OR 查詢，是所有查詢的必經路徑
 
 **位置**：`lib/utils/system.ts:24-31`
 
@@ -172,8 +172,8 @@
 
 - 新增 `supabase/migrations/015_performance_indexes.sql`：加 generated column `system_computed`（`CASE WHEN business_chain = '太陽' THEN '太陽' ELSE '星光' END`，STORED）+ 索引，以及與 `id` 的複合索引（體系隔離 + 預設排序是所有分頁查詢的必經路徑）。
 - `lib/utils/system.ts` 的 `applySystemFilter()` 改為對 `system_computed` 做等值查詢，取代原本的 `.or('business_chain.is.null,business_chain.neq.太陽')`。
-- ⚠️ **需要使用者自行在 Supabase SQL Editor 執行 `015_performance_indexes.sql` 後，此變更才會生效**——這是 schema 變更，無法由程式碼自動套用，也無法用 `tsc` 驗證是否已執行。若尚未執行 migration，`applySystemFilter()` 查詢 `system_computed` 會直接因欄位不存在而報錯。使用者已確認會自行執行 migration。
 - `npx tsc --noEmit` 通過（型別檢查不會發現欄位是否存在於實際資料庫，僅確認程式碼本身型別正確）。
+- ✅ **使用者已於 Supabase SQL Editor 執行 `015_performance_indexes.sql`，並實際連線資料庫驗證**：`system_computed` 欄位查詢正常（星光 2,076 筆／太陽 747 筆）、抽樣 20 筆計算值與 `business_chain` 全部一致，`applySystemFilter()` 的查詢路徑確認可用。
 
 ---
 
@@ -244,7 +244,7 @@
 
 ---
 
-### 16. 🔧 排序/篩選白名單涵蓋的欄位大多沒有對應資料庫索引
+### 16. ✅ 排序/篩選白名單涵蓋的欄位大多沒有對應資料庫索引
 
 **位置**：`supabase/migrations/001_schema.sql`；對照 `lib/utils/columnFilter.ts` 的 `SORTABLE_FIELDS`/`COLUMN_FILTER_FIELDS`
 
@@ -252,7 +252,9 @@
 
 **修法**：至少為 `membership_expiry`、`business_chain`、`birthday` 建索引，並考慮與 #11 的 `sheet_system_computed` 組成複合索引。
 
-**修復紀錄**：與 #11 合併在同一個 migration 處理（`supabase/migrations/015_performance_indexes.sql`），新增 `idx_students_membership_expiry`、`idx_students_birthday`、`idx_students_business_chain` 三個索引。同樣需要使用者自行在 Supabase 執行該 migration 才會生效（純新增索引，不影響既有查詢正確性，執行前後程式碼行為一致，只差在有無索引加速）。
+**修復紀錄**：與 #11 合併在同一個 migration 處理（`supabase/migrations/015_performance_indexes.sql`），新增 `idx_students_membership_expiry`、`idx_students_birthday` 兩個索引（`business_chain` 的索引在核對時發現 `010_users.sql` 已建過，故不重複新增，migration 裡有加註說明）。純新增索引，不影響既有查詢正確性，執行前後程式碼行為一致，只差在有無索引加速。
+
+✅ **使用者已於 Supabase SQL Editor 執行 `015_performance_indexes.sql`**（與 #11 同一個 migration），索引已生效。
 
 ---
 
@@ -390,7 +392,7 @@
 
 替換後用 `grep` 全域確認無殘留 `error.message`/`findErr.message` 洩漏給前端的地方（唯一剩下的一處是 `import/apply/route.ts` 的 `console.error(...)`，本來就只寫 log 不回傳，不需要改）。`npx tsc --noEmit` 通過，`npm run check:system-filter` 仍通過（確認替換過程未破壞 #23 的白名單匹配）。
 
-### 26. 🔧 `account/password` 修改密碼不會使其他既有 session 失效
+### 26. ✅ `account/password` 修改密碼不會使其他既有 session 失效
 **位置**：`app/api/account/password/route.ts:42-50`
 **修法**：引入每帳號 session version/nonce。
 **修復紀錄**：與使用者確認後實作。原本 session token 是全域固定的 `AUTH_SECRET`（所有帳號的 cookie 值都一樣，身分靠另一個 `sl_session_uid` cookie 區分），無法單獨讓「某個帳號」的 session 失效。
@@ -407,7 +409,9 @@
 
 **⚠️ 已知限制**：`account/password` 與 `users/[id]` 的 `session_version` 更新都是「先查舊值、+1、寫回」（read-modify-write），不是 SQL 層的原子 increment（Supabase JS client 沒有原生語法，需要 RPC 才能做到）。同一帳號在極短時間內被多個請求同時改密碼時理論上有競態視窗，但這是單一使用者改自己密碼、或管理者手動重設密碼的操作，實務上發生同時寫入的機率極低，未進一步處理。
 
-用腳本模擬驗證比對邏輯（cookie 版本與 DB 版本一致/不一致/缺少 cookie 三種情境），行為符合預期。`npx tsc --noEmit` 通過。需要使用者自行在 Supabase 執行新 migration。
+用腳本模擬驗證比對邏輯（cookie 版本與 DB 版本一致/不一致/缺少 cookie 三種情境），行為符合預期。`npx tsc --noEmit` 通過。
+
+✅ **使用者已於 Supabase SQL Editor 執行 `016_session_version.sql`，並實際連線資料庫驗證**：`users.session_version` 欄位查詢正常，抽樣帳號皆為預設值 `1`（符合預期——尚未有人在此變更上線後改過密碼）。
 
 ### 27. ✅ `getDistinctValues()` 的「排除自身欄位」邏輯在兩個 repository 重複
 **位置**：`lib/db/supabaseRepository.ts:213-265`、`lib/db/mockRepository.ts:124-145`

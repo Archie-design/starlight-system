@@ -1,9 +1,12 @@
 'use client'
 
 import useSWR from 'swr'
+import { csrfFetch } from '@/lib/utils/csrf'
 import type { CounselorGroup, SheetSystem } from '@/lib/supabase/types'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+// 正式站/preview 部署下 checkAuth(request) 的 CSRF 檢查需要 x-csrf-token
+// header（見 lib/utils/csrf.ts），普通 fetch 沒有帶會被判定失敗、回 401。
+const fetcher = (url: string) => csrfFetch(url).then(r => r.json())
 
 /**
  * 取得（依登入者有效體系過濾後的）關懷長分組。

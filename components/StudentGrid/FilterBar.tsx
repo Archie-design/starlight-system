@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { useStudentStore } from '@/store/useStudentStore'
+import { csrfFetch } from '@/lib/utils/csrf'
 import { REGIONS, ROLES } from '@/lib/constants'
 import type { StudentView } from '@/lib/db/types'
 import type { MembershipStatus } from '@/lib/utils/studentStatus'
@@ -40,7 +41,10 @@ const QUICK_VIEWS: { value: StudentView; label: string }[] = [
 /** 「會籍快到期」快捷鍵勾選的會籍狀態組合，與會籍下拉共用同一套邏輯 */
 const EXPIRING_STATUSES: MembershipStatus[] = ['expired', 'in30']
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+// 正式站/preview 部署下 checkAuth(request) 的 CSRF 檢查需要 x-csrf-token
+// header（見 lib/utils/csrf.ts），普通 fetch 沒有帶會被判定失敗、回 401
+// （P0 #1 修復把 CSRF 邏輯改嚴後才浮現此既有疏漏，一併修正）。
+const fetcher = (url: string) => csrfFetch(url).then(r => r.json())
 
 function formatLastUpdated(iso: string | null | undefined): string {
   if (!iso) return '—'
