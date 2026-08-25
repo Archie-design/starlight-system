@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { checkAuth } from '@/lib/auth'
+import { getEffectiveSystem } from '@/lib/auth'
+import { requireManager } from '@/lib/auth/middleware'
+import { systemOf } from '@/lib/utils/system'
 import { parseSourceXlsx } from '@/lib/import/parseXlsx'
 import { computeDiff } from '@/lib/import/diff'
 import type { Student, FieldDiff, ImportPreviewResult } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
-  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // 匯入會直接寫入學員資料，僅限管理層級（superadmin / system_admin）操作
+  const user = await requireManager(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const formData = await request.formData()
@@ -21,6 +25,19 @@ export async function POST(request: NextRequest) {
 
     if (importRows.length === 0) {
       return NextResponse.json({ error: '檔案中無有效資料列' }, { status: 400 })
+    }
+
+    // 非 superadmin 只能匯入自己有效體系的資料，避免 system_admin 用匯入檔
+    // 覆寫/建立另一體系的學員資料（跨體系寫入）
+    if (user.role !== 'superadmin') {
+      const effectiveSystem = await getEffectiveSystem(user)
+      const offSystem = importRows.some((r) => systemOf(r.business_chain) !== effectiveSystem)
+      if (offSystem) {
+        return NextResponse.json(
+          { error: `檔案中含有非「${effectiveSystem}」體系的資料，請確認匯入檔案內容` },
+          { status: 400 }
+        )
+      }
     }
 
     const supabase = createServiceClient()

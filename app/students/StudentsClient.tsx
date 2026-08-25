@@ -7,7 +7,6 @@ import Toolbar from '@/components/StudentGrid/Toolbar'
 import OrgChart from '@/components/OrgChart'
 import dynamic from 'next/dynamic'
 import ImportWizard from '@/components/ImportWizard'
-import NewStudentModal from '@/components/NewStudentModal'
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
 import { useSearchParams, usePathname } from 'next/navigation'
@@ -92,9 +91,6 @@ function StudentsLayout() {
 
       {/* 匯入 Modal */}
       <ImportWizard />
-
-      {/* 新增學員 Modal */}
-      <NewStudentModal />
 
       {/* URL 參數處理器 */}
       <Suspense fallback={null}>

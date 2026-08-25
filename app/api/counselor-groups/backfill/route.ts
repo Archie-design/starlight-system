@@ -1,10 +1,18 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { checkAuth } from '@/lib/auth'
+import { getEffectiveSystem } from '@/lib/auth'
+import { requireManager } from '@/lib/auth/middleware'
 import { buildGroupAssignments } from '@/lib/import/assignGroup'
+import { systemOf } from '@/lib/utils/system'
 
-export async function POST() {
-  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST(request: NextRequest) {
+  // 全量重算會影響整個體系（甚至跨體系）的 group_leader 指派，僅限管理層級
+  // （superadmin / system_admin）操作，一般 admin（關懷長）不可觸發。
+  const user = await requireManager(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // system_admin 僅重算自己所屬體系；superadmin 才可跨體系（依目前選擇的體系）
+  const effectiveSystem = await getEffectiveSystem(user)
 
   const supabase = createServiceClient()
 
@@ -46,15 +54,24 @@ export async function POST() {
     from += PAGE
   }
 
-  // 4. 建立 Map 並運算歸屬
+  // 4. 建立 Map 並運算歸屬（僅限呼叫者有效體系內的學員；studentMap 仍含全體系
+  //    資料以正確解析上線鏈，但最終寫回範圍會在下方過濾）
   const studentMap = new Map(
     (students ?? []).map((s: SEntry) => [s.id, s])
   )
   const assignments = buildGroupAssignments(studentMap, groups ?? [], aliasMap, overrideMap)
 
-  // 4. 按 group_leader 分桶，用 in() 批次更新
+  // 4.5 過濾成只寫回屬於呼叫者有效體系的學員，避免 system_admin 誤觸跨體系重算
+  const scopedAssignments = new Map(
+    [...assignments].filter(([id]) => {
+      const s = studentMap.get(id)
+      return s ? systemOf(s.business_chain) === effectiveSystem : false
+    })
+  )
+
+  // 5. 按 group_leader 分桶，用 in() 批次更新
   const byGroup = new Map<string, number[]>()
-  for (const [id, name] of assignments) {
+  for (const [id, name] of scopedAssignments) {
     const arr = byGroup.get(name) ?? []
     arr.push(id)
     byGroup.set(name, arr)
@@ -66,9 +83,10 @@ export async function POST() {
     const CHUNK = 500
     for (let i = 0; i < ids.length; i += CHUNK) {
       const chunk = ids.slice(i, i + CHUNK)
-      await supabase.from('students').update({ group_leader }).in('id', chunk)
+      const { error: updErr } = await supabase.from('students').update({ group_leader }).in('id', chunk)
+      if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
     }
   }
 
-  return NextResponse.json({ updated: assignments.size, total: students?.length ?? 0 })
+  return NextResponse.json({ updated: scopedAssignments.size, total: students.filter(s => systemOf(s.business_chain) === effectiveSystem).length })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { serverErrorResponse } from '@/lib/utils/apiError'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { applySystemFilter } from '@/lib/utils/system'
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       .order('id', { ascending: true })
       .range(from, from + PAGE - 1)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return serverErrorResponse('org', error)
     if (!chunk || chunk.length === 0) break
     allRows.push(...chunk)
     if (chunk.length < PAGE) break

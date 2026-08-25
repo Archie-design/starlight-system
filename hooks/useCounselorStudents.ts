@@ -3,6 +3,7 @@
 import useSWR from 'swr'
 import { useRepository } from '@/lib/context/RepositoryContext'
 import { useCounselorStore } from '@/store/useCounselorStore'
+import { useUpdateCell } from './useUpdateCell'
 import type { Student } from '@/lib/supabase/types'
 
 export const COUNSELOR_PAGE_SIZE = 100
@@ -21,27 +22,7 @@ export function useCounselorStudents() {
     { keepPreviousData: true, revalidateOnFocus: false }
   )
 
-  async function updateCell(id: number, field: keyof Student, value: string | null) {
-    const student = data?.rows.find((r) => r.id === id)
-    const oldValue = (student?.[field] as string | null) ?? null
-    const studentName = student?.name ?? null
-
-    await mutate(
-      async (current) => {
-        await repo.updateCell({ id, field: field as string, value, oldValue, studentName, changedBy: username || null })
-
-        return current
-          ? { ...current, rows: current.rows.map(r => r.id === id ? { ...r, [field]: value } : r) }
-          : current
-      },
-      {
-        optimisticData: data
-          ? { ...data, rows: data.rows.map(r => r.id === id ? { ...r, [field]: value } : r) }
-          : data,
-        rollbackOnError: true,
-      }
-    )
-  }
+  const updateCell = useUpdateCell(repo, data, mutate, username)
 
   return {
     students: data?.rows ?? [],

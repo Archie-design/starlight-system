@@ -9,7 +9,7 @@ import {
   owesPayment,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
-import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS, COLUMN_FILTER_FIELDS } from '@/lib/utils/columnFilter'
+import { sanitizeColumnFilters, matchesColumnFilters, applySort, scopeFiltersForDistinctValues } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -41,24 +41,6 @@ function matchesFilters(s: Student, filters: StudentFilters, duplicates?: Set<st
     case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break
   }
   return true
-}
-
-/** 依 sort 對結果排序；field 不在白名單內時原樣返回 */
-function applySort(rows: Student[], sort?: SortState | null): Student[] {
-  if (!sort || !SORTABLE_FIELDS.has(sort.field)) return rows
-  const { field, direction } = sort
-  const sorted = [...rows].sort((a, b) => {
-    const av = (a as unknown as Record<string, unknown>)[field]
-    const bv = (b as unknown as Record<string, unknown>)[field]
-    if (av == null && bv == null) return 0
-    if (av == null) return 1
-    if (bv == null) return -1
-    if (av < bv) return -1
-    if (av > bv) return 1
-    return 0
-  })
-  if (direction === 'desc') sorted.reverse()
-  return sorted
 }
 
 function paginate(rows: Student[], range: PageRange): PagedStudents {
@@ -127,10 +109,9 @@ export class MockStudentRepository implements StudentRepository {
     filters: StudentFilters,
     scope?: { groupLeader?: string }
   ): Promise<string[]> {
-    if (!(field in COLUMN_FILTER_FIELDS)) return []
-
-    const { [field]: _omit, ...restColumnFilters } = filters.columnFilters ?? {}
-    const scopedFilters: StudentFilters = { ...filters, columnFilters: restColumnFilters }
+    const scoped = scopeFiltersForDistinctValues(field, filters)
+    if (!scoped) return []
+    const { scopedFilters } = scoped
     const duplicates = this.duplicatesFor(system, scopedFilters)
 
     const values = new Set<string>()

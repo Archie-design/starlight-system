@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { createServiceClient } from '@/lib/supabase/server'
+import { serverErrorResponse } from '@/lib/utils/apiError'
 import { requireManager } from '@/lib/auth/middleware'
 import { logAdminAction } from '@/lib/auth/audit'
 import { resolveDisplayNames } from '@/lib/auth/displayName'
+import { validatePasswordStrength, PASSWORD_HASH_COST } from '@/lib/auth/passwordPolicy'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 // 列出帳號（superadmin：全部；system_admin：僅同體系）
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverErrorResponse('users', error)
 
   // 對「無 display_name 的學員 ID 型帳號」補上「姓名(ID)」，供列表顯示
   const nameMap = await resolveDisplayNames(
@@ -53,6 +55,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '缺少必填欄位' }, { status: 400 })
   }
 
+  const strengthError = validatePasswordStrength(password)
+  if (strengthError) {
+    return NextResponse.json({ error: strengthError }, { status: 400 })
+  }
+
   // 體系管理者（system_admin）的限制：不可建 superadmin、體系強制為自己體系
   let effectiveSystem = system ?? null
   if (actor.role !== 'superadmin') {
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '帳號已存在' }, { status: 409 })
   }
 
-  const password_hash = await hash(password, 10)
+  const password_hash = await hash(password, PASSWORD_HASH_COST)
   const { data, error } = await supabase
     .from('users')
     .insert({
@@ -94,7 +101,7 @@ export async function POST(request: NextRequest) {
     .select('id, username, role, system, display_name, active, must_change_password, created_at, updated_at')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverErrorResponse('users', error)
 
   logAdminAction('user_created', { actor: actor.username, target: username, detail: `role=${role}, system=${data.system ?? '—'}` }, request)
   return NextResponse.json({ user: data })

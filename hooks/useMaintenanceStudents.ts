@@ -3,6 +3,7 @@
 import useSWR from 'swr'
 import { useRepository } from '@/lib/context/RepositoryContext'
 import { useMaintenanceStore } from '@/store/useMaintenanceStore'
+import { useUpdateCell } from './useUpdateCell'
 import type { Student } from '@/lib/supabase/types'
 
 export const MAINTENANCE_PAGE_SIZE = 100
@@ -19,27 +20,9 @@ export function useMaintenanceStudents() {
     { keepPreviousData: true, revalidateOnFocus: false }
   )
 
-  async function updateCell(id: number, field: keyof Student, value: string | null) {
-    const student = data?.rows.find((r) => r.id === id)
-    const oldValue = (student?.[field] as string | null) ?? null
-    const studentName = student?.name ?? null
-
-    await mutate(
-      async (current) => {
-        await repo.updateCell({ id, field: field as string, value, oldValue, studentName, changedBy: username || null })
-
-        // 在維護專區中，若修正了關鍵欄位導致條件不符，資料應自動從列表中移除
-        // 這裡回傳 current，讓 mutate 的 revalidate 行為去處理重新抓取資料
-        return current
-      },
-      {
-        optimisticData: data
-          ? { ...data, rows: data.rows.map(r => r.id === id ? { ...r, [field]: value } : r) }
-          : data,
-        rollbackOnError: true,
-      }
-    )
-  }
+  // removeOnEdit：維護專區中若修正了關鍵欄位導致條件不符，資料應自動從列表
+  // 中移除，因此寫入成功後不直接改本地資料，改由 revalidate 重新抓取。
+  const updateCell = useUpdateCell(repo, data, mutate, username, { removeOnEdit: true })
 
   return {
     students: data?.rows ?? [],

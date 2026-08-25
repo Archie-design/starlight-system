@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { createServiceClient } from '@/lib/supabase/server'
+import { serverErrorResponse } from '@/lib/utils/apiError'
 import { requireManager } from '@/lib/auth/middleware'
 import { logAdminAction } from '@/lib/auth/audit'
+import { validatePasswordStrength, PASSWORD_HASH_COST } from '@/lib/auth/passwordPolicy'
 
 // 更新帳號：停用/啟用、或重設密碼
 // superadmin：任意；system_admin：僅同體系帳號
@@ -25,7 +27,7 @@ export async function PATCH(
   // 取目標帳號，驗證體系權限
   const { data: target } = await supabase
     .from('users')
-    .select('id, username, role, system')
+    .select('id, username, role, system, session_version')
     .eq('id', id)
     .maybeSingle()
   if (!target) return NextResponse.json({ error: '帳號不存在' }, { status: 404 })
@@ -49,8 +51,14 @@ export async function PATCH(
   }
 
   if (newPassword) {
-    update.password_hash = await hash(newPassword, 10)
+    const strengthError = validatePasswordStrength(newPassword)
+    if (strengthError) {
+      return NextResponse.json({ error: strengthError }, { status: 400 })
+    }
+    update.password_hash = await hash(newPassword, PASSWORD_HASH_COST)
     update.must_change_password = true
+    // 被重設密碼的帳號，其既有 session（例如已登入的裝置）應立即失效（P2 #26）
+    update.session_version = target.session_version + 1
     auditAction = 'password_reset'
   }
 
@@ -70,7 +78,7 @@ export async function PATCH(
     .select('id, username, role, system, display_name, active, must_change_password')
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverErrorResponse('users/[id]', error)
   if (!data) return NextResponse.json({ error: '帳號不存在' }, { status: 404 })
 
   if (auditAction) {

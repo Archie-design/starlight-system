@@ -13,6 +13,7 @@ import { useCounselorStore } from '@/store/useCounselorStore'
 import { useRepository } from '@/lib/context/RepositoryContext'
 import { studentColumns } from '@/components/StudentGrid/columns'
 import { ColumnHeaderFilter, ColumnHeaderSort } from '@/components/StudentGrid/ColumnHeaderControls'
+import { StudentEditProvider } from '@/components/StudentGrid/StudentEditContext'
 import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
@@ -20,7 +21,7 @@ const SKELETON_WIDTHS = [70, 55, 85, 60, 75, 90, 65, 80, 50, 70, 60, 85, 75, 55,
 const ROW_HEIGHT = 28
 
 export default function CounselorStudentGrid() {
-  const { students, count, isLoading } = useCounselorStudents()
+  const { students, count, isLoading, updateCell } = useCounselorStudents()
   const {
     system, activeGroup, page, setPage, columnVisibility, setColumnVisibility,
     filters, setColumnFilter, sort, setSort,
@@ -74,6 +75,7 @@ export default function CounselorStudentGrid() {
   const totalPages = Math.ceil(count / COUNSELOR_PAGE_SIZE)
 
   return (
+    <StudentEditProvider updateCell={updateCell}>
     <div className="flex flex-col h-full border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
       {/* 手機版 */}
       {isMobile ? (
@@ -210,5 +212,6 @@ export default function CounselorStudentGrid() {
         </div>
       )}
     </div>
+    </StudentEditProvider>
   )
 }

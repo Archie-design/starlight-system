@@ -8,9 +8,10 @@ import {
   isNewbie,
   isResubscribeCandidate,
   owesPayment,
+  NEWBIE_DAYS,
 } from '@/lib/utils/studentStatus'
 import { buildDuplicateNameSet, isDuplicateName, sortByNameGroup } from '@/lib/utils/duplicateName'
-import { sanitizeColumnFilters, matchesColumnFilters, SORTABLE_FIELDS, COLUMN_FILTER_FIELDS } from '@/lib/utils/columnFilter'
+import { sanitizeColumnFilters, matchesColumnFilters, applySort, SORTABLE_FIELDS, scopeFiltersForDistinctValues } from '@/lib/utils/columnFilter'
 import type {
   StudentRepository,
   StudentFilters,
@@ -25,14 +26,28 @@ import type {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Query = any
 
+/**
+ * `isNewbie(s, now)` 的 SQL 等價條件：`created_at >= now - NEWBIE_DAYS`。
+ * 與 `lib/utils/studentStatus.ts` 的 `NEWBIE_DAYS`／`isNewbie()` 算法保持一致
+ * （純日期門檻比較，用 ISO 字串比較即可，不需要在 SQL 端算天數差）。
+ */
+function newbieThresholdIso(now: number): string {
+  const day = 1000 * 60 * 60 * 24
+  return new Date(now - NEWBIE_DAYS * day).toISOString()
+}
+
 /** 套用 FilterBar 的通用篩選條件（可下推到 SQL 的單欄位條件） */
-function applyCommonFilters(query: Query, filters: StudentFilters, withCourse5: boolean): Query {
+function applyCommonFilters(query: Query, filters: StudentFilters, withCourse5: boolean, now: number): Query {
   if (filters.name)      query = query.ilike('name', `%${filters.name}%`)
   if (filters.counselor) query = query.ilike('counselor', `%${filters.counselor}%`)
   if (filters.region)    query = query.eq('region', filters.region)
   if (filters.role)      query = query.eq('role', filters.role)
   if (withCourse5 && filters.hasCourse5) query = query.not('course_5', 'is', null)
   if (filters.isSpirit)  query = query.not('spirit_ambassador_join_date', 'is', null)
+  // isNewbie（FilterBar 勾選）是單純日期門檻比較，可直接下推；
+  // 「本月新生」快捷視圖（filters.view === 'newbie'）語意相同，但與其他快捷
+  // 視圖共用同一個 switch 分支，暫不下推（見 needsPostFilter 的說明）。
+  if (filters.isNewbie)  query = query.gte('created_at', newbieThresholdIso(now))
 
   // 表頭逐欄篩選：僅 text 型的「包含」條件（operator: 'contains'）可下推 ilike；
   // 其餘 operator（not_contains/equals/starts_with/ends_with/is_empty/is_not_empty）
@@ -54,21 +69,54 @@ function hasNonPushableColumnFilters(filters: StudentFilters): boolean {
 
 /**
  * 需要全量載入 + JS 過濾的條件（無法用單一 PostgREST query 表達）：
- * 課程進度（最高階）、會籍狀態、新生時段、快捷視圖（續報/欠款/會籍/新生）、
+ * 課程進度（最高階）、會籍狀態、快捷視圖（續報/欠款/會籍/新生/同名），
  * 以及 enum/range 型的表頭逐欄篩選。
+ *
+ * 註：`filters.isNewbie`（FilterBar 的「本月新生」勾選）已在 applyCommonFilters
+ * 下推為 SQL 的 `created_at` 門檻比較，不再落入這裡；但「本月新生」快捷視圖
+ * （`filters.view === 'newbie'`）語意相同卻仍算在 `!!filters.view` 裡走全量
+ * 路徑——這是刻意的範圍限制（見 design 記錄），因為快捷視圖的比對邏輯集中在
+ * 同一個 switch 分支，個別下推會讓分支邏輯變複雜，這次先只下推有明確獨立
+ * 判斷式的 isNewbie 勾選，快捷視圖之後有需要再評估。
  */
 function needsPostFilter(filters: StudentFilters): boolean {
   return (
     (filters.courseStage !== '' && filters.courseStage !== undefined) ||
     (!!filters.membershipStatus && filters.membershipStatus.length > 0) ||
-    !!filters.isNewbie ||
     !!filters.view ||
     hasNonPushableColumnFilters(filters)
   )
 }
 
 /**
- * JS 端套用課程進度 / 會籍 / 新生 / 快捷視圖 / 表頭逐欄篩選條件
+ * `matchesPostFilter()` 固定會用到的欄位（不論篩選條件為何都可能觸及）：
+ * - 課程進度／續報／欠款判定：course_1~5、course_wuyun、payment_1~5、payment_wuyun
+ * - 會籍：membership_expiry；快捷視圖「本月新生」：created_at；「同名」：name；穩定排序：id
+ * 與 `hasNonPushableColumnFilters` 命中的表頭欄位（動態）合併後，即為
+ * `getDistinctValues()` 全量後備路徑可用的最小 select 欄位清單——比原本
+ * 整列 `select('*')` 窄，資料傳輸量隨欄位數量減少。
+ */
+const POST_FILTER_BASE_FIELDS: readonly (keyof Student)[] = [
+  'id', 'name', 'created_at',
+  'course_1', 'course_2', 'course_3', 'course_4', 'course_5', 'course_wuyun',
+  'payment_1', 'payment_2', 'payment_3', 'payment_4', 'payment_5', 'payment_wuyun',
+  'membership_expiry',
+]
+
+/** 依實際生效的篩選條件，算出 `getDistinctValues()` 全量後備路徑所需的最小欄位清單 */
+function postFilterProjectionFields(field: string, filters: StudentFilters): string[] {
+  const columnFilters = sanitizeColumnFilters(filters.columnFilters)
+  const fields = new Set<string>(POST_FILTER_BASE_FIELDS)
+  fields.add(field)
+  for (const f of Object.keys(columnFilters)) fields.add(f)
+  return Array.from(fields)
+}
+
+/**
+ * JS 端套用課程進度 / 會籍 / 快捷視圖 / 表頭逐欄篩選條件。
+ * 注意：`filters.isNewbie` 已在 SQL 層下推（見 applyCommonFilters），這裡
+ * 不重複判斷，避免同一條件被下推查詢與 JS 後處理各自套用一次時，若兩邊
+ * 邊界計算方式不同（例如時區、天數捨入）會篩出不一致的結果。
  * @param duplicates 'duplicate_name' 視圖用的重複姓名集合（由呼叫端先統計全量資料建立）
  */
 function matchesPostFilter(
@@ -83,7 +131,6 @@ function matchesPostFilter(
   if (filters.membershipStatus && filters.membershipStatus.length > 0) {
     if (!filters.membershipStatus.includes(membershipStatus(s.membership_expiry, now))) return false
   }
-  if (filters.isNewbie && !isNewbie(s, now)) return false
   if (!matchesColumnFilters(s, sanitizeColumnFilters(filters.columnFilters))) return false
 
   switch (filters.view) {
@@ -94,24 +141,6 @@ function matchesPostFilter(
     case 'duplicate_name': if (!duplicates || !isDuplicateName(s, duplicates)) return false; break
   }
   return true
-}
-
-/** 依 sort 對全量結果排序（JS 後處理路徑用；SQL 下推路徑改用 .order()） */
-function applySort(rows: Student[], sort?: SortState | null): Student[] {
-  if (!sort || !SORTABLE_FIELDS.has(sort.field)) return rows
-  const { field, direction } = sort
-  const sorted = [...rows].sort((a, b) => {
-    const av = (a as unknown as Record<string, unknown>)[field]
-    const bv = (b as unknown as Record<string, unknown>)[field]
-    if (av == null && bv == null) return 0
-    if (av == null) return 1  // null 值排最後
-    if (bv == null) return -1
-    if (av < bv) return -1
-    if (av > bv) return 1
-    return 0
-  })
-  if (direction === 'desc') sorted.reverse()
-  return sorted
 }
 
 function rangeFor(range: PageRange): [number, number] {
@@ -179,14 +208,14 @@ export class SupabaseStudentRepository implements StudentRepository {
 
   async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents> {
     let query = applySystemFilter(this.baseSelect(), system)
-    query = applyCommonFilters(query, filters, true)
+    query = applyCommonFilters(query, filters, true, Date.now())
     query = this.applyOrder(query, sort)
     return this.runPaged(query, filters, range, sort)
   }
 
   async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents> {
     let query = applySystemFilter(this.baseSelect().eq('group_leader', groupLeader), system)
-    query = applyCommonFilters(query, filters, true)
+    query = applyCommonFilters(query, filters, true, Date.now())
     query = this.applyOrder(query, sort)
     return this.runPaged(query, filters, range, sort)
   }
@@ -200,7 +229,7 @@ export class SupabaseStudentRepository implements StudentRepository {
     }
     query = applySystemFilter(query, system)
     // 維護專區不提供 hasCourse5 篩選
-    query = applyCommonFilters(query, filters, false)
+    query = applyCommonFilters(query, filters, false, Date.now())
     return this.runPaged(query, filters, range)
   }
 
@@ -216,31 +245,34 @@ export class SupabaseStudentRepository implements StudentRepository {
     filters: StudentFilters,
     scope?: { groupLeader?: string }
   ): Promise<string[]> {
-    if (!(field in COLUMN_FILTER_FIELDS)) return []
-
-    const { [field]: _omit, ...restColumnFilters } = filters.columnFilters ?? {}
-    const scopedFilters: StudentFilters = { ...filters, columnFilters: restColumnFilters }
+    const scoped = scopeFiltersForDistinctValues(field, filters)
+    if (!scoped) return []
+    const { scopedFilters } = scoped
+    const now = Date.now()
 
     let query: Query = this.supabase.from('students').select(field)
     query = applySystemFilter(query, system)
     if (scope?.groupLeader) query = query.eq('group_leader', scope.groupLeader)
-    query = applyCommonFilters(query, scopedFilters, true)
+    query = applyCommonFilters(query, scopedFilters, true, now)
 
     const values = new Set<string>()
-    const now = Date.now()
     // 需要 JS 後處理的條件（enum/range/課程進度/會籍/快捷視圖等）無法在
     // .select(field) 的窄查詢上直接套用，因此改為全量載入完整欄位後在
     // JS 端同時做後處理過濾與去重。
     if (needsPostFilter(scopedFilters)) {
-      let fullQuery = applySystemFilter(this.baseSelect(), system)
+      // 窄查詢：只選 matchesPostFilter 實際會用到的欄位 + field 自身，
+      // 不再整列 select('*')（見 P1 #15）。
+      const projection = postFilterProjectionFields(field, scopedFilters)
+      let fullQuery: Query = this.supabase.from('students').select(projection.join(','))
+      fullQuery = applySystemFilter(fullQuery, system)
       if (scope?.groupLeader) fullQuery = fullQuery.eq('group_leader', scope.groupLeader)
-      fullQuery = applyCommonFilters(fullQuery, scopedFilters, true)
+      fullQuery = applyCommonFilters(fullQuery, scopedFilters, true, now)
       const all: Student[] = []
       for (let from = 0; ; from += 1000) {
         const { data, error } = await fullQuery.range(from, from + 999)
         if (error) throw error
         if (!data || data.length === 0) break
-        all.push(...(data as Student[]))
+        all.push(...(data as unknown as Student[]))
         if (data.length < 1000) break
       }
       for (const s of all) {

@@ -22,7 +22,8 @@ export const STAGE_KEYS: Array<{ course: keyof Student; payment: keyof Student }
   { course: 'course_wuyun', payment: 'payment_wuyun' },
 ]
 
-const NEWBIE_DAYS = 30
+/** 匯出供 repository 層下推 SQL 查詢時使用，需與下方 isNewbie() 的判定邏輯保持一致 */
+export const NEWBIE_DAYS = 30
 
 /** 最高完成階別：0（未上課）~ 5 */
 export function highestStage(s: Pick<Student, 'course_1' | 'course_2' | 'course_3' | 'course_4' | 'course_5'>): 0 | 1 | 2 | 3 | 4 | 5 {

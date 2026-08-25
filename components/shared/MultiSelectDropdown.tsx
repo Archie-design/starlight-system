@@ -9,6 +9,20 @@ interface Option {
 
 export type MultiSelectMode = 'include' | 'exclude'
 
+/**
+ * 套用結果，單一入口——呼叫端只需依此寫回對應的狀態，一次動作只觸發一次
+ * 狀態更新。這裡刻意不拆成 onChange/onModeChange/onIsEmptyChange 三個各自
+ * 獨立呼叫的回呼：先前的設計是三個回呼各自呼叫 setColumnFilter 寫入同一個
+ * store 欄位，只要同一個使用者動作連續呼叫兩個回呼（例如「清除」需要同時
+ * 清空清單與 isEmpty），後呼叫的就會覆蓋先呼叫的，导致淨效果與預期不符
+ * （見 TextFilterPopover 曾修過的同類 race condition：commit
+ * "consolidate TextFilterPopover callbacks into single onApply handler"）。
+ */
+export type MultiSelectResult =
+  | { kind: 'values'; values: string[]; mode: MultiSelectMode }
+  | { kind: 'isEmpty'; isEmpty: boolean }
+  | null
+
 interface MultiSelectDropdownProps {
   label: string
   options: Option[]
@@ -20,23 +34,25 @@ interface MultiSelectDropdownProps {
   /**
    * 包含/排除模式（選用）。傳入時面板會顯示模式切換鈕：
    * 'include'（預設）＝勾選才顯示；'exclude'＝隱藏勾選的、顯示其餘。
-   * 未傳入 mode/onModeChange 時不顯示切換鈕，維持原本純複選行為
-   * （會籍狀態等既有用法不受影響）。
+   * 未傳入 mode 時不顯示切換鈕，維持原本純複選行為（會籍狀態等既有用法不受影響）。
    */
   mode?: MultiSelectMode
-  onModeChange?: (mode: MultiSelectMode) => void
   /**
-   * 是否已套用「為空／不為空」條件（選用）。傳入 `onIsEmptyChange` 時，
-   * 面板底部會顯示「為空」「不為空」快捷按鈕，與清單複選互斥——
-   * 套用為空/不為空時會清空已勾選的清單，反之亦然。
+   * 是否已套用「為空／不為空」條件（選用）。傳入時面板底部會顯示「為空」
+   * 「不為空」快捷按鈕，與清單複選互斥。
    */
   isEmpty?: boolean
-  onIsEmptyChange?: (isEmpty: boolean | null) => void
+  /**
+   * 「模式切換」「為空/不為空」「清除」的單一套用入口（選用）。傳入
+   * `onApply` 時才會顯示模式切換鈕與為空/不為空按鈕；不傳則維持原本純
+   * `onChange` 複選行為。
+   */
+  onApply?: (result: MultiSelectResult) => void
 }
 
-/** 通用多選下拉：以 checkbox 清單勾選多個值，按鈕上顯示已選數量；選用支援「為空/不為空」快捷條件 */
+/** 通用多選下拉：以 checkbox 清單勾選多個值，按鈕上顯示已選數量；選用支援模式切換與「為空/不為空」快捷條件 */
 export default function MultiSelectDropdown({
-  label, options, selected, onChange, title, iconOnly, mode, onModeChange, isEmpty, onIsEmptyChange,
+  label, options, selected, onChange, title, iconOnly, mode, isEmpty, onApply,
 }: MultiSelectDropdownProps) {
   const { open, setOpen, ref } = usePopoverToggle<HTMLDivElement>()
 
@@ -46,15 +62,13 @@ export default function MultiSelectDropdown({
   const toggle = (value: string) => {
     // 只呼叫 onChange：它會用 setColumnFilter 寫入完整的新 ColumnFilterValue
     // （不含 isEmpty 欄位），下一輪渲染時 `isEmpty` prop 自然變回 undefined，
-    // 不需要另外呼叫 onIsEmptyChange(null) ——兩個回呼各自獨立呼叫
-    // setColumnFilter 會互相覆蓋，導致淨效果變成清空篩選（見「為空」點了
-    // 沒反應的除錯記錄）。
+    // 不需要另外通知「清空 isEmpty」。
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
   }
 
   const active = selected.length > 0 || isEmptyActive
-  const showModeToggle = !!onModeChange
-  const showEmptyToggle = !!onIsEmptyChange
+  const showModeToggle = !!onApply && mode !== undefined
+  const showEmptyToggle = !!onApply
   const isExclude = mode === 'exclude'
   // 排除模式啟用時用琥珀色系跟一般（包含）模式的藍色系區分，避免誤讀成一般篩選
   const activeColorClasses = isExclude
@@ -104,7 +118,7 @@ export default function MultiSelectDropdown({
             <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-slate-100">
               <button
                 type="button"
-                onClick={() => onModeChange!('include')}
+                onClick={() => onApply!({ kind: 'values', values: selected, mode: 'include' })}
                 className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
                   !isExclude ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -113,7 +127,7 @@ export default function MultiSelectDropdown({
               </button>
               <button
                 type="button"
-                onClick={() => onModeChange!('exclude')}
+                onClick={() => onApply!({ kind: 'values', values: selected, mode: 'exclude' })}
                 className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
                   isExclude ? 'bg-amber-500 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -142,7 +156,7 @@ export default function MultiSelectDropdown({
             <div className="flex items-center gap-1 px-2.5 py-1.5 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => onIsEmptyChange!(isEmpty === true ? null : true)}
+                onClick={() => onApply!(isEmpty === true ? null : { kind: 'isEmpty', isEmpty: true })}
                 className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
                   isEmpty === true ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -151,7 +165,7 @@ export default function MultiSelectDropdown({
               </button>
               <button
                 type="button"
-                onClick={() => onIsEmptyChange!(isEmpty === false ? null : false)}
+                onClick={() => onApply!(isEmpty === false ? null : { kind: 'isEmpty', isEmpty: false })}
                 className={`flex-1 text-[11px] py-0.5 rounded transition-colors ${
                   isEmpty === false ? 'bg-blue-600 text-white font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -163,9 +177,7 @@ export default function MultiSelectDropdown({
           {active && (
             <button
               type="button"
-              // 兩個回呼在「清除」情境下都會寫入 null，順序無關緊要——
-              // 跟其他按鈕的「一個寫非 null、另一個寫 null」不同，這裡安全
-              onClick={() => { onChange([]); onIsEmptyChange?.(null) }}
+              onClick={() => (onApply ? onApply(null) : onChange([]))}
               className="w-full text-left px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-500 border-t border-slate-100 transition-colors"
             >
               清除

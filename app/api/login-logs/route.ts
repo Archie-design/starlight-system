@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { serverErrorResponse } from '@/lib/utils/apiError'
 import { requireManager } from '@/lib/auth/middleware'
 import { resolveByUsernames } from '@/lib/auth/displayName'
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
   if (event) query = query.eq('event', event)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverErrorResponse('login-logs', error)
 
   // 附上顯示姓名（display_name → 學員姓名(ID) → username）
   const nameMap = await resolveByUsernames((data ?? []).map((r) => r.username))

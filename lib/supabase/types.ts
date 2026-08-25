@@ -13,6 +13,8 @@ export interface AppUser {
   display_name: string | null
   active: boolean
   must_change_password: boolean
+  /** 改密碼時 +1，讓帶舊版本號 cookie 的既有 session 失效（見 migration 016、P2 #26） */
+  session_version: number
   created_at: string
   updated_at: string
 }

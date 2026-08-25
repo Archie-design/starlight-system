@@ -13,6 +13,7 @@ import { useStudentStore } from '@/store/useStudentStore'
 import { useRepository } from '@/lib/context/RepositoryContext'
 import { studentColumns } from './columns'
 import { ColumnHeaderFilter, ColumnHeaderSort } from './ColumnHeaderControls'
+import { StudentEditProvider } from './StudentEditContext'
 import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
@@ -22,7 +23,7 @@ const SKELETON_WIDTHS = [70, 55, 85, 60, 75, 90, 65, 80, 50, 70, 60, 85, 75, 55,
 const ROW_HEIGHT = 28
 
 export default function StudentGrid() {
-  const { students, count, isLoading } = useStudents()
+  const { students, count, isLoading, updateCell } = useStudents()
   const {
     activeTab, page, setPage, columnVisibility, setColumnVisibility,
     filters, setColumnFilter, sort, setSort,
@@ -81,6 +82,7 @@ export default function StudentGrid() {
   const totalPages = Math.ceil(count / PAGE_SIZE)
 
   return (
+    <StudentEditProvider updateCell={updateCell}>
     <div className="flex flex-col h-full border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
       {/* 手機版 */}
       {isMobile ? (
@@ -236,5 +238,6 @@ export default function StudentGrid() {
         </div>
       )}
     </div>
+    </StudentEditProvider>
   )
 }

@@ -4,7 +4,8 @@ import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { logAdminAction } from '@/lib/auth/audit'
 import { SupabaseStudentRepository } from '@/lib/db/supabaseRepository'
 import { decodeColumnFiltersFromParams, decodeSortFromParams } from '@/lib/utils/columnFilterUrl'
-import { buildStudentsXlsx } from '@/lib/export/buildXlsx'
+import { streamStudentsXlsx } from '@/lib/export/buildXlsx'
+import { Readable } from 'node:stream'
 import type { Student } from '@/lib/supabase/types'
 import type { StudentFilters, StudentView } from '@/lib/db/types'
 import type { MembershipStatus } from '@/lib/utils/studentStatus'
@@ -48,20 +49,30 @@ export async function GET(request: NextRequest) {
     // service-role client（繞過 RLS），與畫面查詢用的 anon client 分開
     const repo = new SupabaseStudentRepository(createServiceClient())
 
-    // 全量載入：以大 pageSize 分頁迴圈取得符合條件的完整結果（非畫面分頁的單頁）
-    const all: Student[] = []
-    for (let page = 0; ; page++) {
-      const { rows, count } = await repo.findBySystem(system, filters, { page, pageSize: EXPORT_PAGE_SIZE }, sort)
-      all.push(...rows)
-      if (all.length >= count || rows.length === 0) break
+    // Streaming 匯出（P1 #18）：逐頁向 DB 查詢並直接餵給 ExcelJS 的
+    // streaming writer，不再把全量結果先集中在記憶體的 `all: Student[]`，
+    // 也不再一次性 `writeBuffer()` 產生整份檔案的 Buffer。
+    // 稽核紀錄的筆數改由分頁迴圈中累加取得（同樣不需要保留完整陣列）。
+    let totalCount = 0
+    async function* pages(): AsyncGenerator<Student[]> {
+      for (let page = 0; ; page++) {
+        const { rows, count } = await repo.findBySystem(system, filters, { page, pageSize: EXPORT_PAGE_SIZE }, sort)
+        totalCount += rows.length
+        if (rows.length > 0) yield rows
+        if (totalCount >= count || rows.length === 0) break
+      }
     }
 
-    logAdminAction('data_export', { actor: user.username, target: system, detail: `${all.length} 筆` }, request)
-
-    const buffer = await buildStudentsXlsx(all, `學員名單(${system})`)
+    const nodeStream = streamStudentsXlsx(pages(), `學員名單(${system})`)
     const filename = encodeURIComponent(`學員名單_${system}_${new Date().toISOString().split('T')[0]}.xlsx`)
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    // fire-and-forget 稽核：串流結束後才知道確切筆數，寫入不阻塞回應本身
+    // （回應本身也是邊查邊吐，非等到查完才回）
+    nodeStream.on('end', () => {
+      logAdminAction('data_export', { actor: user.username, target: system, detail: `${totalCount} 筆` }, request)
+    })
+
+    return new NextResponse(Readable.toWeb(nodeStream) as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename*=UTF-8''${filename}`,

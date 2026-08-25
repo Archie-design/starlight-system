@@ -1,5 +1,5 @@
 import type { Student } from '@/lib/supabase/types'
-import type { ColumnFilterValue, ColumnFilterMode } from '@/lib/db/types'
+import type { ColumnFilterValue, ColumnFilterMode, SortState, StudentFilters } from '@/lib/db/types'
 
 /**
  * 表頭逐欄篩選的白名單：key 為 `Student` 欄位名，僅在
@@ -54,9 +54,24 @@ export const COLUMN_FILTER_FIELDS: Record<string, ColumnFilterValue['type'][]> =
   life_transform: TEXT_FIELD_ALLOWED_TYPES, debt_release: TEXT_FIELD_ALLOWED_TYPES,
 }
 
-/** 該欄位「預設／主要」篩選型態，供 `columns.tsx` 判斷面板顯示哪種 UI 入口（text 或 enum） */
-export function primaryFilterType(field: string): ColumnFilterValue['type'] | undefined {
-  return COLUMN_FILTER_FIELDS[field]?.[0]
+/**
+ * `getDistinctValues()` 共用的前置處理（P2 #27：原本兩個 repository
+ * ——`supabaseRepository.ts`／`mockRepository.ts`——各自逐字重複這段邏輯，
+ * 抽到這裡統一維護）：
+ * 1. 欄位不在白名單內直接視為無效查詢（回傳 null，呼叫端應回傳空陣列）。
+ * 2. 從目前生效的表頭篩選中排除 `field` 自身——否則已勾選的值會讓「依值
+ *    篩選」面板下次開啟時，其他選項因為被自己的篩選條件濾掉而消失
+ *    （見 design.md 決策 3）。
+ */
+export function scopeFiltersForDistinctValues(
+  field: string,
+  filters: StudentFilters,
+): { scopedFilters: StudentFilters } | null {
+  if (!(field in COLUMN_FILTER_FIELDS)) return null
+
+  const { [field]: _omit, ...restColumnFilters } = filters.columnFilters ?? {}
+  const scopedFilters: StudentFilters = { ...filters, columnFilters: restColumnFilters }
+  return { scopedFilters }
 }
 
 /**
@@ -170,4 +185,30 @@ export function matchesColumnFilters(
     if (!matchesOne(s, field, value)) return false
   }
   return true
+}
+
+/**
+ * 依 `sort` 對一組學員排序（JS 端排序，供 supabaseRepository 的全量後處理
+ * 路徑與 mockRepository 共用；SQL 可下推排序的路徑改用 `.order()`）。
+ * `sort.field` 不在 `SORTABLE_FIELDS` 白名單內時原樣返回，不排序。
+ * null 值一律排到最後（不論遞增/遞減）。
+ *
+ * 曾經在 supabaseRepository.ts 與 mockRepository.ts 各自維護一份逐字相同
+ * 的實作，兩處分別調整容易漂移出不一致行為，故收斂成單一共用函式。
+ */
+export function applySort(rows: Student[], sort?: SortState | null): Student[] {
+  if (!sort || !SORTABLE_FIELDS.has(sort.field)) return rows
+  const { field, direction } = sort
+  const sorted = [...rows].sort((a, b) => {
+    const av = (a as unknown as Record<string, unknown>)[field]
+    const bv = (b as unknown as Record<string, unknown>)[field]
+    if (av == null && bv == null) return 0
+    if (av == null) return 1  // null 值排最後
+    if (bv == null) return -1
+    if (av < bv) return -1
+    if (av > bv) return 1
+    return 0
+  })
+  if (direction === 'desc') sorted.reverse()
+  return sorted
 }

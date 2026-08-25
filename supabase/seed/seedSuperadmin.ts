@@ -15,6 +15,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import { hash } from 'bcryptjs'
+import { PASSWORD_HASH_COST } from '@/lib/auth/passwordPolicy'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || ''
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
@@ -37,7 +38,7 @@ if (PASSWORD.length < 8) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 async function main() {
-  const password_hash = await hash(PASSWORD, 10)
+  const password_hash = await hash(PASSWORD, PASSWORD_HASH_COST)
 
   const { data: existing } = await supabase
     .from('users')

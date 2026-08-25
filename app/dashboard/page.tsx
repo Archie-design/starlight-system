@@ -91,80 +91,77 @@ export default async function DashboardPage() {
     { label: '五運', key: 'payment_wuyun' },
   ]
 
-  const paymentDistribution = paymentStages.map((stage, index) => {
-    const courseKey = `course_${index + 1}` as keyof typeof allStudents[0]
-    const actualCourseKey = stage.key === 'payment_wuyun' ? 'course_wuyun' : courseKey
-    
-    const enrolledStudents = allStudents.filter(s => !!s[actualCourseKey as keyof typeof s])
-    
-    const counts: Record<string, number> = {
-      '已完款': 0,
-      '部分付款': 0,
-      '退款完成': 0
+  // 各階上課人數（courseFunnel）、付款狀態分布（paymentDistribution）、
+  // 退款完成清單（unpaidAlerts）原本各自對 allStudents 獨立跑一輪
+  // .filter()/.map()（約 15 次遍歷），改為單一 reduce 合併成一次遍歷。
+  // 註：三/四/五階不拘順序，courseFunnel 以「各階人數長條」呈現，而非暗示流失的漏斗。
+  const courseFunnelCounts = [0, 0, 0, 0, 0, 0]
+  const paymentCounts = paymentStages.map(() => ({ 已完款: 0, 部分付款: 0, 退款完成: 0 }))
+  const groupStudents: { group_leader: string }[] = []
+  const membershipData: { id: string; name: string; membership_expiry: string }[] = []
+  const unpaidAlerts: { id: number; name: string; unpaid: { label: string; status: string }[] }[] = []
+  const distributionDetail: Array<Record<string, unknown>> = []
+
+  const courseKeys = ['course_1', 'course_2', 'course_3', 'course_4', 'course_5', 'course_wuyun'] as const
+
+  for (const s of allStudents) {
+    // courseFunnel + paymentDistribution：同一輪跑完 6 個階別
+    const unpaid: { label: string; status: string }[] = []
+    for (let i = 0; i < paymentStages.length; i++) {
+      const courseKey = courseKeys[i]
+      const enrolled = !!s[courseKey as keyof typeof s]
+      if (enrolled) courseFunnelCounts[i]++
+
+      const stage = paymentStages[i]
+      const rawStatus = s[stage.key as keyof typeof s] as string | null
+      if (enrolled) {
+        const status = normalizePayment(rawStatus)
+        paymentCounts[i][status as '已完款' | '部分付款' | '退款完成']++
+        if (status !== '已完款') {
+          unpaid.push({ label: stage.label, status: rawStatus || '（空白）' })
+        }
+      }
     }
-    
-    enrolledStudents.forEach(s => {
-      const status = normalizePayment(s[stage.key as keyof typeof s] as string | null)
-      counts[status] = (counts[status] || 0) + 1
+    if (unpaid.length > 0 && unpaidAlerts.length < 100) {
+      // 限制筆數，避免 Client 負載過重（維持原本 slice(0, 100) 的行為）
+      unpaidAlerts.push({ id: s.id, name: s.name, unpaid })
+    }
+
+    if (s.group_leader !== null) groupStudents.push({ group_leader: s.group_leader })
+    if (s.membership_expiry !== null) {
+      membershipData.push({ id: String(s.id), name: s.name, membership_expiry: s.membership_expiry })
+    }
+
+    distributionDetail.push({
+      id: s.id,
+      name: s.name,
+      group_leader: s.group_leader,
+      course_1: s.course_1,
+      course_2: s.course_2,
+      course_3: s.course_3,
+      course_4: s.course_4,
+      course_5: s.course_5,
+      course_wuyun: s.course_wuyun,
+      payment_1: s.payment_1,
+      payment_2: s.payment_2,
+      payment_3: s.payment_3,
+      payment_4: s.payment_4,
+      payment_5: s.payment_5,
+      payment_wuyun: s.payment_wuyun,
     })
-    return { name: stage.label, ...counts }
-  })
+  }
 
-  // 各階上課人數：由本體系已篩選的學員直接計算（各階獨立計數，不假設順序）
-  // 註：三/四/五階不拘順序，故以「各階人數長條」呈現，而非暗示流失的漏斗
-  const courseFunnel: { stage: string; count: number }[] = [
-    { stage: '一階', count: allStudents.filter((r) => r.course_1).length },
-    { stage: '二階', count: allStudents.filter((r) => r.course_2).length },
-    { stage: '三階', count: allStudents.filter((r) => r.course_3).length },
-    { stage: '四階', count: allStudents.filter((r) => r.course_4).length },
-    { stage: '五階', count: allStudents.filter((r) => r.course_5).length },
-    { stage: '五運', count: allStudents.filter((r) => r.course_wuyun).length },
-  ]
-
-  const groupStudents = allStudents
-    .filter((s) => s.group_leader !== null)
-    .map((s) => ({ group_leader: s.group_leader }))
-
-  const membershipData = allStudents
-    .filter((s) => s.membership_expiry !== null)
-    .map((s) => ({ id: s.id, name: s.name, membership_expiry: s.membership_expiry }))
-    .sort((a, b) => new Date(a.membership_expiry).getTime() - new Date(b.membership_expiry).getTime())
-
-  // 11. 退款完成學員清單 (有上課但退款完成)
-  const unpaidAlerts = allStudents.map(s => {
-    const unpaid = paymentStages.filter((stage, index) => {
-      const courseKey = stage.key === 'payment_wuyun' ? 'course_wuyun' : `course_${index + 1}`
-      const isEnrolled = !!s[courseKey as keyof typeof s]
-      const status = normalizePayment(s[stage.key as keyof typeof s] as string | null)
-      return isEnrolled && status !== '已完款'
-    }).map(stage => ({
-      label: stage.label,
-      status: (s[stage.key as keyof typeof s] as string | null) || '（空白）'
-    }))
-
-    if (unpaid.length > 0) {
-      return { id: s.id, name: s.name, unpaid }
-    }
-    return null
-  }).filter(Boolean).slice(0, 100) // 限制筆數，避免 Client 負載過重
-
-  const distributionDetail = allStudents.map(s => ({
-    id: s.id,
-    name: s.name,
-    group_leader: s.group_leader,
-    course_1: s.course_1,
-    course_2: s.course_2,
-    course_3: s.course_3,
-    course_4: s.course_4,
-    course_5: s.course_5,
-    course_wuyun: s.course_wuyun,
-    payment_1: s.payment_1,
-    payment_2: s.payment_2,
-    payment_3: s.payment_3,
-    payment_4: s.payment_4,
-    payment_5: s.payment_5,
-    payment_wuyun: s.payment_wuyun,
+  const courseFunnel: { stage: string; count: number }[] = paymentStages.map((stage, i) => ({
+    stage: stage.label,
+    count: courseFunnelCounts[i],
   }))
+
+  const paymentDistribution = paymentStages.map((stage, i) => ({
+    name: stage.label,
+    ...paymentCounts[i],
+  }))
+
+  membershipData.sort((a, b) => new Date(a.membership_expiry).getTime() - new Date(b.membership_expiry).getTime())
 
   return (
     <DashboardClient

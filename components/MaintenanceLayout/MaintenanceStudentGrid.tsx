@@ -3,9 +3,7 @@
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
   flexRender,
-  type SortingState,
   type ColumnResizeMode,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -13,6 +11,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useMaintenanceStudents, MAINTENANCE_PAGE_SIZE } from '@/hooks/useMaintenanceStudents'
 import { useMaintenanceStore } from '@/store/useMaintenanceStore'
 import { studentColumns } from '@/components/StudentGrid/columns'
+import { StudentEditProvider } from '@/components/StudentGrid/StudentEditContext'
 import MobileStudentList from '@/components/MobileStudentList'
 
 const SKELETON_ROWS = 15
@@ -20,9 +19,8 @@ const SKELETON_WIDTHS = [70, 55, 85, 60, 75, 90, 65, 80, 50, 70, 60, 85, 75, 55,
 const ROW_HEIGHT = 28
 
 export default function MaintenanceStudentGrid() {
-  const { students, count, isLoading } = useMaintenanceStudents()
+  const { students, count, isLoading, updateCell } = useMaintenanceStudents()
   const { page, setPage, columnVisibility, setColumnVisibility } = useMaintenanceStore()
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: false }])
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -33,16 +31,18 @@ export default function MaintenanceStudentGrid() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // 註：不提供表頭排序（見 P1 #19）——資料是伺服器分頁，若用 TanStack Table
+  // 的 getSortedRowModel() 只會排序「當前這一頁」，換頁後排序又重來，語意是
+  // 錯的；維護專區資料量小、使用頻率低，與其誤導不如直接不提供，維持
+  // repository 回傳的預設順序（依 id 遞增）。
   const table = useReactTable({
     data: students,
     columns: studentColumns,
-    state: { sorting, columnVisibility },
-    onSortingChange: setSorting,
+    state: { columnVisibility },
     onColumnVisibilityChange: (updater) => {
       setColumnVisibility(typeof updater === 'function' ? updater(columnVisibility) : updater)
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     columnResizeMode: 'onChange' as ColumnResizeMode,
     enableColumnResizing: true,
     defaultColumn: { minSize: 50 },
@@ -67,6 +67,7 @@ export default function MaintenanceStudentGrid() {
   const totalPages = Math.ceil(count / MAINTENANCE_PAGE_SIZE)
 
   return (
+    <StudentEditProvider updateCell={updateCell}>
     <div className="flex flex-col h-full border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
       {/* 手機版 */}
       {isMobile ? (
@@ -94,15 +95,11 @@ export default function MaintenanceStudentGrid() {
                       className={`
                         relative px-1.5 py-1.5 text-left font-bold text-slate-700 border-r border-slate-300
                         select-none whitespace-nowrap text-xs
-                        ${header.column.getCanSort() ? 'cursor-pointer hover:bg-slate-200 hover:text-blue-700' : ''}
                         ${isPinned ? 'sticky z-30 bg-slate-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : ''}
                       `}
-                      onClick={header.column.getToggleSortingHandler()}
                     >
                       <span className="truncate block pr-2">
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === 'asc' && <span className="text-blue-600 ml-0.5">↑</span>}
-                        {header.column.getIsSorted() === 'desc' && <span className="text-blue-600 ml-0.5">↓</span>}
                       </span>
                       {!isPinned && (
                         <div
@@ -199,5 +196,6 @@ export default function MaintenanceStudentGrid() {
         </>
       )}
     </div>
+    </StudentEditProvider>
   )
 }

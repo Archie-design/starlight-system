@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { checkAuth } from '@/lib/auth'
+import { getEffectiveSystem } from '@/lib/auth'
+import { requireManager } from '@/lib/auth/middleware'
+import { systemOf } from '@/lib/utils/system'
 import { logAdminAction } from '@/lib/auth/audit'
 import { computeDiff } from '@/lib/import/diff'
 import { buildGroupAssignments } from '@/lib/import/assignGroup'
 import type { Student, StudentInsert, CounselorGroup } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
-  const authResult = await checkAuth(request)
-  if (!authResult.valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // 套用匯入會直接寫入學員資料，僅限管理層級（superadmin / system_admin）操作
+  const user = await requireManager(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { session_id } = await request.json() as { session_id: string }
@@ -40,6 +43,20 @@ export async function POST(request: NextRequest) {
     }
 
     const importRows: StudentInsert[] = session.diff_snapshot ?? []
+
+    // 再次驗證（防禦性檢查，不信任 preview 階段的把關已經足夠）：非 superadmin
+    // 只能套用自己有效體系的資料，避免跨體系寫入
+    if (user.role !== 'superadmin') {
+      const effectiveSystem = await getEffectiveSystem(user)
+      const offSystem = importRows.some((r) => systemOf(r.business_chain) !== effectiveSystem)
+      if (offSystem) {
+        return NextResponse.json(
+          { error: `此匯入記錄含有非「${effectiveSystem}」體系的資料，你沒有權限套用` },
+          { status: 403 }
+        )
+      }
+    }
+
     const BATCH = 100
     const CHUNK = 500
 
@@ -101,13 +118,18 @@ export async function POST(request: NextRequest) {
       groupAssignments = buildGroupAssignments(studentMap, groups)
     }
 
-    // 注入 group_leader 後批次 upsert（使用事務確保一致性）
+    // 注入 group_leader 後批次 upsert。
+    //
+    // 註：Supabase REST API 沒有跨批次的原生交易可用（真正的原子性需要另建
+    // Postgres function 把整個流程搬進 PL/pgSQL 執行，牽動較大、風險較高，
+    // 這次先不做）。這裡改善的是「部分失敗」情境下的可觀測性與可重試性：
+    // - 精確記錄哪些 id 失敗（而非只有筆數），回應與 admin_audit 都帶上，方便排查
+    // - upsert 對每一筆是冪等的（onConflict: 'id' 覆蓋整列），失敗批次可直接重試
+    //   同一個 session_id 而不會造成重複寫入或資料錯亂——僅需避免對已標記
+    //   applied 的 session 重跑（前面的幂等性檢查已擋下）
     let applied = 0
-    let errors = 0
-    let transactionFailed = false
+    const failedIds: number[] = []
 
-    // PostgreSQL 事務支援：使用 RPC 或原始 SQL
-    // 暫時使用批次 upsert，後續可升級為完整事務
     try {
       for (let i = 0; i < importRows.length; i += BATCH) {
         const batch = importRows.slice(i, i + BATCH).map(row => {
@@ -126,9 +148,8 @@ export async function POST(request: NextRequest) {
           .upsert(batch, { onConflict: 'id' })
 
         if (error) {
-          console.error('[apply batch]', error.message)
-          errors += batch.length
-          transactionFailed = true
+          console.error('[apply batch]', error.message, 'ids:', batch.map(r => r.id))
+          failedIds.push(...batch.map(r => r.id))
           // 繼續處理其他批次以收集完整錯誤報告
         } else {
           applied += batch.length
@@ -136,12 +157,13 @@ export async function POST(request: NextRequest) {
       }
     } catch (batchErr) {
       console.error('[apply transaction]', batchErr)
-      transactionFailed = true
       return NextResponse.json(
-        { error: '批次操作失敗，可能導致部分數據不一致，請檢查日誌', applied, errors },
+        { error: '批次操作失敗，可能導致部分數據不一致，請檢查日誌', applied, errors: importRows.length - applied, failedIds },
         { status: 500 }
       )
     }
+
+    const transactionFailed = failedIds.length > 0
 
     // 只有全部成功才標記為已套用
     if (!transactionFailed) {
@@ -151,15 +173,22 @@ export async function POST(request: NextRequest) {
         .update({ applied: true, applied_at: new Date().toISOString() })
         .eq('id', session_id)
     } else {
-      // 失敗時不標記為已套用，允許重試
-      console.warn('[apply] 標記為失敗狀態，等待重試')
+      // 失敗時不標記為已套用，允許重試；記下失敗 id 供排查與重試依據
+      console.warn('[apply] 標記為失敗狀態，等待重試。失敗 id：', failedIds)
     }
 
-    if (!transactionFailed) {
-      logAdminAction('import_applied', { actor: authResult.user?.username ?? null, detail: `套用 ${applied} 筆、錯誤 ${errors}` }, request)
-    }
+    logAdminAction(
+      'import_applied',
+      {
+        actor: user.username,
+        detail: transactionFailed
+          ? `套用 ${applied} 筆、失敗 ${failedIds.length} 筆（id: ${failedIds.slice(0, 50).join(',')}${failedIds.length > 50 ? '...' : ''}）`
+          : `套用 ${applied} 筆、錯誤 0`,
+      },
+      request,
+    )
 
-    return NextResponse.json({ applied, errors, success: !transactionFailed })
+    return NextResponse.json({ applied, errors: failedIds.length, failedIds, success: !transactionFailed })
   } catch (err) {
     console.error('[import/apply]', err)
     return NextResponse.json(

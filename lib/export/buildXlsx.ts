@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs'
+import { PassThrough } from 'node:stream'
 import type { Student } from '@/lib/supabase/types'
 import { APP_NAME } from '@/lib/config'
 
@@ -33,6 +34,10 @@ function studentToRow(s: Student): (string | number | null)[] {
   ]
 }
 
+/**
+ * 一次性建構整份 workbook 在記憶體中（原始實作，小量資料/測試用）。
+ * 大量資料請改用下方 `streamStudentsXlsx()`（P1 #18）。
+ */
 export async function buildStudentsXlsx(students: Student[], sheetName: string): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
   workbook.creator = APP_NAME
@@ -79,4 +84,64 @@ export async function buildStudentsXlsx(students: Student[], sheetName: string):
 
   const buffer = await workbook.xlsx.writeBuffer()
   return Buffer.from(buffer)
+}
+
+/**
+ * Streaming 版本（P1 #18）：用 `ExcelJS.stream.xlsx.WorkbookWriter` 邊寫邊吐出
+ * bytes，呼叫端可用 async generator 分頁提供資料（例如逐頁查 DB），不需要
+ * 先把全部學員資料在記憶體中集成一個陣列。列數多時記憶體佔用大幅降低，
+ * 也不受單一 `writeBuffer()` 產生超大 Buffer 的限制。
+ *
+ * 隔行底色在 streaming writer 下無法用 `ws.eachRow()` 事後統一套用（尚未
+ * flush 的列讀不到），改為逐列產生時直接判斷 rowNumber 套用，行為與原本
+ * 一次性版本一致。
+ *
+ * @param studentPages async generator，每次 yield 一頁 Student[]（呼叫端控制分頁大小）
+ * @returns Node.js Readable，可直接接到 Response 的 body（見 app/api/export/route.ts）
+ */
+export function streamStudentsXlsx(
+  studentPages: AsyncIterable<Student[]>,
+  sheetName: string,
+): PassThrough {
+  const passthrough = new PassThrough()
+
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: passthrough, useStyles: true })
+  workbook.creator = APP_NAME
+  workbook.created = new Date()
+
+  // WorksheetWriter 的 `views` 是唯讀 getter，須在 addWorksheet() 建立時
+  // 透過 options 傳入，事後賦值會丟出 TypeError（與一次性 Workbook API 不同）。
+  const ws = workbook.addWorksheet(sheetName, { views: [{ state: 'frozen', ySplit: 1 }] })
+  ws.columns = HEADERS.map((h) => ({
+    header: h,
+    width: Math.max(h.length * 1.8, 10),
+  }))
+
+  const headerRow = ws.getRow(1)
+  headerRow.font = { bold: true }
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
+  headerRow.alignment = { horizontal: 'center' }
+  headerRow.commit()
+
+  ;(async () => {
+    try {
+      let rowNumber = 1
+      for await (const page of studentPages) {
+        for (const student of page) {
+          rowNumber++
+          const row = ws.addRow(studentToRow(student))
+          if (rowNumber % 2 === 0) {
+            row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }
+          }
+          row.commit()
+        }
+      }
+      ws.commit()
+      await workbook.commit()
+    } catch (err) {
+      passthrough.destroy(err instanceof Error ? err : new Error(String(err)))
+    }
+  })()
+
+  return passthrough
 }

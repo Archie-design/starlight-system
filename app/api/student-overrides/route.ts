@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { checkAuth } from '@/lib/auth'
+import { serverErrorResponse } from '@/lib/utils/apiError'
+import { getEffectiveSystem } from '@/lib/auth'
+import { requireManager } from '@/lib/auth/middleware'
+import { studentIdsAllInSystem } from '@/lib/utils/system'
 
-export async function GET() {
-  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(request: NextRequest) {
+  const user = await requireManager(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createServiceClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -12,7 +16,7 @@ export async function GET() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverErrorResponse('student-overrides', error)
 
   // 取得學員名稱方便顯示 (若有需要)
   const studentIds = overrides.map((o: any) => o.student_id)
@@ -42,7 +46,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await checkAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireManager(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { student_ids, override_parent_id, note } = await request.json()
   if (!student_ids || !Array.isArray(student_ids) || student_ids.length === 0 || !override_parent_id) {
@@ -50,6 +55,14 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient()
+
+  // 被覆寫的學員與目標上線都必須屬於呼叫者有效體系，避免跨體系覆寫上線關係
+  if (user.role !== 'superadmin') {
+    const effectiveSystem = await getEffectiveSystem(user)
+    const ok = await studentIdsAllInSystem(supabase, [...student_ids, override_parent_id], effectiveSystem)
+    if (!ok) return NextResponse.json({ error: '學員須屬於你的體系' }, { status: 400 })
+  }
+
   const records = student_ids.map(id => ({
     student_id: id,
     override_parent_id,
@@ -62,6 +75,6 @@ export async function POST(request: NextRequest) {
     .upsert(records, { onConflict: 'student_id' })
     .select('*')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverErrorResponse('student-overrides', error)
   return NextResponse.json({ overrides: data })
 }

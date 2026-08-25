@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import type { Student } from '@/lib/supabase/types'
-import { useStudents } from '@/hooks/useStudents'
+import { useStudentEditContext } from './StudentEditContext'
 
 interface Props {
   value: string | null
@@ -19,7 +19,9 @@ function EditableCellComponent({ value, rowId, field, type = 'text', options = [
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null)
   const cellRef = useRef<HTMLDivElement>(null)
   const wasEditing = useRef(false)
-  const { updateCell } = useStudents()
+  // 從 context 取得（由所在的表格父層 Provider），而非各自訂閱 SWR 資料源，
+  // 見 StudentEditContext.tsx 的說明。
+  const updateCell = useStudentEditContext()
 
   // 外部 value 更新時同步 draft
   useEffect(() => {
@@ -36,20 +38,17 @@ function EditableCellComponent({ value, rowId, field, type = 'text', options = [
     wasEditing.current = editing
   }, [editing])
 
-  // 穩定化 updateCell 參考，避免 useCallback 每次都重新創建
-  const stableUpdateCell = useMemo(() => updateCell, [updateCell])
-
   const commit = useCallback(async () => {
     setEditing(false)
     const newValue = draft.trim() || null
     if (newValue === (value ?? null)) return
     setSaving(true)
     try {
-      await stableUpdateCell(rowId, field, newValue)
+      await updateCell(rowId, field, newValue)
     } finally {
       setSaving(false)
     }
-  }, [draft, value, rowId, field, stableUpdateCell])
+  }, [draft, value, rowId, field, updateCell])
 
   const cancel = useCallback(() => {
     setEditing(false)

@@ -3,11 +3,14 @@ import { compare, hash } from 'bcryptjs'
 import {
   SESSION_COOKIE,
   SESSION_UID_COOKIE,
+  SESSION_VERSION_COOKIE,
   CSRF_TOKEN_COOKIE,
   SESSION_EXPIRY_MINUTES,
 } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import { logLoginEvent } from '@/lib/auth/audit'
+import { checkLoginRateLimit } from '@/lib/auth/rateLimit'
+import { PASSWORD_HASH_COST } from '@/lib/auth/passwordPolicy'
 import { systemOf } from '@/lib/utils/system'
 import { LEADER_ROLES, SYSTEM_ADMIN_STUDENT_ROLES } from '@/lib/constants'
 import { randomBytes } from 'crypto'
@@ -19,7 +22,7 @@ function lastFour(phone: string | null | undefined): string | null {
   return digits.length >= 4 ? digits.slice(-4) : null
 }
 
-function buildSession(uid: string, mustChange: boolean): NextResponse {
+function buildSession(uid: string, mustChange: boolean, sessionVersion: number): NextResponse {
   const secret = process.env.AUTH_SECRET!
   const now = Date.now()
   const csrfToken = randomBytes(32).toString('hex')
@@ -28,6 +31,7 @@ function buildSession(uid: string, mustChange: boolean): NextResponse {
   res.cookies.set(SESSION_COOKIE, secret, cookieOpts)
   res.cookies.set(`${SESSION_COOKIE}_ts`, String(now), cookieOpts)
   res.cookies.set(SESSION_UID_COOKIE, uid, cookieOpts)
+  res.cookies.set(SESSION_VERSION_COOKIE, String(sessionVersion), cookieOpts)
   res.cookies.set(CSRF_TOKEN_COOKIE, csrfToken, { ...cookieOpts, httpOnly: false })
   return res
 }
@@ -37,6 +41,12 @@ export async function POST(req: NextRequest) {
 
   if (!username || !password) {
     return NextResponse.json({ error: '請輸入帳號與密碼' }, { status: 400 })
+  }
+
+  const rateLimit = await checkLoginRateLimit(req, username)
+  if (rateLimit.limited) {
+    logLoginEvent('login_failure', username, req)
+    return NextResponse.json({ error: rateLimit.reason }, { status: 429 })
   }
 
   const secret = process.env.AUTH_SECRET
@@ -53,7 +63,7 @@ export async function POST(req: NextRequest) {
   // 1) 既有帳號
   const { data: user } = await supabase
     .from('users')
-    .select('id, password_hash, active, must_change_password')
+    .select('id, password_hash, active, must_change_password, session_version')
     .eq('username', username)
     .maybeSingle()
 
@@ -62,7 +72,7 @@ export async function POST(req: NextRequest) {
     const ok = await compare(password, user.password_hash)
     if (!ok) return fail()
     logLoginEvent('login_success', username, req)
-    return buildSession(user.id, user.must_change_password)
+    return buildSession(user.id, user.must_change_password, user.session_version)
   }
 
   // 2) 自助登入：username 當學員 ID，關懷長以上 + 手機末四碼
@@ -81,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   // 通過 → 建帳號（首次強制改密碼）。體系長 → system_admin（有管理權）；關懷長 → admin
   const role = SYSTEM_ADMIN_STUDENT_ROLES.includes(student.role ?? '') ? 'system_admin' : 'admin'
-  const password_hash = await hash(password, 10)
+  const password_hash = await hash(password, PASSWORD_HASH_COST)
   const { data: created, error: insErr } = await supabase
     .from('users')
     .insert({
@@ -102,5 +112,6 @@ export async function POST(req: NextRequest) {
   }
 
   logLoginEvent('login_success', username, req)
-  return buildSession(created.id, true)
+  // 新建帳號的 session_version 是 DB default（1），不用再查一次
+  return buildSession(created.id, true, 1)
 }

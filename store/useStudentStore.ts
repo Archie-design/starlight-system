@@ -77,10 +77,6 @@ interface StudentStore {
   importModalOpen: boolean
   setImportModalOpen: (open: boolean) => void
 
-  // 新增學員 Modal 狀態
-  newStudentOpen: boolean
-  setNewStudentOpen: (open: boolean) => void
-
   // 檢視模式
   view: 'grid' | 'org' | 'network'
   setView: (view: 'grid' | 'org' | 'network') => void
@@ -142,9 +138,6 @@ export const useStudentStore = create<StudentStore>((set) => ({
 
   importModalOpen: false,
   setImportModalOpen: (open) => set({ importModalOpen: open }),
-
-  newStudentOpen: false,
-  setNewStudentOpen: (open) => set({ newStudentOpen: open }),
 
   view: 'grid',
   setView: (view) => set({ view }),
