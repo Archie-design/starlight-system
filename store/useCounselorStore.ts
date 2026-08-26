@@ -120,6 +120,7 @@ export const useCounselorStore = create<CounselorStore>((set) => ({
   sort: null,
   setSort: (sort) => set({ sort, page: 0 }),
 
-  columnVisibility: {},
+  // 地理位置欄位（縣市/地區/地址）預設隱藏，需在「欄位設定」面板手動開啟
+  columnVisibility: { county: false, district: false, address: false },
   setColumnVisibility: (columnVisibility) => set({ columnVisibility }),
 }))

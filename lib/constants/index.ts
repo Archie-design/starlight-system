@@ -105,6 +105,14 @@ export const COLUMN_GROUPS = [
     ],
   },
   {
+    label: '地理位置',
+    cols: [
+      { id: 'county', label: '縣市' },
+      { id: 'district', label: '地區（地址）' },
+      { id: 'address', label: '地址' },
+    ],
+  },
+  {
     label: '課程',
     cols: [
       { id: 'course_1', label: '一階' },

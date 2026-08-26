@@ -41,6 +41,11 @@ export interface Student {
   senior_counselor: string | null
   region: string | null
   guidance_chain: string | null
+  // 地理位置（縣市/地區/地址）——與上面的 region（輔導區域/關懷區域，
+  // UI 顯示為「地區」）是不同概念，刻意用不同欄位名區分，不可混用。
+  county: string | null
+  district: string | null
+  address: string | null
   membership_expiry: string | null  // ISO date string "YYYY-MM-DD"
   course_1: string | null
   payment_1: string | null

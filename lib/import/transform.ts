@@ -25,6 +25,12 @@ export const DEFAULT_COL = {
   SENIOR_COUNSELOR: 26,
   CLUB_MEMBERSHIP: 44,
   DREAM_INTERPRETER: 29,
+  // 地理位置（縣市/地區/地址）——與上面的 REGION（輔導區域/關懷區域）是
+  // 不同概念，見 HEADER_TO_COL_KEY 的說明。索引對應 20260606 樣本檔案的
+  // 實際位置，僅作動態標題偵測失敗時的後備值。
+  COUNTY: 13,
+  DISTRICT: 14,
+  ADDRESS: 15,
   // 一階
   L1_BATCH: 52, L1_STATUS: 53, L1_PARENT: 55, L1_PAY_STATUS: 56, L1_BALANCE: 58,
   // 二階
@@ -78,6 +84,11 @@ export const HEADER_TO_COL_KEY: Record<string, keyof ColMap> = {
   "關懷長": "SENIOR_COUNSELOR",
   "傳愛領袖": "SENIOR_COUNSELOR",
   "聯誼會籍": "CLUB_MEMBERSHIP",
+  // 地理位置——"地區" 在此僅作 xlsx 標題 key，與既有 REGION 使用的
+  // "輔導區域"/"關懷區域" 標題不同，不會衝突
+  "縣市/州/省": "COUNTY",
+  "地區": "DISTRICT",
+  "地址": "ADDRESS",
   "圓夢解盤": "DREAM_INTERPRETER",
   // 一至五階
   "一階 梯次": "L1_BATCH", "一階 狀態": "L1_STATUS", "一階 大堂課家長": "L1_PARENT", "一階 付款狀態": "L1_PAY_STATUS", "一階 餘額": "L1_BALANCE",
@@ -150,6 +161,9 @@ export function transformSourceRow(row: RawRow, colMap: ColMap = DEFAULT_COL as 
     senior_counselor: get(colMap.SENIOR_COUNSELOR) ? String(get(colMap.SENIOR_COUNSELOR)) : null,
     region: get(colMap.REGION) ? String(get(colMap.REGION)) : null,
     guidance_chain: guidanceChain ? String(guidanceChain) : null,
+    county: get(colMap.COUNTY) ? String(get(colMap.COUNTY)) : null,
+    district: get(colMap.DISTRICT) ? String(get(colMap.DISTRICT)) : null,
+    address: get(colMap.ADDRESS) ? String(get(colMap.ADDRESS)) : null,
     membership_expiry: membershipExpiry,
     course_1: buildCourseValue(1, get(colMap.L1_BATCH) as number, get(colMap.L1_STATUS) as string),
     payment_1: buildPaymentValue(get(colMap.L1_PAY_STATUS) as string, get(colMap.L1_BALANCE) as number),

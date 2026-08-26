@@ -161,6 +161,14 @@ export const studentColumns = [
   editable('senior_counselor', '關懷長', 120, { filterable: 'text' }),
   selectCell('region', '地區', ['北區', '中區', '南區'], 80),
   editable('guidance_chain', '關懷脈', 80, { filterable: 'text' }),
+
+  // ── 地理位置（縣市/地區/地址）────────────────────────────────
+  // 注意：district 的 label 刻意寫成「地區（地址）」，與上面 region 欄位
+  // 的 label「地區」區隔——兩者是完全不同的概念（見 transform.ts 說明）。
+  editable('county', '縣市', 90, { filterable: 'text' }),
+  editable('district', '地區（地址）', 110, { filterable: 'text' }),
+  editable('address', '地址', 200, { filterable: 'text' }),
+
   ch.accessor('membership_expiry', {
     header: '社團會籍',
     size: 110,
