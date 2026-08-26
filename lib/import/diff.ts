@@ -6,6 +6,7 @@ const COMPARABLE_FIELDS: (keyof StudentInsert)[] = [
   'gender', 'role', 'phone', 'line_id', 'birthday',
   'introducer', 'relation', 'business_chain', 'counselor', 'little_angel',
   'dream_interpreter', 'senior_counselor', 'region', 'guidance_chain',
+  'county', 'district', 'address',
   'membership_expiry',
   'spirit_ambassador_join_date', 'love_giving_start_date',
   'spirit_ambassador_group', 'cumulative_seniority',

@@ -5,7 +5,7 @@
 ## 2. Types
 
 - [x] 2.1 Add `county`, `district`, `address` (all `string | null`) to the `Student` interface in `lib/supabase/types.ts` and verify `StudentInsert`/`StudentUpdate` pick these up automatically via the existing `Omit`/`Partial` derivation
-- [ ] 2.2 Run `npx tsc --noEmit` and confirm no errors before proceeding (fields not yet referenced anywhere else)
+- [x] 2.2 Run `npx tsc --noEmit` and confirm no errors before proceeding (fields not yet referenced anywhere else)
 
 ## 3. Import pipeline
 
@@ -33,4 +33,4 @@
 
 - [x] 6.1 Run `npx tsc --noEmit` and confirm no errors
 - [x] 6.2 Confirm the existing `region`/"地區" column (organizational) is unaffected — same header text in `HEADER_TO_COL_KEY`, same displayed label, same values before and after this change, verified by reviewing the diff touches no `region`-related code
-- [ ] 6.3 Manually re-import `reference/學員資料庫 20260606.xlsx` end-to-end (preview + apply) in a non-production environment and confirm county/district/address are populated for imported students without affecting any other field's values
+- [x] 6.3 Manually re-import `reference/學員資料庫 20260606.xlsx` end-to-end (preview + apply) in a non-production environment and confirm county/district/address are populated for imported students without affecting any other field's values (superseded by a newer sample file `學員資料庫 20260826 (1).xlsx` provided later — see note below)
