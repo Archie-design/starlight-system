@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { useStudentStore } from '@/store/useStudentStore'
 import { csrfFetch } from '@/lib/utils/csrf'
+import { formatElapsedSinceImport } from '@/lib/utils/elapsedTime'
 import { REGIONS, ROLES } from '@/lib/constants'
 import type { StudentView } from '@/lib/db/types'
 import type { MembershipStatus } from '@/lib/utils/studentStatus'
@@ -69,6 +70,18 @@ export default function FilterBar() {
   const { data: lastUpdatedData } = useSWR<{ updatedAt: string | null }>(
     '/api/last-updated', fetcher, { revalidateOnFocus: false, refreshInterval: 60_000 }
   )
+  const { data: lastImportData } = useSWR<{ lastImportAt: string | null }>(
+    '/api/last-import', fetcher, { revalidateOnFocus: false, refreshInterval: 60_000 }
+  )
+
+  // 相對經過時間只需要隨「現在時間」推進而重算，不需要重新打 API——
+  // 用一個每 30 秒 tick 一次的 state 觸發重渲染，而非縮短 SWR 的
+  // refreshInterval（見 design.md 決策 5）。
+  const [, forceElapsedTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => forceElapsedTick((n) => n + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   // 初次載入：從 URL 還原篩選條件
   useEffect(() => {
@@ -241,9 +254,11 @@ export default function FilterBar() {
         </div>
       )}
 
-      {/* 最後更新時間 */}
+      {/* 最後更新時間 + 距上次匯入經過時間 */}
       <span className="ml-auto text-xs text-slate-400 tabular-nums whitespace-nowrap">
         更新：{formatLastUpdated(lastUpdatedData?.updatedAt)}
+        <span className="mx-1 text-slate-300">・</span>
+        {formatElapsedSinceImport(lastImportData?.lastImportAt)}
       </span>
     </div>
   )
