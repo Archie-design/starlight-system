@@ -3,7 +3,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { serverErrorResponse } from '@/lib/utils/apiError'
 import { systemOf } from '@/lib/utils/system'
-import type { StudentInsert } from '@/lib/supabase/types'
 
 // 分頁掃描的每頁筆數。import_sessions 沒有體系欄位，須讀 diff_snapshot
 // 反查，只能在 JS 端逐頁判斷（見 openspec/changes/show-last-import-elapsed-time
@@ -14,7 +13,14 @@ const PAGE_SIZE = 50
 type SessionRow = {
   id: string
   applied_at: string | null
-  diff_snapshot: StudentInsert[] | null
+  // PostgREST JSONB path 運算子 `->0->>business_chain`：只取 diff_snapshot
+  // 陣列第一筆的 business_chain，不把整個 diff_snapshot（動輒上千筆學員
+  // 的完整快照，單一 session 可能達數 MB）傳輸到應用層。原本 select 整個
+  // diff_snapshot 陣列，在 session 數量增加、資料量變大後單次查詢曾實測
+  // 需要近 10 秒，超過 Supabase statement timeout 直接查詢失敗（使用者
+  // 反映「距上次匯入」不會出現或計算錯誤，即為此逾時所致）；改成只取單一
+  // 純量欄位後同一批查詢實測降到約 1 秒。
+  business_chain: string | null
 }
 
 /**
@@ -33,7 +39,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('import_sessions')
-      .select('id, applied_at, diff_snapshot')
+      .select('id, applied_at, diff_snapshot->0->>business_chain')
       .eq('applied', true)
       .order('applied_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1) as { data: SessionRow[] | null; error: unknown }
@@ -42,10 +48,9 @@ export async function GET(request: NextRequest) {
     if (!data || data.length === 0) break
 
     for (const session of data) {
-      const firstRow = session.diff_snapshot?.[0]
-      // 無法判斷體系的 session（例如空快照）保守略過，不猜測歸屬
-      if (!firstRow) continue
-      if (systemOf(firstRow.business_chain) === effectiveSystem) {
+      // business_chain 為 null／key 不存在（例如空快照）保守略過，不猜測歸屬
+      if (session.business_chain == null) continue
+      if (systemOf(session.business_chain) === effectiveSystem) {
         return NextResponse.json({ lastImportAt: session.applied_at ?? null })
       }
     }
