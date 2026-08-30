@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { serverErrorResponse } from '@/lib/utils/apiError'
 import { systemOf } from '@/lib/utils/system'
+import type { StudentInsert } from '@/lib/supabase/types'
 
 // 分頁掃描的每頁筆數。import_sessions 沒有體系欄位，須讀 diff_snapshot
 // 反查，只能在 JS 端逐頁判斷（見 openspec/changes/show-last-import-elapsed-time
@@ -10,17 +11,41 @@ import { systemOf } from '@/lib/utils/system'
 // /api/history 既有的「最新 100 筆恰好都不是本體系」漏抓問題。
 const PAGE_SIZE = 50
 
-type SessionRow = {
+type SessionSummaryRow = {
   id: string
   applied_at: string | null
   // PostgREST JSONB path 運算子 `->0->>business_chain`：只取 diff_snapshot
-  // 陣列第一筆的 business_chain，不把整個 diff_snapshot（動輒上千筆學員
-  // 的完整快照，單一 session 可能達數 MB）傳輸到應用層。原本 select 整個
+  // 陣列第一筆的 business_chain 當快速判斷（多數 session 只含單一體系，
+  // 這樣不用把整個 diff_snapshot 傳輸到應用層）。原本 select 整個
   // diff_snapshot 陣列，在 session 數量增加、資料量變大後單次查詢曾實測
-  // 需要近 10 秒，超過 Supabase statement timeout 直接查詢失敗（使用者
-  // 反映「距上次匯入」不會出現或計算錯誤，即為此逾時所致）；改成只取單一
-  // 純量欄位後同一批查詢實測降到約 1 秒。
+  // 需要近 10 秒，超過 Supabase statement timeout 直接查詢失敗；改成只取
+  // 單一純量欄位後同一批查詢實測降到約 1 秒。
   business_chain: string | null
+}
+
+/**
+ * superadmin 可以一次匯入橫跨兩個體系的資料（例如同時勾選匯入星光+太陽的
+ * 完整原始檔案），這種 session 的 diff_snapshot 實際上混雜兩種體系的學員，
+ * 光看第一筆判斷會讓其中一個體系完全漏採這筆最新匯入（曾實際發生：星光
+ * 使用者看到的「距上次匯入」多算了將近 6 天，因為排在陣列前面的剛好是
+ * 太陽學員）。這裡對「第一筆判斷不吻合」的 session，額外用 id 精確查詢
+ * 該筆完整 diff_snapshot，掃描整個陣列確認是否真的完全不含目標體系——
+ * 只在需要時才付出抓整份快照的成本，多數單一體系的 session 不受影響。
+ */
+async function sessionContainsSystem(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  sessionId: string,
+  targetSystem: '星光' | '太陽',
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('import_sessions')
+    .select('diff_snapshot')
+    .eq('id', sessionId)
+    .single() as { data: { diff_snapshot: StudentInsert[] | null } | null; error: unknown }
+
+  if (error || !data?.diff_snapshot) return false
+  return data.diff_snapshot.some((row) => systemOf(row.business_chain) === targetSystem)
 }
 
 /**
@@ -42,15 +67,19 @@ export async function GET(request: NextRequest) {
       .select('id, applied_at, diff_snapshot->0->>business_chain')
       .eq('applied', true)
       .order('applied_at', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1) as { data: SessionRow[] | null; error: unknown }
+      .range(from, from + PAGE_SIZE - 1) as { data: SessionSummaryRow[] | null; error: unknown }
 
     if (error) return serverErrorResponse('last-import', error)
     if (!data || data.length === 0) break
 
     for (const session of data) {
-      // business_chain 為 null／key 不存在（例如空快照）保守略過，不猜測歸屬
-      if (session.business_chain == null) continue
-      if (systemOf(session.business_chain) === effectiveSystem) {
+      // 快速路徑：第一筆學員就吻合，直接命中，不需要掃整份快照
+      if (session.business_chain != null && systemOf(session.business_chain) === effectiveSystem) {
+        return NextResponse.json({ lastImportAt: session.applied_at ?? null })
+      }
+      // 第一筆不吻合（或空快照）不代表這個 session 完全不含目標體系
+      // （superadmin 可能混合匯入兩個體系）——精確查詢該筆完整內容再確認
+      if (await sessionContainsSystem(supabase, session.id, effectiveSystem)) {
         return NextResponse.json({ lastImportAt: session.applied_at ?? null })
       }
     }
