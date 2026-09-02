@@ -31,6 +31,16 @@
 - [x] 4.5 Add a selector (dropdown or search, can reuse `SearchBox` pattern from `components/OrgChart/SearchBox.tsx` if applicable) letting the user pick a little-angel from the ranking list; on selection, call `buildTree()` client-side (or receive a pre-built tree, whichever keeps the client bundle reasonable) scoped to that person and render it as an expandable tree (can reuse/adapt the existing `TreeNode`-rendering approach from `OrgChart` if one exists as a reusable component, otherwise a simple recursive list/tree render is acceptable — this doesn't need the full `@xyflow/react` graph visualization used by `RelationshipNetwork`, a simpler indented tree is sufficient for this hub, per the spec's plain "展開" requirement) — implemented as click-on-bar to open a modal with a simple recursive indented list, no @xyflow/react dependency added
 - [x] 4.6 Render the data-quality section listing self-reference cases, mutual-reference pairs, and dangling-pointer cases with student id/name, matching the visual style of `spirit-ambassador-hub`'s data-quality section
 
+## 4b. Search-any-student navigation (added post-implementation, per user feedback after seeing the first rendered version — the ranking-only entry point wasn't enough; needed org-chart-style search for any student, not just people already on the ranking list)
+
+- [x] 4b.1 Add a `SearchBox` (reused from `components/OrgChart/SearchBox.tsx`) to `LittleAngelClient.tsx`, letting the user search any in-system student by name (not limited to students already on the ranking chart)
+- [x] 4b.2 On search selection, use `findPath()` (reused from `lib/utils/buildTree.ts`, already used by `OrgChart`'s own search-then-focus flow) against the full `little_angel` forest to compute the selected student's complete path from a root node down to them
+- [x] 4b.3 Replace the previous "selected angel id" state (ranking-only) with a "selected student id" state that both the ranking chart's bar-click and the new search box write to, so both entry points share one modal
+- [x] 4b.4 Render the path as a breadcrumb above the tree view (matching `OrgChart`'s breadcrumb style): each ancestor is clickable to re-center the view on them; the topmost-with-no-parent case shows an explicit "此人無小天使帶他，為頂層" message instead of an empty/misleading breadcrumb
+- [x] 4b.5 Verify against real data: a ranking leader (path length 1, many children) renders correctly; a genuine middle node (has both an upline and downline) shows both directions; a fully isolated student (no upline, no downline) shows the "頂層" message with an empty children list; a student involved in the mutual-cycle case resolves via `findPath` without hanging — all confirmed via direct computation against the live database
+- [x] 4b.6 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4b.7 Update `specs/little-angel-hub/spec.md` to add the "搜尋任一學員查詢其所在脈絡" requirement documenting this capability (done retroactively, per the fluid-workflow model — implement first when the change is still unarchived, then reconcile the spec)
+
 ## 5. Navigation wiring
 
 - [x] 5.1 Add a `NavButton` linking to `/little-angel` in `app/dashboard/DashboardClient.tsx` (this file uses plain `Link`, not `NavButton` — matched its existing style instead)

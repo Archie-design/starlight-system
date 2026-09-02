@@ -7,7 +7,8 @@ import {
 } from 'recharts'
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
-import { buildTree, type OrgStudent, type TreeNode } from '@/lib/utils/buildTree'
+import { SearchBox } from '@/components/OrgChart/SearchBox'
+import { buildTree, findPath, type OrgStudent, type TreeNode } from '@/lib/utils/buildTree'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 interface RankingRow { id: number; name: string; count: number }
@@ -91,15 +92,16 @@ function TreeNodeRow({ node }: { node: TreeNode }) {
 export default function LittleAngelClient({ role, system, kpi, ranking, countyDist, dataQuality, students }: Props) {
   const pathname = usePathname()
   const router = useRouter()
-  const [selectedAngelId, setSelectedAngelId] = useState<number | null>(null)
+  // 選定學員的 id——可來自排行榜點擊（該人本身是小天使），也可來自搜尋框
+  // （任意學員，不限排行榜；查詢他在小天使脈絡裡的完整位置，見下方 findPath）
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null)
 
   const switchSystem = (s: SheetSystem) => {
     document.cookie = `sl_view_system=${encodeURIComponent(s)}; path=/; max-age=${30 * 60}; samesite=lax`
     router.refresh()
   }
 
-  // 樹狀圖：以選定小天使為根節點，只在使用者選擇時才建樹（不需要每次都對
-  // 全量學員建整片森林，選一個人就找出以他為根的那棵子樹即可）
+  // 全量建一次森林，供搜尋任意學員時查詢他的完整路徑（往上）與子樹（往下）。
   const orgStudents: OrgStudent[] = useMemo(
     () => students.map((s) => ({
       id: s.id, name: s.name, role: null, region: null, introducer: null,
@@ -109,11 +111,16 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
     })),
     [students],
   )
-  const selectedTree = useMemo(() => {
-    if (selectedAngelId === null) return null
-    const { roots } = buildTree(orgStudents, 'little_angel')
-    return roots.find((r) => r.student.id === selectedAngelId) ?? null
-  }, [orgStudents, selectedAngelId])
+  const roots = useMemo(() => buildTree(orgStudents, 'little_angel').roots, [orgStudents])
+
+  // 選定學員在森林裡的完整路徑（從根節點到他本人）。比照組織圖的
+  // findPath + 麵包屑模式：path 的最後一個節點就是選定的學員，其
+  // children 即為他往下帶的人；path 前面的節點則是往上帶他的人。
+  const selectedPath = useMemo(() => {
+    if (selectedStudentId === null) return []
+    return findPath(roots, selectedStudentId)
+  }, [roots, selectedStudentId])
+  const selectedTree = selectedPath.length > 0 ? selectedPath[selectedPath.length - 1] : null
 
   const rankingChartHeight = Math.min(Math.max(ranking.length * 22, 120), 900)
   const countyChartHeight = Math.min(Math.max(countyDist.length * 22, 120), 900)
@@ -146,6 +153,13 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
       </header>
 
       <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-6 max-w-6xl w-full mx-auto">
+        {/* 查詢學員脈絡：比照組織圖搜尋，任意學員皆可查（不限排行榜上的小天使） */}
+        <Card className="p-3 flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-semibold text-slate-600 shrink-0">查詢同一脈絡：</span>
+          <SearchBox students={orgStudents} onSelect={(s: OrgStudent) => setSelectedStudentId(s.id)} />
+          <span className="text-[11px] text-slate-400">搜尋任一學員，檢視其小天使脈絡中的往上（誰帶他）與往下（他帶了誰）關係</span>
+        </Card>
+
         {/* KPI 摘要卡 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard label="小天使人數" value={kpi.angelCount} />
@@ -171,7 +185,7 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
                     radius={[0, 4, 4, 0]}
                     cursor="pointer"
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onClick={(d: any) => d?.id != null && setSelectedAngelId(d.id)}
+                    onClick={(d: any) => d?.id != null && setSelectedStudentId(d.id)}
                   >
                     <LabelList dataKey="count" position="right" />
                   </Bar>
@@ -210,30 +224,61 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
         </Card>
       </div>
 
-      {/* 從屬樹狀圖 Modal */}
-      {selectedAngelId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedAngelId(null)}>
+      {/* 從屬脈絡 Modal：麵包屑顯示往上路徑，子樹顯示往下帶的人 */}
+      {selectedStudentId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedStudentId(null)}>
           <div
             role="dialog"
             aria-modal="true"
-            className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 max-h-[80vh] flex flex-col"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
               <h2 className="text-sm font-bold text-slate-800">
-                {selectedTree?.student.name ?? '—'} <span className="text-slate-400 font-normal">的從屬結構</span>
+                {selectedTree?.student.name ?? '—'} <span className="text-slate-400 font-normal">的小天使脈絡</span>
               </h2>
-              <button onClick={() => setSelectedAngelId(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+              <button onClick={() => setSelectedStudentId(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
             </div>
-            <div className="overflow-auto p-4">
-              {selectedTree ? (
-                <ul className="space-y-1">
-                  {selectedTree.children.map((c) => <TreeNodeRow key={c.student.id} node={c} />)}
-                </ul>
-              ) : (
-                <p className="text-xs text-slate-400">無資料</p>
-              )}
-            </div>
+            {selectedTree ? (
+              <div className="overflow-auto p-4 space-y-3">
+                {/* 麵包屑：往上路徑，最後一項是選定的學員本人 */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5">
+                  {selectedPath.length > 1 ? (
+                    selectedPath.map((node, i) => (
+                      <span key={node.student.id} className="flex items-center gap-1.5">
+                        {i > 0 && <span className="text-slate-300">›</span>}
+                        <button
+                          onClick={() => setSelectedStudentId(node.student.id)}
+                          className={`font-medium transition-colors ${
+                            i === selectedPath.length - 1
+                              ? 'text-slate-700 cursor-default'
+                              : 'text-blue-600 hover:text-blue-800'
+                          }`}
+                        >
+                          {node.student.name}
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-400">此人無小天使帶他，為頂層</span>
+                  )}
+                </div>
+
+                {/* 往下：選定學員帶的人 */}
+                <div>
+                  <div className="text-xs font-semibold text-slate-600 mb-1.5">往下帶的人</div>
+                  {selectedTree.children.length > 0 ? (
+                    <ul className="space-y-1">
+                      {selectedTree.children.map((c) => <TreeNodeRow key={c.student.id} node={c} />)}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-400">尚未帶任何學員</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="p-4 text-xs text-slate-400">無資料</p>
+            )}
           </div>
         </div>
       )}
