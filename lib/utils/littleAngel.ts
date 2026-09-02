@@ -35,17 +35,45 @@ export interface DanglingPointer<T extends LittleAngelStudent> {
   pointsTo: string
 }
 
+export interface CrossSystemPointer<T extends LittleAngelStudent> {
+  student: T
+  /** 原始填寫的 little_angel 文字值 */
+  pointsTo: string
+  /** 解析出的小天使在全域資料中的實際姓名（供顯示，比只顯示 ID 更有用） */
+  targetName: string
+  /** 該小天使實際所屬的體系（例如 '太陽'），與 student 自己的體系不同 */
+  targetSystem: string
+}
+
+/** 跨體系比對表只需要 id/name/business_chain，不要求 little_angel（它是查找表，不是被掃描對象） */
+type MinimalCrossSystemLookup = { id: number; name: string; business_chain?: string | null }
+
 /**
- * 偵測「懸空指標」：little_angel 解析出的 id（或裸名 fallback）在目前資料集
- * 中找不到對應學員。
+ * 偵測「懸空指標」與「跨體系指派」，兩者過去被合併判定為同一種「懸空指標」
+ * （little_angel 在目前體系查無此人），但實際上是不同性質的問題：
+ * - 懸空指標：整個資料庫都查無此人，可能是資料填寫錯誤或該學員記錄已被刪除
+ * - 跨體系指派：此人確實存在，只是屬於另一個體系——業務邏輯上小天使通常該
+ *   同體系，這種情況更可能是填寫錯誤而非「查無此人」，需要分開呈現才有意義
+ *   （否則使用者看到 `(id 13295)` 只會以為是髒資料，實際上是可以查到、
+ *   只是跨了體系的真人）。
  *
- * 依實際資料驗證：這是目前最常見的異常案例（抽樣的「疑似多層鏈」小天使，
- * 11 筆裡 11 筆都是這個情況，而非真正的多層從屬——見 design.md 決策 4）。
+ * 依實際資料驗證：在只看單一體系、不分辨跨體系的情況下，這是目前最常見的
+ * 異常案例（抽樣的「疑似多層鏈」小天使，11 筆裡 11 筆都落在這兩類之一，
+ * 而非真正的多層從屬——見 design.md 決策 4）。
  *
- * @param students 目前有效體系內的完整學員清單（用來判斷「找不到對應學員」
- *                 的範圍——體系外的學員不算存在，即便該 ID 在其他體系真實存在）
+ * @param students 目前有效體系內的完整學員清單（判斷「找不到對應學員」的
+ *                 主要範圍）
+ * @param allStudentsById 全體系（不限目前有效體系）的 id → 學員對照表，
+ *                 用來把「目前體系找不到」的案例進一步區分成懸空指標或
+ *                 跨體系指派。未提供時等同於只看 students（不區分兩者，
+ *                 全部歸類為懸空指標）。
+ * @param systemOfFn 給定學員判斷其所屬體系的函式（例如既有的 systemOf()）
  */
-export function findDanglingPointers<T extends LittleAngelStudent>(students: T[]): DanglingPointer<T>[] {
+export function findDanglingAndCrossSystemPointers<T extends LittleAngelStudent & { business_chain?: string | null }>(
+  students: T[],
+  allStudentsById: Map<number, MinimalCrossSystemLookup> | undefined,
+  systemOfFn: (businessChain: string | null | undefined) => string,
+): { dangling: DanglingPointer<T>[]; crossSystem: CrossSystemPointer<T>[] } {
   const byId = new Map<number, T>()
   const byName = new Map<string, T>()
   for (const s of students) {
@@ -53,7 +81,9 @@ export function findDanglingPointers<T extends LittleAngelStudent>(students: T[]
     byName.set(s.name, s)
   }
 
-  const results: DanglingPointer<T>[] = []
+  const dangling: DanglingPointer<T>[] = []
+  const crossSystem: CrossSystemPointer<T>[] = []
+
   for (const s of students) {
     if (!s.little_angel) continue
     const { id: parsedId } = parseNameWithId(s.little_angel)
@@ -68,7 +98,18 @@ export function findDanglingPointers<T extends LittleAngelStudent>(students: T[]
     const resolvedByName = byName.get(bareName)
     if (resolvedByName) continue
 
-    results.push({ student: s, pointsTo: s.little_angel })
+    // 目前體系內找不到——查一下全域資料，看是真的不存在還是跨體系
+    const globalMatch = parsedId !== null ? allStudentsById?.get(parsedId) : undefined
+    if (globalMatch) {
+      crossSystem.push({
+        student: s,
+        pointsTo: s.little_angel,
+        targetName: globalMatch.name,
+        targetSystem: systemOfFn(globalMatch.business_chain),
+      })
+    } else {
+      dangling.push({ student: s, pointsTo: s.little_angel })
+    }
   }
-  return results
+  return { dangling, crossSystem }
 }

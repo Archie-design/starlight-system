@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { checkAuth, getEffectiveSystem } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/server'
-import { applySystemFilter } from '@/lib/utils/system'
+import { applySystemFilter, systemOf } from '@/lib/utils/system'
 import { parseNameWithId } from '@/lib/utils/nameUtils'
-import { findSelfReferences, findDanglingPointers } from '@/lib/utils/littleAngel'
+import { findSelfReferences, findDanglingAndCrossSystemPointers } from '@/lib/utils/littleAngel'
 import { buildTree, type OrgStudent } from '@/lib/utils/buildTree'
 import { APP_NAME } from '@/lib/config'
 import LittleAngelClient from './LittleAngelClient'
@@ -18,9 +18,14 @@ type Row = {
   little_angel: string | null
   business_chain: string | null
   county: string | null
+  gender: string | null
 }
 
+/** 跨體系比對用的最小欄位——不需要 county/gender，只為了解析對方姓名與體系 */
+type MinimalRow = { id: number; name: string; business_chain: string | null }
+
 const UNSPECIFIED_COUNTY = '未填寫'
+const UNSPECIFIED_GENDER = '未填寫'
 
 export default async function LittleAngelPage() {
   const { valid, user } = await checkAuth()
@@ -39,7 +44,7 @@ export default async function LittleAngelPage() {
     const { data, error } = await applySystemFilter(
       service
         .from('students')
-        .select('id, name, little_angel, business_chain, county'),
+        .select('id, name, little_angel, business_chain, county, gender'),
       system,
     ).range(from, from + 999)
     if (error) throw error
@@ -48,15 +53,44 @@ export default async function LittleAngelPage() {
     if (data.length < 1000) break
   }
 
+  // 全體系（不限有效體系）的最小學員清單，僅供資料品質區塊判斷「小天使
+  // 指向的 ID 是否存在，只是屬於另一個體系」——若不查全體系，這種跨體系
+  // 指派會被誤判成「查無此人」（見下方 findDanglingAndCrossSystemPointers）。
+  const allSystemsStudents: MinimalRow[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await service
+      .from('students')
+      .select('id, name, business_chain')
+      .range(from, from + 999)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    allSystemsStudents.push(...(data as MinimalRow[]))
+    if (data.length < 1000) break
+  }
+  const allSystemsById = new Map(allSystemsStudents.map((s) => [s.id, s]))
+
   // 小天使從屬關係 = little_angel 非空的學員
   const withAngel = all.filter((s) => s.little_angel)
+  const byId = new Map(all.map((s) => [s.id, s]))
 
-  // KPI：不重複小天使人數、被帶學員總數、平均每位小天使帶人數、無小天使人數
+  // 不重複小天使 ID 集合——僅保留「本體系確實查得到對應學員」的 ID。
+  // little_angel 只是純文字解析，不保證解析出的 ID 真的指向一筆存在的
+  // 學員記錄（可能查無此人，或指向另一體系的人——見下方資料品質偵測）；
+  // 若把這些「查無此人」的 ID 也算進「小天使人數」，KPI 數字會跟其他
+  // 統計（男女比例、名單）的口徑不一致（曾實際發生：KPI 顯示 201 位，
+  // 但男女比例圖只統計得到 155 位，差額正是查無此人／跨體系的 ID）。
   const angelIds = new Set<number>()
   for (const s of withAngel) {
     const { id } = parseNameWithId(s.little_angel)
-    if (id !== null) angelIds.add(id)
+    if (id !== null && byId.has(id)) angelIds.add(id)
   }
+
+  const ledCountByAngel = new Map<number, number>()
+  for (const s of withAngel) {
+    const { id } = parseNameWithId(s.little_angel)
+    if (id !== null) ledCountByAngel.set(id, (ledCountByAngel.get(id) ?? 0) + 1)
+  }
+
   const kpi = {
     angelCount: angelIds.size,
     ledCount: withAngel.length,
@@ -64,13 +98,11 @@ export default async function LittleAngelPage() {
     noAngelCount: all.length - withAngel.length,
   }
 
-  // 排行榜：各小天使（依 id）直接帶的人數，由多到少
-  const byId = new Map(all.map((s) => [s.id, s]))
-  const ledCountByAngel = new Map<number, number>()
-  for (const s of withAngel) {
-    const { id } = parseNameWithId(s.little_angel)
-    if (id !== null) ledCountByAngel.set(id, (ledCountByAngel.get(id) ?? 0) + 1)
-  }
+  // 排行榜：各小天使（依 id）直接帶的人數，由多到少。這裡刻意不套用
+  // angelIds 的「存在性」過濾——查無此人的小天使 ID 仍要顯示在排行榜
+  // 上（用 (id XXXX) 表示），讓使用者能發現「有人的 little_angel 填了
+  // 查無此人的 ID」這件事，而不是悄悄從排行榜消失；但不列入 KPI 的
+  // 「小天使人數」統計，避免無法辨識身份的 ID 拉高看似正常的人數指標。
   const ranking = Array.from(ledCountByAngel.entries())
     .map(([id, count]) => ({ id, name: byId.get(id)?.name ?? `(id ${id})`, count }))
     .sort((a, b) => b.count - a.count)
@@ -85,10 +117,32 @@ export default async function LittleAngelPage() {
     .map(([county, count]) => ({ county, count }))
     .sort((a, b) => b.count - a.count)
 
-  // 資料品質：自我指向、懸空指標（各自獨立的檢查，見 lib/utils/littleAngel.ts
-  // 的說明——不能只靠 buildTree 的 brokenCycleIds，那個不含自我指向案例）
+  // 小天使的男女比例與名單（統計母體是「小天使」本人，即 angelIds 對應的
+  // 學員，而非被帶學員——與上面的地區分布母體不同，那個是以被帶學員統計）
+  const angels = Array.from(angelIds)
+    .map((id) => byId.get(id))
+    .filter((s): s is Row => !!s)
+  const genderMap = new Map<string, number>()
+  for (const a of angels) {
+    const g = (a.gender ?? '').trim() || UNSPECIFIED_GENDER
+    genderMap.set(g, (genderMap.get(g) ?? 0) + 1)
+  }
+  const genderDist = Array.from(genderMap.entries())
+    .map(([gender, count]) => ({ gender, count }))
+    .sort((a, b) => b.count - a.count)
+  const angelRoster = angels
+    .map((a) => ({ id: a.id, name: a.name, gender: a.gender, ledCount: ledCountByAngel.get(a.id) ?? 0 }))
+    .sort((a, b) => b.ledCount - a.ledCount)
+
+  // 資料品質：自我指向、懸空指標／跨體系指派（各自獨立的檢查，見
+  // lib/utils/littleAngel.ts 的說明——不能只靠 buildTree 的 brokenCycleIds，
+  // 那個不含自我指向案例）
   const selfReferences = findSelfReferences(all)
-  const danglingPointers = findDanglingPointers(all)
+  const { dangling: danglingPointers, crossSystem: crossSystemPointers } = findDanglingAndCrossSystemPointers(
+    all,
+    allSystemsById,
+    systemOf,
+  )
 
   // 雙向互指（及更長的循環）：buildTree 的循環偵測已內建，重用它取得
   // brokenCycleIds，再回頭找出對應的學員資訊供頁面顯示
@@ -119,6 +173,13 @@ export default async function LittleAngelPage() {
     selfReferences: selfReferences.map((s) => ({ id: s.id, name: s.name })),
     danglingPointers: danglingPointers.map((d) => ({ id: d.student.id, name: d.student.name, pointsTo: d.pointsTo })),
     mutualCycles: mutualCycles.map((s) => ({ id: s.id, name: s.name, pointsTo: s.little_angel ?? '' })),
+    crossSystemPointers: crossSystemPointers.map((d) => ({
+      id: d.student.id,
+      name: d.student.name,
+      pointsTo: d.pointsTo,
+      targetName: d.targetName,
+      targetSystem: d.targetSystem,
+    })),
   }
 
   return (
@@ -128,6 +189,8 @@ export default async function LittleAngelPage() {
       kpi={kpi}
       ranking={ranking}
       countyDist={countyDist}
+      genderDist={genderDist}
+      angelRoster={angelRoster}
       dataQuality={dataQuality}
       students={all}
     />

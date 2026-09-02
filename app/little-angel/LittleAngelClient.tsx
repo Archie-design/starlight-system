@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
+  PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
@@ -13,6 +14,8 @@ import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 interface RankingRow { id: number; name: string; count: number }
 interface CountyRow { county: string; count: number }
+interface GenderRow { gender: string; count: number }
+interface AngelRosterRow { id: number; name: string; gender: string | null; ledCount: number }
 interface Student { id: number; name: string; little_angel: string | null; business_chain: string | null; county: string | null }
 
 interface Props {
@@ -21,15 +24,24 @@ interface Props {
   kpi: { angelCount: number; ledCount: number; avgLedPerAngel: number; noAngelCount: number }
   ranking: RankingRow[]
   countyDist: CountyRow[]
+  genderDist: GenderRow[]
+  angelRoster: AngelRosterRow[]
   dataQuality: {
     selfReferences: { id: number; name: string }[]
     danglingPointers: { id: number; name: string; pointsTo: string }[]
     mutualCycles: { id: number; name: string; pointsTo: string }[]
+    crossSystemPointers: { id: number; name: string; pointsTo: string; targetName: string; targetSystem: string }[]
   }
   students: Student[]
 }
 
 const ALL_SYSTEMS: SheetSystem[] = ['星光', '太陽']
+const GENDER_COLORS: Record<string, string> = {
+  '男': '#3b82f6',
+  '女': '#ec4899',
+  '未填寫': '#94a3b8',
+}
+const GENDER_FALLBACK_COLOR = '#a78bfa'
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <div className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>{children}</div>
@@ -60,8 +72,33 @@ function AlertBlock({ title, items }: { title: string; items: { id: number; name
         <ul className="space-y-0.5 max-h-40 overflow-auto">
           {items.map((p) => (
             <li key={p.id} className="text-xs">
-              <a href={`/students?search=${encodeURIComponent(p.name)}`} className="text-blue-600 hover:underline">{p.name}</a>
+              <a href={`/students?search=${encodeURIComponent(p.name)}`} className="text-blue-600 hover:underline">
+                <span className="text-slate-400">{p.id}_</span>{p.name}
+              </a>
               {p.pointsTo && <span className="text-slate-400">（指向 {p.pointsTo}）</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/** 跨體系指派：此人確實存在，只是屬於另一個體系——與「查無此人」的懸空指標分開顯示，避免誤判成髒資料 */
+function CrossSystemAlertBlock({ items }: { items: { id: number; name: string; pointsTo: string; targetName: string; targetSystem: string }[] }) {
+  return (
+    <div>
+      <div className="font-semibold text-slate-700 mb-1">小天使指向其他體系的人 <span className="text-slate-400">({items.length})</span></div>
+      {items.length === 0 ? (
+        <p className="text-xs text-slate-400">無</p>
+      ) : (
+        <ul className="space-y-0.5 max-h-40 overflow-auto">
+          {items.map((p) => (
+            <li key={p.id} className="text-xs">
+              <a href={`/students?search=${encodeURIComponent(p.name)}`} className="text-blue-600 hover:underline">
+                <span className="text-slate-400">{p.id}_</span>{p.name}
+              </a>
+              <span className="text-slate-400"> → {p.pointsTo}（{p.targetSystem}體系）</span>
             </li>
           ))}
         </ul>
@@ -89,7 +126,7 @@ function TreeNodeRow({ node }: { node: TreeNode }) {
   )
 }
 
-export default function LittleAngelClient({ role, system, kpi, ranking, countyDist, dataQuality, students }: Props) {
+export default function LittleAngelClient({ role, system, kpi, ranking, countyDist, genderDist, angelRoster, dataQuality, students }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   // 選定學員的 id——可來自排行榜點擊（該人本身是小天使），也可來自搜尋框
@@ -153,12 +190,15 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
       </header>
 
       <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-6 max-w-6xl w-full mx-auto">
-        {/* 查詢學員脈絡：比照組織圖搜尋，任意學員皆可查（不限排行榜上的小天使） */}
-        <Card className="p-3 flex items-center gap-3 flex-wrap">
+        {/* 查詢學員脈絡：比照組織圖搜尋，任意學員皆可查（不限排行榜上的小天使）。
+            注意：這裡刻意不用 <Card>——Card 固定帶 overflow-hidden（讓卡片圓角
+            裁切乾淨），但 SearchBox 的下拉結果是 absolute 定位、會超出容器邊界，
+            套在 overflow-hidden 容器裡會被裁掉看不見。 */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex items-center gap-3 flex-wrap">
           <span className="text-xs font-semibold text-slate-600 shrink-0">查詢同一脈絡：</span>
           <SearchBox students={orgStudents} onSelect={(s: OrgStudent) => setSelectedStudentId(s.id)} />
           <span className="text-[11px] text-slate-400">搜尋任一學員，檢視其小天使脈絡中的往上（誰帶他）與往下（他帶了誰）關係</span>
-        </Card>
+        </div>
 
         {/* KPI 摘要卡 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -213,13 +253,72 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
           </Card>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 小天使男女比例 */}
+          <Card>
+            <CardHeader title="小天使男女比例" subtitle={`共 ${kpi.angelCount} 位小天使`} />
+            <div className="h-[260px] p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={genderDist}
+                    dataKey="count"
+                    nameKey="gender"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    label={((d: any) => `${d.gender}（${d.count}）`) as any}
+                  >
+                    {genderDist.map((g) => (
+                      <Cell key={g.gender} fill={GENDER_COLORS[g.gender] ?? GENDER_FALLBACK_COLOR} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
+          {/* 小天使名單 */}
+          <Card>
+            <CardHeader title="小天使名單" subtitle="依帶人數由多到少・點名字查看脈絡" />
+            <div className="overflow-auto" style={{ maxHeight: 300 }}>
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-slate-50">
+                  <tr className="text-left text-slate-500">
+                    <th className="px-4 py-2 font-medium">姓名</th>
+                    <th className="px-4 py-2 font-medium">性別</th>
+                    <th className="px-4 py-2 font-medium text-right">帶人數</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {angelRoster.map((a) => (
+                    <tr key={a.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-1.5">
+                        <button onClick={() => setSelectedStudentId(a.id)} className="text-blue-600 hover:underline">
+                          {a.name}
+                        </button>
+                      </td>
+                      <td className="px-4 py-1.5 text-slate-500">{a.gender ?? '—'}</td>
+                      <td className="px-4 py-1.5 text-right text-slate-700 tabular-nums">{a.ledCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+
         {/* 資料品質提醒 */}
         <Card>
           <CardHeader title="資料品質提醒" subtitle="可點名字到學員管理處理" />
-          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <AlertBlock title="自我指向" items={dataQuality.selfReferences} />
             <AlertBlock title="雙向互指（循環）" items={dataQuality.mutualCycles} />
             <AlertBlock title="小天使欄位查無此人" items={dataQuality.danglingPointers} />
+            <CrossSystemAlertBlock items={dataQuality.crossSystemPointers} />
           </div>
         </Card>
       </div>
@@ -235,7 +334,7 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
               <h2 className="text-sm font-bold text-slate-800">
-                {selectedTree?.student.name ?? '—'} <span className="text-slate-400 font-normal">的小天使脈絡</span>
+                {selectedTree?.student.name ?? `(id ${selectedStudentId})`} <span className="text-slate-400 font-normal">的小天使脈絡</span>
               </h2>
               <button onClick={() => setSelectedStudentId(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
             </div>
@@ -277,7 +376,12 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
                 </div>
               </div>
             ) : (
-              <p className="p-4 text-xs text-slate-400">無資料</p>
+              <div className="p-4 space-y-1.5">
+                <p className="text-xs text-slate-600">此 ID 在目前體系的學員資料中查無對應姓名。</p>
+                <p className="text-xs text-slate-400">
+                  這通常代表某位學員的「小天使」欄位填寫的 ID 有誤，或指向的學員不屬於目前體系——可在下方「資料品質提醒」的「小天使欄位查無此人」或「小天使指向其他體系的人」找到對應紀錄並核對修正。
+                </p>
+              </div>
             )}
           </div>
         </div>
