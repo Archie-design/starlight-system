@@ -76,7 +76,7 @@ export function useOrgData(): {
 
   const students = data?.students ?? []
   const roots = useMemo(() => (
-    students.length > 0 ? buildTree(students, aliases, overrides) : []
+    students.length > 0 ? buildTree(students, 'introducer', aliases, overrides).roots : []
   ), [students, aliases, overrides])
 
   return { roots, students, totalCount: students.length, isLoading, error }

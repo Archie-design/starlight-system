@@ -153,6 +153,9 @@ export default function DashboardClient({
           <Link href="/spirit" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
             心之使者 →
           </Link>
+          <Link href="/little-angel" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
+            小天使 →
+          </Link>
           <Link href="/students" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
             回學員列表 →
           </Link>

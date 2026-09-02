@@ -25,6 +25,7 @@ export interface OrgStudent {
   membership_expiry?: string | null
   birthday?: string | null
   spirit_ambassador_group?: string | null
+  little_angel?: string | null
 }
 
 export interface TreeNode {
@@ -33,11 +34,25 @@ export interface TreeNode {
   depth: number
 }
 
+export interface BuildTreeResult {
+  roots: TreeNode[]
+  /**
+   * 因偵測到循環而被強制打斷父節點連結、變成新根節點的學員 id 清單。
+   * 注意：只有「雙向互指」等真正走到 DFS 循環偵測（resolveNode 的 inPath
+   * 檢查）的情況才會出現在這裡；「自我指向」（parent === node）在更早的
+   * `if (parent && parent !== node)` 判斷就被排除，根本不會進入
+   * parentMap，因此不會被計入這裡——呼叫端若要偵測自我指向，須另外自行
+   * 檢查 `parseNameWithId(student[parentField]).id === student.id`。
+   */
+  brokenCycleIds: number[]
+}
+
 export function buildTree(
   students: OrgStudent[],
+  parentField: keyof OrgStudent,
   aliases: Record<number, number> = {},
   overrides: Record<number, number> = {}
-): TreeNode[] {
+): BuildTreeResult {
   const nodeById = new Map<number, TreeNode>()
   const nodeByName = new Map<string, TreeNode>()
 
@@ -54,9 +69,10 @@ export function buildTree(
     const node = nodeById.get(student.id)!
     let parent: TreeNode | undefined
 
-    if (student.introducer) {
-      let { id: parsedId } = parseNameWithId(student.introducer)
-      
+    const parentRef = student[parentField] as string | null | undefined
+    if (parentRef) {
+      let { id: parsedId } = parseNameWithId(parentRef)
+
       // 核心代理邏輯：若有個別學生強制換線，優先套用
       if (overrides[student.id]) {
         parsedId = overrides[student.id]
@@ -67,9 +83,9 @@ export function buildTree(
       if (parsedId !== null) {
         parent = nodeById.get(parsedId)
       }
-      
+
       if (!parent) {
-        const bareName = extractBareName(student.introducer)
+        const bareName = extractBareName(parentRef)
         parent = nodeByName.get(bareName)
       }
     }
@@ -83,15 +99,17 @@ export function buildTree(
   const roots: TreeNode[] = []
   const resolved = new Set<TreeNode>()
   const inPath = new Set<TreeNode>()
+  const brokenCycleIds: number[] = []
 
   function resolveNode(node: TreeNode) {
     if (resolved.has(node)) return
     if (inPath.has(node)) {
       // 打破迴圈！這顆節點將變成 Root
       parentMap.delete(node)
+      brokenCycleIds.push(node.student.id)
       return
     }
-    
+
     inPath.add(node)
     const p = parentMap.get(node)
     if (p) {
@@ -126,7 +144,7 @@ export function buildTree(
     assignDepth(root, 0)
   }
 
-  return roots
+  return { roots, brokenCycleIds }
 }
 
 /** 從根節點陣列找到目標 id 的完整路徑（從根到目標，含目標本身） */
