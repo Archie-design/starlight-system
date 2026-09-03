@@ -14,7 +14,7 @@
   - **聯誼會報名統計**（同上追加）：「聯誼會加入日」「聯誼會組別」原本也沒有被匯入（既有的 `membership_expiry` 是會籍到期日，不是報名狀態）。本次新增這兩個欄位，在課程專區顯示報名人數、未報名人數、組別分布。
   - **未全部完課整體名單**（實作過程中經使用者於真實資料上線後再次確認後追加）：既有的課後課完課狀況僅提供「單堂缺席名單」，無法一次找出「還有課後課沒上完、需要鼓勵」的整體對象。本次在各階（有課後課者）新增一份「未全部完課」名單，與單堂緣席名單分開呈現，每位學員標示已上堂數／總堂數。
   - **二階已完課未報聯誼會交集名單**（同上追加）：新增一份「二階已完課但尚未報名聯誼會」的交集名單，供邀請招募聯誼會使用。「已完課」精確判定為 `course_2` 解析狀態為「已上課」（排除正取／候補／待確認梯次／中離），避免把尚未實際上課的人誤列入招募名單。
-  - **名單匯出（CSV）**（同上追加）：課程專區內所有學員名單彈窗（階別、梯次、五運班、課後課出席／缺席、未全部完課、聯誼會已報名、二階已完課未報聯誼會）皆新增「匯出 CSV」按鈕，於瀏覽器端直接產生下載，不新增伺服器 API。
+  - **名單匯出（CSV）**（同上追加）：課程專區內所有學員名單彈窗（階別、梯次、五運班、課後課出席／缺席、未全部完課、聯誼會已報名、二階已完課未報聯誼會）皆新增「匯出 CSV」按鈕，於瀏覽器端直接產生下載，不新增伺服器 API。匯出內容含 ID、姓名、手機、LINE ID、狀態、備註六欄——手機與 LINE ID 供關懷員後續實際聯繫名單上的學員使用（實作後經使用者確認補上）。
 - 沿用既有的體系隔離規則（`getEffectiveSystem`），所有統計與圖表僅限使用者有效體系內的資料。
 
 ## Capabilities
@@ -32,5 +32,5 @@
 - **導覽**：既有 5 個 hub 風格頁面（dashboard、students、maintenance、counselors、spirit、little-angel）新增「課程」連結；新頁面本身也含返回這些頁面的連結。
 - **資料庫**（實作過程中追加，見上方 What Changes）：新 migration `018_course_makeup_and_club.sql`，新增 18 個課後課出席欄位（`l1_makeup_1`~`l5_makeup_1`）與 2 個聯誼會欄位（`club_join_date`、`club_group`）。
 - **匯入邏輯**：`lib/import/transform.ts`（`DEFAULT_COL`、`HEADER_TO_COL_KEY`、`transformSourceRow()`）、`lib/import/diff.ts`（`COMPARABLE_FIELDS`）、`lib/supabase/types.ts`（`Student`/`StudentInsert`）、`supabase/seed/migrate.ts`（一次性種子腳本，新欄位填 `null`，來源舊總表無對應資料）同步更新，已用真實樣本檔案（`reference/學員資料庫 20260826 (1).xlsx`）驗證匯入正確。
-- **未全部完課名單、二階/聯誼會交集名單、CSV 匯出**（實作過程中追加，見上方 What Changes）：`app/courses/page.tsx` 新增 `incompleteMakeupCount`／`incomplete-makeup-{level}` 名單、`L2ClubGap` 計算與 `club-not-joined-l2` 名單；`app/courses/CourseClient.tsx` 新增對應 UI 區塊，以及共用的 `downloadRosterCsv()` 純前端 CSV 匯出函式，掛在名單 Modal 上，涵蓋所有既有與新增的名單類型。不新增伺服器 API、不新增資料庫欄位。已對照真實資料庫驗證：各階「已全部出席＋未全部完課＝已上主課人數」在 5 階皆精確成立；`course_2` 狀態分布確認嚴格篩選（僅計「已上課」）行為正確；CSV 跳脫與 BOM 前綴以獨立測試驗證。
+- **未全部完課名單、二階/聯誼會交集名單、CSV 匯出**（實作過程中追加，見上方 What Changes）：`app/courses/page.tsx` 新增 `incompleteMakeupCount`／`incomplete-makeup-{level}` 名單、`L2ClubGap` 計算與 `club-not-joined-l2` 名單；`app/courses/CourseClient.tsx` 新增對應 UI 區塊，以及共用的 `downloadRosterCsv()` 純前端 CSV 匯出函式，掛在名單 Modal 上，涵蓋所有既有與新增的名單類型。不新增伺服器 API、不新增資料庫欄位。`RosterStudent` 額外帶出既有的 `phone`／`line_id` 欄位（不需新 migration，`students` 表本來就有），CSV 匯出六欄為 ID、姓名、手機、LINE ID、狀態、備註。已對照真實資料庫驗證：各階「已全部出席＋未全部完課＝已上主課人數」在 5 階皆精確成立；`course_2` 狀態分布確認嚴格篩選（僅計「已上課」）行為正確；抽樣確認二階/聯誼會交集名單中手機／LINE ID 的實際填寫率（433/435 有手機、425/435 有 LINE ID）；CSV 跳脫、BOM 前綴、新增欄位以獨立測試驗證。
 - **不影響**：`/dashboard` 既有的課程相關圖表與其資料來源、既有課程欄位的顯示與篩選行為、既有的 `students` 表欄位。

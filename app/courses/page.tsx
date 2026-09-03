@@ -14,6 +14,8 @@ export const metadata = {
 type Row = {
   id: number
   name: string
+  phone: string | null
+  line_id: string | null
   business_chain: string | null
   course_1: string | null
   payment_1: string | null
@@ -123,6 +125,10 @@ export interface StageSummary {
 export interface RosterStudent {
   id: number
   name: string
+  /** 手機（供關懷員聯繫用，可能為空） */
+  phone: string | null
+  /** LINE ID（供關懷員聯繫用，可能為空） */
+  lineId: string | null
   statusLabel: string
   paymentLabel: string
   owes: boolean
@@ -154,7 +160,7 @@ export default async function CoursesPage() {
     const { data, error } = await applySystemFilter(
       service
         .from('students')
-        .select('id, name, business_chain, course_1, payment_1, course_2, payment_2, course_3, payment_3, course_4, payment_4, course_5, payment_5, course_wuyun, payment_wuyun, l1_makeup_1, l1_makeup_2, l1_makeup_3, l1_makeup_4, l1_makeup_5, l1_makeup_6, l2_makeup_1, l2_makeup_2, l2_makeup_3, l2_makeup_4, l2_makeup_5, l3_makeup_1, l3_makeup_2, l3_makeup_3, l4_makeup_1, l4_makeup_2, l4_makeup_3, l5_makeup_1, club_join_date, club_group'),
+        .select('id, name, phone, line_id, business_chain, course_1, payment_1, course_2, payment_2, course_3, payment_3, course_4, payment_4, course_5, payment_5, course_wuyun, payment_wuyun, l1_makeup_1, l1_makeup_2, l1_makeup_3, l1_makeup_4, l1_makeup_5, l1_makeup_6, l2_makeup_1, l2_makeup_2, l2_makeup_3, l2_makeup_4, l2_makeup_5, l3_makeup_1, l3_makeup_2, l3_makeup_3, l4_makeup_1, l4_makeup_2, l4_makeup_3, l5_makeup_1, club_join_date, club_group'),
       system,
     ).range(from, from + 999)
     if (error) throw error
@@ -189,7 +195,7 @@ export default async function CoursesPage() {
 
       const statusLabel = parsed?.status ?? (courseValue ?? '')
       const paymentLabel = paymentValue ?? '—'
-      const rosterEntry: RosterStudent = { id: s.id, name: s.name, statusLabel, paymentLabel, owes }
+      const rosterEntry: RosterStudent = { id: s.id, name: s.name, phone: s.phone, lineId: s.line_id, statusLabel, paymentLabel, owes }
       stageRoster.push(rosterEntry)
 
       if (parsed?.batch != null) {
@@ -222,7 +228,7 @@ export default async function CoursesPage() {
       const absentRoster: RosterStudent[] = []
       for (const s of enrolled) {
         const value = s[field] as string | null
-        const entry: RosterStudent = { id: s.id, name: s.name, statusLabel: value ?? '未出席', paymentLabel: '', owes: false }
+        const entry: RosterStudent = { id: s.id, name: s.name, phone: s.phone, lineId: s.line_id, statusLabel: value ?? '未出席', paymentLabel: '', owes: false }
         if (value) attendedRoster.push(entry)
         else absentRoster.push(entry)
       }
@@ -245,6 +251,8 @@ export default async function CoursesPage() {
           incompleteRoster.push({
             id: s.id,
             name: s.name,
+            phone: s.phone,
+            lineId: s.line_id,
             statusLabel: `已上 ${attendedCount} / ${classes.length} 堂`,
             paymentLabel: '',
             owes: false,
@@ -285,6 +293,8 @@ export default async function CoursesPage() {
     wuyunRoster.push({
       id: s.id,
       name: s.name,
+      phone: s.phone,
+      lineId: s.line_id,
       statusLabel: s.course_wuyun ?? '',
       paymentLabel: s.payment_wuyun ?? '—',
       owes,
@@ -308,7 +318,7 @@ export default async function CoursesPage() {
     const g = (s.club_group ?? '').trim() || '未分組'
     clubGroupMap.set(g, (clubGroupMap.get(g) ?? 0) + 1)
   }
-  roster['club-joined'] = clubJoined.map((s) => ({ id: s.id, name: s.name, statusLabel: s.club_join_date ?? '', paymentLabel: s.club_group ?? '未分組', owes: false }))
+  roster['club-joined'] = clubJoined.map((s) => ({ id: s.id, name: s.name, phone: s.phone, lineId: s.line_id, statusLabel: s.club_join_date ?? '', paymentLabel: s.club_group ?? '未分組', owes: false }))
   const clubSummary: ClubSummary = {
     joinedCount: clubJoined.length,
     notJoinedCount: all.length - clubJoined.length,
@@ -327,6 +337,8 @@ export default async function CoursesPage() {
   roster['club-not-joined-l2'] = l2CompletedNotJoinedClub.map((s) => ({
     id: s.id,
     name: s.name,
+    phone: s.phone,
+    lineId: s.line_id,
     statusLabel: '二階已完課',
     paymentLabel: '未報名聯誼會',
     owes: false,

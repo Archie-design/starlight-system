@@ -33,12 +33,16 @@ function csvEscape(value: string): string {
  * ——這是名單 modal 裡的小規模資料（幾十到幾百筆），不需要動用伺服器端
  * 的 exceljs 匯出管線（那是給 /api/export 的完整學員資料庫匯出用的）。
  * 加 BOM 前綴確保 Excel 開啟中文不亂碼。
+ *
+ * 帶上 ID、手機、LINE ID：匯出的主要用途是讓關懷員方便直接聯繫名單上
+ * 的學員，只有姓名無法聯繫——手機/LINE ID 缺值時輸出空字串，不用 "—"
+ * 之類佔位符（CSV 給人後續匯入其他工具用，佔位符反而是雜訊）。
  */
 function downloadRosterCsv(title: string, rows: RosterStudent[]) {
-  const header = ['姓名', '狀態', '備註']
+  const header = ['ID', '姓名', '手機', 'LINE ID', '狀態', '備註']
   const lines = [header.map(csvEscape).join(',')]
   for (const r of rows) {
-    lines.push([r.name, r.statusLabel, r.paymentLabel].map(csvEscape).join(','))
+    lines.push([String(r.id), r.name, r.phone ?? '', r.lineId ?? '', r.statusLabel, r.paymentLabel].map(csvEscape).join(','))
   }
   const csvContent = '﻿' + lines.join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })

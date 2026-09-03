@@ -56,6 +56,15 @@
 - [x] 4c.8 Verify CSV escaping (comma/quote/newline handling) and BOM prefix in isolation with representative Chinese-text and special-character inputs
 - [x] 4c.9 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition (done retroactively, per the fluid-workflow model established earlier for this same change and for `little-angel-hub`)
 
+## 4d. CSV export contact columns (added post-implementation, per user feedback after seeing the CSV export in real use)
+
+- [x] 4d.1 Add `phone: string | null` and `lineId: string | null` to the `RosterStudent` interface in `app/courses/page.tsx`; add `phone`/`line_id` to the `Row` type and the Supabase `.select()` column list
+- [x] 4d.2 Populate `phone`/`lineId` at all six `RosterStudent` construction sites in `app/courses/page.tsx` (per-stage roster, per-makeup-class attended/absent rosters, incomplete-makeup roster, wuyun roster, club-joined roster, l2-club-gap roster)
+- [x] 4d.3 Extend `downloadRosterCsv()` in `app/courses/CourseClient.tsx` to a 6-column CSV (ID, 姓名, 手機, LINE ID, 狀態, 備註); missing phone/line_id render as an empty field, not a placeholder
+- [x] 4d.4 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4d.5 Verify against the live database: sampled the l2-club-gap roster (435 of 1000-row sample) — 433 had phone, 425 had line_id, 423 had both, 0 had neither, confirming real coverage; re-verified CSV escaping/BOM with the new 6-column shape including a null-line_id row
+- [x] 4d.6 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition
+
 ## 5. Verification
 
 - [x] 5.1 Run `npx tsc --noEmit` and confirm no errors
