@@ -83,6 +83,14 @@ export default function TextFilterPopover({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  // fetchDistinctValues 變了（例如切換體系/分組/其他篩選條件，導致查詢
+  // 範圍改變）代表舊的 allValues 已經是別的範圍抓到的結果，不再有效——
+  // 清空讓下面的查詢 effect 重新抓取，否則會沿用舊範圍的殘留清單（見
+  // 「切換關懷長分組後，介紹人依值篩選仍顯示舊分組名單」的回報）。
+  useEffect(() => {
+    setAllValues(null)
+  }, [fetchDistinctValues])
+
   // 開啟依值籤頁時才查詢，避免每次開面板都打一次 API
   useEffect(() => {
     if (!open || tab !== 'value' || allValues !== null) return
