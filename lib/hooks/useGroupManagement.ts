@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
 import { useDownlineLookup } from '@/hooks/useDownlineLookup'
 import type { CounselorGroup } from '@/lib/supabase/types'
@@ -34,6 +34,19 @@ export function useGroupManagement() {
 
   const newRootNames = useMemo(() => lookupRootNames(newRoots), [lookupRootNames, newRoots])
   const editRootNames = useMemo(() => lookupRootNames(editRoots), [lookupRootNames, editRoots])
+
+  // 分組名稱欄位仍是空白時，自動帶入第一個根節點 ID 查到的姓名，減少
+  // 「其餘同 XXX」這種手動重複輸入。只在欄位空白時補入，使用者一旦自己
+  // 輸入過（或先前已被自動帶入過後又手動改掉）就不再覆蓋——用 newName
+  // 本身當作「是否仍為空」的判斷依據，不需要額外的「是否已自動帶入過」
+  // 旗標：一旦有值（不論來源）就不再自動覆蓋，行為單純且可預期。
+  useEffect(() => {
+    if (newName.trim()) return
+    const firstId = parseRoots(newRoots)[0]
+    if (firstId == null) return
+    const name = nameById.get(firstId)
+    if (name) setNewName(name)
+  }, [newRoots, nameById, newName, parseRoots])
 
   const handleCreateGroup = useCallback(async () => {
     if (!newName.trim()) return
