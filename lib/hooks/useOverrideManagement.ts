@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import useSWR from 'swr'
 import { useDownlineLookup } from '@/hooks/useDownlineLookup'
+import { csrfFetch } from '@/lib/utils/csrf'
 
 interface OverrideRecord {
   id: string
@@ -13,7 +14,9 @@ interface OverrideRecord {
   note: string | null
 }
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+// 正式站/preview 部署下 checkAuth(request) 的 CSRF 檢查對所有 HTTP method
+// 都會做（見 lib/auth.ts），讀取也不例外，故一律用 csrfFetch。
+const fetcher = (url: string) => csrfFetch(url).then(res => res.json())
 
 export function useOverrideManagement() {
   const { data: overrideData, mutate: mutateOverrides } = useSWR<{ overrides: OverrideRecord[] }>('/api/student-overrides', fetcher)
@@ -51,11 +54,15 @@ export function useOverrideManagement() {
     if (isNaN(pId) || selectedStudents.length === 0) return
     setSaving(true)
     try {
-      await fetch('/api/student-overrides', {
+      const res = await csrfFetch('/api/student-overrides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ student_ids: selectedStudents, override_parent_id: pId, note: overrideNote }),
       })
+      if (!res.ok) {
+        alert('新增換線特例失敗，請重新整理頁面後再試一次。')
+        return
+      }
       await mutateOverrides()
       setSelectedStudents([])
       setOverrideOrigId('')
@@ -68,16 +75,24 @@ export function useOverrideManagement() {
 
   const handleDeleteOverride = useCallback(async (id: string) => {
     if (!confirm('確定取消此特定學員的強制換線設定？')) return
-    await fetch(`/api/student-overrides/${id}`, { method: 'DELETE' })
+    const res = await csrfFetch(`/api/student-overrides/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert('取消換線特例失敗，請重新整理頁面後再試一次。')
+      return
+    }
     await mutateOverrides()
   }, [mutateOverrides])
 
   const handleUpdateNote = useCallback(async (id: string) => {
-    await fetch(`/api/student-overrides/${id}`, {
+    const res = await csrfFetch(`/api/student-overrides/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: editingNoteValue }),
     })
+    if (!res.ok) {
+      alert('更新備註失敗，請重新整理頁面後再試一次。')
+      return
+    }
     await mutateOverrides()
     setEditingNoteId(null)
   }, [editingNoteValue, mutateOverrides])

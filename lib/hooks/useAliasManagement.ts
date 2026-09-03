@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import useSWR from 'swr'
+import { csrfFetch } from '@/lib/utils/csrf'
 
 interface AliasRecord {
   id: string
@@ -10,7 +11,9 @@ interface AliasRecord {
   note: string | null
 }
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+// 正式站/preview 部署下 checkAuth(request) 的 CSRF 檢查對所有 HTTP method
+// 都會做（見 lib/auth.ts），讀取也不例外，故一律用 csrfFetch。
+const fetcher = (url: string) => csrfFetch(url).then(res => res.json())
 
 export function useAliasManagement() {
   const { data: aliasData, mutate: mutateAliases } = useSWR<{ aliases: AliasRecord[] }>('/api/parent-aliases', fetcher)
@@ -25,11 +28,15 @@ export function useAliasManagement() {
     if (isNaN(oId) || isNaN(pId)) return
     setSaving(true)
     try {
-      await fetch('/api/parent-aliases', {
+      const res = await csrfFetch('/api/parent-aliases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ original_parent_id: oId, proxy_parent_id: pId, note: aliasNote }),
       })
+      if (!res.ok) {
+        alert('新增代管失敗，請重新整理頁面後再試一次。')
+        return
+      }
       await mutateAliases()
       setOrigId('')
       setProxyId('')
@@ -41,7 +48,11 @@ export function useAliasManagement() {
 
   const handleDeleteAlias = useCallback(async (id: string) => {
     if (!confirm('確定刪除此代管關係？相關組織鏈將回歸原始介紹人。')) return
-    await fetch(`/api/parent-aliases/${id}`, { method: 'DELETE' })
+    const res = await csrfFetch(`/api/parent-aliases/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert('刪除代管失敗，請重新整理頁面後再試一次。')
+      return
+    }
     await mutateAliases()
   }, [mutateAliases])
 

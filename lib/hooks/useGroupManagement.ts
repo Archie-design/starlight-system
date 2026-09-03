@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
 import { useDownlineLookup } from '@/hooks/useDownlineLookup'
+import { csrfFetch } from '@/lib/utils/csrf'
 import type { CounselorGroup } from '@/lib/supabase/types'
 
 export function useGroupManagement() {
@@ -52,7 +53,7 @@ export function useGroupManagement() {
     if (!newName.trim()) return
     setSaving(true)
     try {
-      await fetch('/api/counselor-groups', {
+      const res = await csrfFetch('/api/counselor-groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -61,6 +62,10 @@ export function useGroupManagement() {
           root_student_ids: parseRoots(newRoots),
         }),
       })
+      if (!res.ok) {
+        alert('新增分組失敗，請重新整理頁面後再試一次。')
+        return
+      }
       await mutateGroups()
       setNewName('')
       setNewRoots('')
@@ -71,7 +76,11 @@ export function useGroupManagement() {
 
   const handleDeleteGroup = useCallback(async (id: string, name: string) => {
     if (!confirm(`確定刪除「${name}」分組？已指派的學員不會被刪除，但 group_leader 欄位將失效。`)) return
-    await fetch(`/api/counselor-groups/${id}`, { method: 'DELETE' })
+    const res = await csrfFetch(`/api/counselor-groups/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert('刪除分組失敗，請重新整理頁面後再試一次。')
+      return
+    }
     await mutateGroups()
   }, [mutateGroups])
 
@@ -85,11 +94,15 @@ export function useGroupManagement() {
     if (!editId || !editName.trim()) return
     setSaving(true)
     try {
-      await fetch(`/api/counselor-groups/${editId}`, {
+      const res = await csrfFetch(`/api/counselor-groups/${editId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName.trim(), root_student_ids: parseRoots(editRoots) }),
       })
+      if (!res.ok) {
+        alert('儲存分組失敗，請重新整理頁面後再試一次。')
+        return
+      }
       await mutateGroups()
       setEditId(null)
     } finally {
@@ -108,18 +121,22 @@ export function useGroupManagement() {
 
     setSaving(true)
     try {
-      await Promise.all([
-        fetch(`/api/counselor-groups/${current.id}`, {
+      const results = await Promise.all([
+        csrfFetch(`/api/counselor-groups/${current.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ display_order: otherOrder }),
         }),
-        fetch(`/api/counselor-groups/${other.id}`, {
+        csrfFetch(`/api/counselor-groups/${other.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ display_order: currentOrder }),
         })
       ])
+      if (results.some((r) => !r.ok)) {
+        alert('調整順序失敗，請重新整理頁面後再試一次。')
+        return
+      }
       await mutateGroups()
     } finally {
       setSaving(false)

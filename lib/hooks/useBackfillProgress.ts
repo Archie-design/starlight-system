@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { csrfFetch } from '@/lib/utils/csrf'
 
 export function useBackfillProgress() {
   const [backfilling, setBackfilling] = useState(false)
@@ -28,7 +29,7 @@ export function useBackfillProgress() {
     if (!confirm('將依介紹人鏈重新計算所有學員的所屬分組，並寫入資料庫。確定執行？')) return
     setBackfilling(true)
     setBackfillResult(null)
-    const res = await fetch('/api/counselor-groups/backfill', { method: 'POST' })
+    const res = await csrfFetch('/api/counselor-groups/backfill', { method: 'POST' })
     const json = await res.json()
     if (res.ok) {
       setBackfillResult(`完成：共更新 ${json.updated} 位學員（總計 ${json.total} 筆）`)
