@@ -1,0 +1,40 @@
+## 1. Shared utility export
+
+- [x] 1.1 Export the `NUMERIC` regex from `lib/utils/studentStatus.ts` (rename to `NUMERIC_PAYMENT` if that reads clearer at the export boundary, or keep `NUMERIC` — either way it must become importable) and verify `owesPayment()`'s own behavior is unchanged (no logic edit, purely adding `export`) — kept the name `NUMERIC`, purely added `export` + a doc comment
+- [x] 1.2 Run `npx tsc --noEmit` and confirm no errors from this change alone before proceeding
+
+## 2. Page: data fetching and computation
+
+- [x] 2.1 Create `app/courses/page.tsx` (Server Component): `checkAuth()` + redirect guards (unauthenticated → `/login`, `must_change_password` → `/account/change-password`), matching `app/spirit/page.tsx` and `app/little-angel/page.tsx`'s pattern exactly
+- [x] 2.2 Fetch all in-system students (paged, `applySystemFilter` + `getEffectiveSystem`) selecting `id, name, business_chain, course_1, payment_1, course_2, payment_2, course_3, payment_3, course_4, payment_4, course_5, payment_5, course_wuyun, payment_wuyun` (only the fields this page needs)
+- [x] 2.3 For each of course_1~course_5, use `parseCourseValue()` to compute: total enrolled count, per-batch enrollment distribution (grouped by `${level}-${batch}` key per design.md Decision 3, excluding students whose status parses with `batch === null` e.g. "待確認梯次" from the batch chart but still counting them in the stage total), and owed-count/owed-amount totals (using the exported `NUMERIC` check against the corresponding `payment_N` field)
+- [x] 2.4 For course_wuyun, compute enrollment count, completed-payment count, owed count, and owed amount total — no batch breakdown (per spec's "五運班付款統計" requirement)
+- [x] 2.5 Build a per-stage-and-batch student roster lookup (so the client can request "show me everyone in 一階 第83梯" or "show me everyone in 一階" without re-fetching) — pass as structured data down to the client component, keeping only the fields needed for display (id, name, batch/status label, payment status)
+- [x] 2.6 Pass all computed data (per-stage summaries, batch distributions, owed totals, wuyun stats, roster lookup) as props to a new `CourseClient` component
+
+## 3. Client component: stage selector, charts, roster drill-down
+
+- [x] 3.1 Create `app/courses/CourseClient.tsx` (Client Component) with the header/nav bar matching the established hub visual style (title, system-switch control for superadmin per design.md Decision 5, `NavButton`s back to other pages, `LogoutButton`)
+- [x] 3.2 Render a stage selector (一階/二階/三階/四階/五階/五運班) and, for the selected main-course stage, a batch distribution bar chart (horizontal, scrollable container with height cap per design.md Risk mitigation, matching `spirit-ambassador-hub`/`little-angel-hub`'s existing chart-height calculation pattern) — implemented as tab buttons (一階~五階) plus a separate always-visible 五運班 section below, rather than folding 五運班 into the same tab set (its stats have a different shape — no batch chart — so a dedicated section reads clearer than a tab that renders differently from the other five)
+- [x] 3.3 Render owed-amount summary (count + total owed) for the selected stage, and separately for course_wuyun in its own section (not mixed into the batch chart, per spec)
+- [x] 3.4 Implement roster drill-down: clicking a stage-level summary or a specific batch bar opens a modal (matching the existing hub modal pattern) listing matching students (name, batch/status, payment status), each linking to `/students?search=...`
+- [x] 3.5 Run `npx tsc --noEmit` and confirm no errors
+
+## 4. Navigation wiring
+
+- [x] 4.1 Add a nav link to `/courses` in `app/dashboard/DashboardClient.tsx` (matches this file's existing `Link`-based style, not `NavButton` — see prior hub pages' precedent)
+- [x] 4.2 Add a `NavButton` linking to `/courses` in `app/students/StudentsClient.tsx`
+- [x] 4.3 Add a `NavButton` linking to `/courses` in `components/MaintenanceLayout/index.tsx`
+- [x] 4.4 Add a `NavButton` linking to `/courses` in `components/CounselorsLayout/index.tsx`
+- [x] 4.5 Add a `NavButton` linking to `/courses` in `app/spirit/SpiritClient.tsx`
+- [x] 4.6 Add a `NavButton` linking to `/courses` in `app/little-angel/LittleAngelClient.tsx`
+
+## 5. Verification
+
+- [x] 5.1 Run `npx tsc --noEmit` and confirm no errors
+- [x] 5.2 Verify computation against the live database: for at least one stage (e.g. 一階), confirm the sum of all batch counts plus the "unscheduled/待確認梯次" count equals the stage's total enrollment count reported elsewhere (e.g. cross-check against dashboard's existing course funnel number for internal consistency) — verified for all 5 stages × both systems (10 combinations): batch-count sums exactly equal "已排梯次" counts in every case, no missing/duplicate students
+- [x] 5.3 Verify owed-amount totals: for a sample stage, manually cross-check a handful of individual student payment values against the computed total to confirm the numeric-owed detection and summation are correct — sampled 3 students per stage per system (30 total), each individual payment value confirmed to match its raw `payment_N` field value and correctly included in the stage's owed total
+- [ ] 5.4 Manually load `/courses` in the browser and confirm the stage selector, batch chart, owed-amount summary, and wuyun section all render with real data
+- [ ] 5.5 Manually click into a batch and confirm the roster modal shows only that batch's students, and that clicking a student links correctly to `/students`
+- [ ] 5.6 Confirm system isolation: as (or simulating) a 太陽-scoped admin, verify stats only reflect 太陽 students; switch system (as superadmin) and confirm the page's numbers change accordingly (computation-side verified: 星光 and 太陽 produce distinctly different, internally-consistent stage/batch/owed numbers when queried separately with the same system-filter logic `page.tsx` uses; browser confirmation of the actual switch-system UI flow still needed from user)
+- [ ] 5.7 Confirm all six navigation links (task 4) work and the new page's own return links work

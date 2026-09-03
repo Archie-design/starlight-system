@@ -75,7 +75,10 @@ export function isResubscribeCandidate(
   return count > 0 && count < taken.length
 }
 
-const NUMERIC = /^\d+(\.\d+)?$/
+/** 純數字字串 = 尚欠的金額（見 buildPaymentValue() 的匯入語意）。
+ *  export 供課程專區（course-hub）計算各階/各梯次欠款金額加總時重用，
+ *  避免跟 owesPayment() 的欠款判定各自維護一份、日後悄悄產生分歧。 */
+export const NUMERIC = /^\d+(\.\d+)?$/
 
 /**
  * 待催欠款：存在某階「已排具體梯次」（課程欄非空、非「待確認梯次」）

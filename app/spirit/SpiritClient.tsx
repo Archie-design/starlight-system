@@ -81,6 +81,7 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
           <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-indigo-200/80 hover:text-white transition-colors">儀表板 →</NavButton>
           <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-indigo-200/80 hover:text-white transition-colors">關懷長專區 →</NavButton>
           <NavButton href="/little-angel" active={pathname === '/little-angel'} className="text-xs text-indigo-200/80 hover:text-white transition-colors">小天使 →</NavButton>
+          <NavButton href="/courses" active={pathname === '/courses'} className="text-xs text-indigo-200/80 hover:text-white transition-colors">課程 →</NavButton>
           <LogoutButton className="text-xs text-indigo-200/80 hover:text-white transition-colors disabled:opacity-50" />
         </div>
       </header>

@@ -156,6 +156,9 @@ export default function DashboardClient({
           <Link href="/little-angel" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
             小天使 →
           </Link>
+          <Link href="/courses" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
+            課程 →
+          </Link>
           <Link href="/students" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
             回學員列表 →
           </Link>

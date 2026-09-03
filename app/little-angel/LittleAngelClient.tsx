@@ -185,6 +185,7 @@ export default function LittleAngelClient({ role, system, kpi, ranking, countyDi
           <NavButton href="/dashboard" active={pathname === '/dashboard'} className="text-xs text-sky-200/80 hover:text-white transition-colors">儀表板 →</NavButton>
           <NavButton href="/counselors" active={pathname === '/counselors'} className="text-xs text-sky-200/80 hover:text-white transition-colors">關懷長專區 →</NavButton>
           <NavButton href="/spirit" active={pathname === '/spirit'} className="text-xs text-sky-200/80 hover:text-white transition-colors">心之使者 →</NavButton>
+          <NavButton href="/courses" active={pathname === '/courses'} className="text-xs text-sky-200/80 hover:text-white transition-colors">課程 →</NavButton>
           <LogoutButton className="text-xs text-sky-200/80 hover:text-white transition-colors disabled:opacity-50" />
         </div>
       </header>

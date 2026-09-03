@@ -57,6 +57,9 @@ export default function MaintenanceLayout() {
           <NavButton href="/little-angel" active={pathname === '/little-angel'} className="text-xs text-slate-300 hover:text-white transition-colors">
             小天使
           </NavButton>
+          <NavButton href="/courses" active={pathname === '/courses'} className="text-xs text-slate-300 hover:text-white transition-colors">
+            課程
+          </NavButton>
           <NavButton href="/students" active={pathname === '/students'} className="text-xs text-slate-300 hover:text-white transition-colors">
             ← 學員管理
           </NavButton>
