@@ -60,37 +60,49 @@ const MAIN_STAGES = [
   { level: 5, courseField: 'course_5', paymentField: 'payment_5' },
 ] as const
 
-/** 各階課後課欄位定義（field 名 + 顯示用堂名），堂數不對稱依實際來源檔案而定 */
-const MAKEUP_CLASSES: Record<number, { field: keyof Row; label: string }[]> = {
+/**
+ * 各階課後課欄位定義（field 名 + 顯示用堂名 + 是否為同學會），堂數不對稱
+ * 依實際來源檔案而定。`isReunion` 標記「同學會」這堂——它在每階都存在，
+ * 但性質是聯誼/回訪性質而非正式課程內容，解圓夢計劃資格等以「正式課後課
+ * 堂數」為門檻的規則需要排除它，用顯式欄位標記比用 label 字串比對穩健。
+ *
+ * 「上級貴人成功學」（l1_makeup_5）目前已停開，故不列入此完課率統計清單——
+ * 但 l1_makeup_5 欄位本身、匯入邏輯、既有出席歷史資料完全不動，只是不再
+ * 計入「已上主課者需上滿幾堂」的統計母體與完課率計算。若未來這堂課恢復
+ * 開課，把這行加回來即可，不需要任何遷移或資料修復。
+ */
+const MAKEUP_CLASSES: Record<number, { field: keyof Row; label: string; isReunion?: boolean }[]> = {
   1: [
-    { field: 'l1_makeup_1', label: '同學會' },
+    { field: 'l1_makeup_1', label: '同學會', isReunion: true },
     { field: 'l1_makeup_2', label: '我喜歡/討厭自己的原因' },
     { field: 'l1_makeup_3', label: '上平下緣傳愛道' },
     { field: 'l1_makeup_4', label: '對好心沒好報的誤解' },
-    { field: 'l1_makeup_5', label: '上級貴人成功學' },
     { field: 'l1_makeup_6', label: '金錢的助流' },
   ],
   2: [
-    { field: 'l2_makeup_1', label: '同學會' },
+    { field: 'l2_makeup_1', label: '同學會', isReunion: true },
     { field: 'l2_makeup_2', label: '解脫痛苦之道' },
     { field: 'l2_makeup_3', label: '道命之路成功秘訣' },
     { field: 'l2_makeup_4', label: '動中之靜煉金術(修靜)' },
     { field: 'l2_makeup_5', label: '痛的參解' },
   ],
   3: [
-    { field: 'l3_makeup_1', label: '同學會' },
+    { field: 'l3_makeup_1', label: '同學會', isReunion: true },
     { field: 'l3_makeup_2', label: '平衡力開運法' },
     { field: 'l3_makeup_3', label: '懺悔寬恕寶藏圖' },
   ],
   4: [
-    { field: 'l4_makeup_1', label: '同學會' },
+    { field: 'l4_makeup_1', label: '同學會', isReunion: true },
     { field: 'l4_makeup_2', label: '突破陰暗面' },
     { field: 'l4_makeup_3', label: '陰陽智慧的奇蹟(批評、欣賞)' },
   ],
   5: [
-    { field: 'l5_makeup_1', label: '同學會' },
+    { field: 'l5_makeup_1', label: '同學會', isReunion: true },
   ],
 }
+
+/** 解圓夢計劃資格門檻：一階已完課者，上完一階（不含同學會）課後課的堂數達此數以上即符合資格 */
+const DREAM_PROGRAM_THRESHOLD = 3
 
 /** 未排定具體梯次的狀態（例如「待確認梯次」）——計入階別總人數，但不進梯次分布圖 */
 function owedAmount(paymentValue: string | null): number {
@@ -141,6 +153,12 @@ export interface ClubSummary {
 export interface L2ClubGap {
   l2CompletedCount: number
   notJoinedCount: number
+}
+export interface L1DreamProgram {
+  l1CompletedCount: number
+  qualifiedCount: number
+  /** 資格門檻堂數（目前為 3），與 roster 名單的計算共用同一個常數，避免前端硬編另一份數字 */
+  threshold: number
 }
 
 const STAGE_LABELS: Record<number, string> = { 1: '一階', 2: '二階', 3: '三階', 4: '四階', 5: '五階' }
@@ -348,6 +366,37 @@ export default async function CoursesPage() {
     notJoinedCount: l2CompletedNotJoinedClub.length,
   }
 
+  // 解圓夢計劃資格：一階已完課（course_1 精確為「已上課」，判定標準與
+  // 二階/聯誼會交集查詢一致）且額外上完 3 堂以上一階課後課（不含同學會）
+  // 者符合資格。範圍僅限一階本身的課後課，不跨階別加總；同學會用
+  // MAKEUP_CLASSES 的 isReunion 標記排除，而非用 label 字串比對。
+  const l1Completed = all.filter((s) => {
+    const parsed = parseCourseValue(s.course_1)
+    return parsed?.status === '已上課'
+  })
+  const l1NonReunionClasses = (MAKEUP_CLASSES[1] ?? []).filter((c) => !c.isReunion)
+  const l1DreamQualified = l1Completed.filter((s) => {
+    const attendedCount = l1NonReunionClasses.filter(({ field }) => !!s[field]).length
+    return attendedCount >= DREAM_PROGRAM_THRESHOLD
+  })
+  roster['l1-dream-program'] = l1DreamQualified.map((s) => {
+    const attendedCount = l1NonReunionClasses.filter(({ field }) => !!s[field]).length
+    return {
+      id: s.id,
+      name: s.name,
+      phone: s.phone,
+      lineId: s.line_id,
+      statusLabel: `已上 ${attendedCount} 堂（不含同學會）`,
+      paymentLabel: '符合解圓夢計劃資格',
+      owes: false,
+    }
+  })
+  const l1DreamProgram: L1DreamProgram = {
+    l1CompletedCount: l1Completed.length,
+    qualifiedCount: l1DreamQualified.length,
+    threshold: DREAM_PROGRAM_THRESHOLD,
+  }
+
   return (
     <CourseClient
       role={user!.role}
@@ -356,6 +405,7 @@ export default async function CoursesPage() {
       wuyunSummary={wuyunSummary}
       clubSummary={clubSummary}
       l2ClubGap={l2ClubGap}
+      l1DreamProgram={l1DreamProgram}
       roster={roster}
     />
   )

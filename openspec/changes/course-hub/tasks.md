@@ -65,6 +65,34 @@
 - [x] 4d.5 Verify against the live database: sampled the l2-club-gap roster (435 of 1000-row sample) — 433 had phone, 425 had line_id, 423 had both, 0 had neither, confirming real coverage; re-verified CSV escaping/BOM with the new 6-column shape including a null-line_id row
 - [x] 4d.6 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition
 
+## 4e. Roster modal: table layout with filter and sort (added post-implementation, per user feedback after seeing the modal with real, large rosters)
+
+- [x] 4e.1 Widen the roster modal (`max-w-sm` → `max-w-3xl`) and replace the single-column card list with a `<table>`: 姓名 (linked to `/students?search=...`, unchanged behavior), 手機, LINE ID, 狀態, 備註 columns
+- [x] 4e.2 Add `RosterSortHeader` component (clickable `<th>` with active/inactive sort-direction arrow indicator) and wire it to `name`/`statusLabel`/`paymentLabel` columns
+- [x] 4e.3 Add `rosterSearch`, `rosterStatusFilter`, `rosterSort` state; derive `rosterStatusOptions` dynamically per-roster from `rosterListRaw`; derive the filtered+sorted `rosterList` via `useMemo`, with a numeric-aware comparator for "已上 X / Y 堂"-format status labels (regex-extract X, numeric compare) falling back to `localeCompare('zh-Hant')` for every other format
+- [x] 4e.4 Add `openRoster(key)` wrapper that resets search/status-filter/sort to defaults before setting `rosterKey`; replace all 8 roster-opening `setRosterKey(...)` call sites with `openRoster(...)` (the 2 closing `setRosterKey(null)` sites unchanged)
+- [x] 4e.5 Add search input (matches name/status/note/phone/line_id) and status dropdown (options built from the current roster's actual `statusLabel` values, hidden when ≤1 distinct value) to the modal; show "clear filters" when either is active; modal header shows "filtered / total" counts
+- [x] 4e.6 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4e.7 Verify the sort comparator in isolation: numeric-format labels (已上 0/3/5/10 / 6 堂) sort numerically (0,3,5,10) in both directions, not lexicographically; non-numeric status formats (attendance date-time strings) correctly fall back to string comparison
+- [x] 4e.8 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition
+
+## 4f. Exclude a discontinued makeup class from completion stats (added post-implementation, per user feedback: 一階「上級貴人成功學」no longer offered)
+
+- [x] 4f.1 Remove the `l1_makeup_5` ("上級貴人成功學") entry from `MAKEUP_CLASSES[1]` in `app/courses/page.tsx` — leave the `l1_makeup_5` DB column, `HEADER_TO_COL_KEY` import mapping, `COMPARABLE_FIELDS` diff entry, and all historical attendance data completely untouched (confirmed with user: exclude from stats only, do not delete data or run a migration)
+- [x] 4f.2 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4f.3 Verify against the live database: 一階 enrolled=2753 in both cases; 6-class denominator gives fully-attended=75/incomplete=2678; corrected 5-class denominator gives fully-attended=128/incomplete=2625 (both sum to 2753); confirmed the rise in fully-attended count is exactly the expected effect of excluding the discontinued class; confirmed 554 students' historical `l1_makeup_5` values remain in the database, simply unread by the stats computation
+- [x] 4f.4 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition
+
+## 4g. 一階解圓夢計劃資格名單 (added post-implementation, per user feedback: a rule granting "解圓夢計劃" eligibility to 一階 graduates who've also attended 3+ non-reunion makeup classes)
+
+- [x] 4g.1 Add `isReunion?: boolean` to the `MAKEUP_CLASSES` entry shape in `app/courses/page.tsx`, mark each stage's "同學會" entry with `isReunion: true` — an explicit flag rather than matching on the `label` string, so the exclusion doesn't silently break if a label's wording changes
+- [x] 4g.2 Add `DREAM_PROGRAM_THRESHOLD = 3` constant and `L1DreamProgram` interface (`l1CompletedCount`, `qualifiedCount`, `threshold`) to `app/courses/page.tsx`
+- [x] 4g.3 Compute `l1Completed` (course_1 status precisely "已上課", same strict definition used by the l2-club-gap query) and `l1DreamQualified` (attended count across `MAKEUP_CLASSES[1]` filtered to `!isReunion` ≥ `DREAM_PROGRAM_THRESHOLD`); build `roster['l1-dream-program']` with `statusLabel` = "已上 X 堂（不含同學會）"
+- [x] 4g.4 Pass `l1DreamProgram` down through `CourseClient`'s `Props`, add a new Card ("一階解圓夢計劃資格") with a roster-opening button, add a `rosterTitle` branch for the `l1-dream-program` key — the roster automatically gets the shared table/filter/sort/CSV-export modal (task group 4e), no roster-type-specific UI work needed
+- [x] 4g.5 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4g.6 Verify against the live database: 一階已完課 (course_1 精確為「已上課」) = 2169 人; 已上非同學會堂數分布 {0:1144, 1:252, 2:242, 3:371, 4:160}，總和 2169 吻合；符合資格（≥3堂）= 371+160 = 531 人，與程式計算結果一致；抽樣 5 筆確認個別學員的堂數判定正確
+- [x] 4g.7 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition
+
 ## 5. Verification
 
 - [x] 5.1 Run `npx tsc --noEmit` and confirm no errors

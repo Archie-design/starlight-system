@@ -8,7 +8,7 @@ import {
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
-import type { StageSummary, RosterStudent, ClubSummary, L2ClubGap } from './page'
+import type { StageSummary, RosterStudent, ClubSummary, L2ClubGap, L1DreamProgram } from './page'
 
 interface WuyunSummary { totalEnrolled: number; completedCount: number; owedCount: number; owedAmount: number }
 
@@ -19,6 +19,7 @@ interface Props {
   wuyunSummary: WuyunSummary
   clubSummary: ClubSummary
   l2ClubGap: L2ClubGap
+  l1DreamProgram: L1DreamProgram
   roster: Record<string, RosterStudent[]>
 }
 
@@ -82,14 +83,39 @@ function formatMoney(n: number): string {
   return n.toLocaleString('zh-Hant-TW')
 }
 
-export default function CourseClient({ role, system, stages, wuyunSummary, clubSummary, l2ClubGap, roster }: Props) {
+type RosterSortKey = 'name' | 'statusLabel' | 'paymentLabel'
+
+/** 名單表格可點擊排序的欄位標題，顯示目前排序方向的箭頭 */
+function RosterSortHeader({
+  label, sortKey, current, onClick,
+}: {
+  label: string
+  sortKey: RosterSortKey
+  current: { key: RosterSortKey; dir: 'asc' | 'desc' }
+  onClick: (key: RosterSortKey) => void
+}) {
+  const active = current.key === sortKey
+  return (
+    <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500">
+      <button onClick={() => onClick(sortKey)} className="flex items-center gap-1 hover:text-slate-800 transition-colors">
+        {label}
+        <span className={active ? 'text-emerald-600' : 'text-slate-300'}>
+          {active ? (current.dir === 'asc' ? '▲' : '▼') : '▲'}
+        </span>
+      </button>
+    </th>
+  )
+}
+
+export default function CourseClient({ role, system, stages, wuyunSummary, clubSummary, l2ClubGap, l1DreamProgram, roster }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [selectedLevel, setSelectedLevel] = useState<number>(1)
   // rosterKey 格式："level"｜"level-batch"｜"wuyun"｜"makeup-{level}-{idx}"
   // （出席）｜"makeup-{level}-{idx}-absent"（缺席）｜"club-joined"｜
   // "incomplete-makeup-{level}"（未全部完課）｜"club-not-joined-l2"
-  // （二階已完課未報聯誼會）；null 表示未開啟名單 modal
+  // （二階已完課未報聯誼會）｜"l1-dream-program"（一階解圓夢計劃資格）；
+  // null 表示未開啟名單 modal
   const [rosterKey, setRosterKey] = useState<string | null>(null)
 
   const switchSystem = (s: SheetSystem) => {
@@ -104,12 +130,70 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
   )
   const batchChartHeight = Math.min(Math.max(batchChartData.length * 22, 120), 900)
 
-  const rosterList = rosterKey ? (roster[rosterKey] ?? []) : []
+  // 名單表格的篩選與排序狀態。切換名單（rosterKey 改變）時要重置，
+  // 否則會沿用上一份名單的篩選字串/排序，容易讓使用者誤以為篩選壞了。
+  const [rosterSearch, setRosterSearch] = useState('')
+  const [rosterStatusFilter, setRosterStatusFilter] = useState('')
+  const [rosterSort, setRosterSort] = useState<{ key: RosterSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' })
+
+  const openRoster = (key: string) => {
+    setRosterSearch('')
+    setRosterStatusFilter('')
+    setRosterSort({ key: 'name', dir: 'asc' })
+    setRosterKey(key)
+  }
+
+  const rosterListRaw = rosterKey ? (roster[rosterKey] ?? []) : []
+
+  // 狀態欄位下拉篩選的選項——從目前這份名單實際出現過的 statusLabel 取值，
+  // 不同名單格式差異很大（"已上課"、"已上 3 / 6 堂"、"2026/08/19 (三)..." 等），
+  // 用實際資料生成選項，而不是寫死一組固定清單。
+  const rosterStatusOptions = useMemo(
+    () => Array.from(new Set(rosterListRaw.map((m) => m.statusLabel))).filter(Boolean).sort(),
+    [rosterListRaw],
+  )
+
+  /** 「已上 X / Y 堂」格式抽出 X 供數字排序；其餘格式回傳 null，退回文字排序 */
+  function parseAttendedCount(label: string): number | null {
+    const m = label.match(/已上\s*(\d+)\s*\/\s*\d+\s*堂/)
+    return m ? Number(m[1]) : null
+  }
+
+  const rosterList = useMemo(() => {
+    const kw = rosterSearch.trim().toLowerCase()
+    let list = rosterListRaw
+    if (kw) {
+      list = list.filter((m) =>
+        [m.name, m.statusLabel, m.paymentLabel, m.phone, m.lineId].some((v) => (v ?? '').toLowerCase().includes(kw)),
+      )
+    }
+    if (rosterStatusFilter) {
+      list = list.filter((m) => m.statusLabel === rosterStatusFilter)
+    }
+    const sorted = [...list].sort((a, b) => {
+      const { key, dir } = rosterSort
+      let cmp: number
+      if (key === 'statusLabel') {
+        const an = parseAttendedCount(a.statusLabel)
+        const bn = parseAttendedCount(b.statusLabel)
+        cmp = an != null && bn != null ? an - bn : a.statusLabel.localeCompare(b.statusLabel, 'zh-Hant')
+      } else {
+        cmp = a[key].localeCompare(b[key], 'zh-Hant')
+      }
+      return dir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [rosterListRaw, rosterSearch, rosterStatusFilter, rosterSort])
+
+  const toggleRosterSort = (key: RosterSortKey) => {
+    setRosterSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+  }
   const rosterTitle = useMemo(() => {
     if (!rosterKey) return ''
     if (rosterKey === 'wuyun') return '五運班'
     if (rosterKey === 'club-joined') return '聯誼會已報名'
     if (rosterKey === 'club-not-joined-l2') return '二階已完課未報聯誼會'
+    if (rosterKey === 'l1-dream-program') return '一階解圓夢計劃資格'
     if (rosterKey.startsWith('incomplete-makeup-')) {
       const levelStr = rosterKey.slice('incomplete-makeup-'.length)
       const stage = stages.find((s) => String(s.level) === levelStr)
@@ -203,7 +287,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
                           radius={[0, 4, 4, 0]}
                           cursor="pointer"
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          onClick={(d: any) => d?.batchKey && setRosterKey(d.batchKey)}
+                          onClick={(d: any) => d?.batchKey && openRoster(d.batchKey)}
                         >
                           <LabelList dataKey="count" position="right" />
                         </Bar>
@@ -220,7 +304,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
                 <CardHeader title={`${currentStage.label}總覽`} subtitle="含尚未排定梯次者" />
                 <div className="p-4 space-y-3">
                   <button
-                    onClick={() => setRosterKey(String(currentStage.level))}
+                    onClick={() => openRoster(String(currentStage.level))}
                     className="w-full text-left px-3 py-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors text-xs"
                   >
                     <span className="font-semibold text-slate-700">查看{currentStage.label}全部學員名單</span>
@@ -244,7 +328,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
                 />
                 <div className="px-4 pt-4">
                   <button
-                    onClick={() => setRosterKey(`incomplete-makeup-${currentStage.level}`)}
+                    onClick={() => openRoster(`incomplete-makeup-${currentStage.level}`)}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors text-xs border border-amber-200"
                   >
                     <span className="font-semibold text-amber-800">查看未全部完課名單（需鼓勵補課）</span>
@@ -266,11 +350,11 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
                           <span className="text-xs font-medium text-slate-600 tabular-nums">{rate}%</span>
                         </div>
                         <div className="flex gap-2 text-[11px]">
-                          <button onClick={() => setRosterKey(cls.rosterKey)} className="text-emerald-600 hover:underline">
+                          <button onClick={() => openRoster(cls.rosterKey)} className="text-emerald-600 hover:underline">
                             出席 {cls.attendedCount} 人
                           </button>
                           <span className="text-slate-300">・</span>
-                          <button onClick={() => setRosterKey(`${cls.rosterKey}-absent`)} className="text-slate-500 hover:underline">
+                          <button onClick={() => openRoster(`${cls.rosterKey}-absent`)} className="text-slate-500 hover:underline">
                             缺席 {currentStage.completedMainCourseCount - cls.attendedCount} 人
                           </button>
                         </div>
@@ -287,7 +371,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
         <Card>
           <CardHeader title="五運班" subtitle="無梯次概念，僅付款統計" />
           <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onClick={() => setRosterKey('wuyun')} className="text-left">
+            <button onClick={() => openRoster('wuyun')} className="text-left">
               <div className="text-xs text-slate-500 font-medium">報名人數</div>
               <div className="mt-1 font-bold text-2xl text-slate-800 hover:text-emerald-600 transition-colors">{wuyunSummary.totalEnrolled}</div>
             </button>
@@ -311,7 +395,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
           <CardHeader title="聯誼會報名" subtitle="加入日有值即代表已報名，與課程階別各自獨立統計" />
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <button onClick={() => setRosterKey('club-joined')} className="text-left mb-3 block">
+              <button onClick={() => openRoster('club-joined')} className="text-left mb-3 block">
                 <div className="text-xs text-slate-500 font-medium">已報名人數</div>
                 <div className="mt-1 font-bold text-2xl text-slate-800 hover:text-emerald-600 transition-colors">{clubSummary.joinedCount}</div>
               </button>
@@ -342,7 +426,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
           <CardHeader title="二階已完課未報聯誼會" subtitle="二階已完課（course_2 為「已上課」）但尚未報名聯誼會的名單，供邀請招募用" />
           <div className="p-4">
             <button
-              onClick={() => setRosterKey('club-not-joined-l2')}
+              onClick={() => openRoster('club-not-joined-l2')}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors text-xs border border-amber-200"
             >
               <span className="font-semibold text-amber-800">
@@ -352,20 +436,44 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
             </button>
           </div>
         </Card>
+
+        {/* 一階解圓夢計劃資格：一階已完課者，額外上完 3 堂以上一階課後課
+            （不含同學會）即符合資格。與課後課完課狀況分開呈現，這是資格
+            門檻查詢，不是完課率查詢。 */}
+        <Card>
+          <CardHeader
+            title="一階解圓夢計劃資格"
+            subtitle={`一階已完課者，另上完 ${l1DreamProgram.threshold} 堂以上一階課後課（不含同學會）即符合資格`}
+          />
+          <div className="p-4">
+            <button
+              onClick={() => openRoster('l1-dream-program')}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors text-xs border border-emerald-200"
+            >
+              <span className="font-semibold text-emerald-800">
+                查看名單（一階已完課 {l1DreamProgram.l1CompletedCount} 人中，符合資格）
+              </span>
+              <span className="font-bold text-emerald-700">{l1DreamProgram.qualifiedCount} 人</span>
+            </button>
+          </div>
+        </Card>
       </div>
 
-      {/* 學員名單 Modal */}
+      {/* 學員名單 Modal：表格式，可搜尋/依狀態篩選/依欄位排序 */}
       {rosterKey !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRosterKey(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setRosterKey(null)}>
           <div
             role="dialog"
             aria-modal="true"
-            className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 max-h-[80vh] flex flex-col"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 flex-wrap gap-2">
               <h2 className="text-sm font-bold text-slate-800">
-                {rosterTitle} <span className="text-slate-400 font-normal">（{rosterList.length} 人）</span>
+                {rosterTitle}{' '}
+                <span className="text-slate-400 font-normal">
+                  （{rosterList.length} / {rosterListRaw.length} 人）
+                </span>
               </h2>
               <div className="flex items-center gap-3">
                 <button
@@ -378,23 +486,68 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
                 <button onClick={() => setRosterKey(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
               </div>
             </div>
-            <div className="overflow-auto p-2">
+
+            {/* 篩選列：關鍵字搜尋（比對姓名/狀態/備註/手機/LINE ID）+ 狀態下拉 */}
+            <div className="flex items-center gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/50 flex-wrap">
+              <input
+                type="text"
+                value={rosterSearch}
+                onChange={(e) => setRosterSearch(e.target.value)}
+                placeholder="搜尋姓名／狀態／備註／手機／LINE ID"
+                className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              {rosterStatusOptions.length > 1 && (
+                <select
+                  value={rosterStatusFilter}
+                  onChange={(e) => setRosterStatusFilter(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="">全部狀態</option>
+                  {rosterStatusOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+              {(rosterSearch || rosterStatusFilter) && (
+                <button
+                  onClick={() => { setRosterSearch(''); setRosterStatusFilter('') }}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  清除篩選
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-auto flex-1">
               {rosterList.length === 0 ? (
-                <p className="p-4 text-xs text-slate-400">無資料</p>
+                <p className="p-4 text-xs text-slate-400">{rosterListRaw.length === 0 ? '無資料' : '無符合篩選條件的學員'}</p>
               ) : (
-                rosterList.map((m) => (
-                  <a
-                    key={m.id}
-                    href={`/students?search=${encodeURIComponent(m.name)}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-blue-50 text-sm"
-                  >
-                    <span className="text-slate-800">{m.name}</span>
-                    <span className="flex items-center gap-2 text-xs">
-                      <span className="text-slate-400">{m.statusLabel}</span>
-                      <span className={m.owes ? 'text-amber-600 font-medium' : 'text-slate-400'}>{m.paymentLabel}</span>
-                    </span>
-                  </a>
-                ))
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white border-b border-slate-200">
+                    <tr>
+                      <RosterSortHeader label="姓名" sortKey="name" current={rosterSort} onClick={toggleRosterSort} />
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500">手機</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500">LINE ID</th>
+                      <RosterSortHeader label="狀態" sortKey="statusLabel" current={rosterSort} onClick={toggleRosterSort} />
+                      <RosterSortHeader label="備註" sortKey="paymentLabel" current={rosterSort} onClick={toggleRosterSort} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rosterList.map((m) => (
+                      <tr key={m.id} className="border-b border-slate-50 hover:bg-blue-50/60">
+                        <td className="px-3 py-2">
+                          <a href={`/students?search=${encodeURIComponent(m.name)}`} className="text-slate-800 hover:text-emerald-700 hover:underline">
+                            {m.name}
+                          </a>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-500 tabular-nums">{m.phone || '—'}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{m.lineId || '—'}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{m.statusLabel}</td>
+                        <td className={`px-3 py-2 text-xs ${m.owes ? 'text-amber-600 font-medium' : 'text-slate-500'}`}>{m.paymentLabel}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import useSWR from 'swr'
-import { useOrgData } from '@/hooks/useOrgData'
+import { useDownlineLookup } from '@/hooks/useDownlineLookup'
 
 interface OverrideRecord {
   id: string
@@ -17,7 +17,7 @@ const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export function useOverrideManagement() {
   const { data: overrideData, mutate: mutateOverrides } = useSWR<{ overrides: OverrideRecord[] }>('/api/student-overrides', fetcher)
-  const { students: allStudents } = useOrgData()
+  const { students: allStudents } = useDownlineLookup()
 
   const [overrideOrigId, setOverrideOrigId] = useState('')
   const [overrideProxyId, setOverrideProxyId] = useState('')
