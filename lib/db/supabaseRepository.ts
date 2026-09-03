@@ -227,7 +227,19 @@ export class SupabaseStudentRepository implements StudentRepository {
       case 'MISSING_COUNSELOR': query = query.is('senior_counselor', null); break
       case 'MISSING_CHAIN':     query = query.is('guidance_chain', null); break
     }
-    query = applySystemFilter(query, system)
+    if (category === 'MISSING_CHAIN') {
+      // 「關懷體系空白」要找的是「業務脈（business_chain）已經是這個體系、
+      // 但關懷脈（guidance_chain）還沒填」的人——通常是從別的關懷體系轉
+      // 過來、業務脈已改但關懷脈欄位還沒補上。這裡 MUST NOT 用
+      // applySystemFilter()（依 guidance_chain 計算的 system_computed）：
+      // guidance_chain IS NULL 的人 system_computed 必然也是 NULL，與任何
+      // 選定的星光/太陽字面值都不可能同時成立，會讓這個分類永遠查不到
+      // 任何結果（見使用者回報「關懷體系空白恆為 0 筆」）。改用 TAB 選擇
+      // 對應的 business_chain 字面值直接篩選，不經過 system_computed。
+      query = query.eq('business_chain', system)
+    } else {
+      query = applySystemFilter(query, system)
+    }
     // 維護專區不提供 hasCourse5 篩選
     query = applyCommonFilters(query, filters, false, Date.now())
     return this.runPaged(query, filters, range)

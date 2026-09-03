@@ -92,7 +92,16 @@ export class MockStudentRepository implements StudentRepository {
     const duplicates = this.duplicatesFor(system, filters)
     const rows = this.data
       .filter((s) => {
-        if (systemOf(s.guidance_chain) !== system) return false
+        // 「關懷體系空白」找的是「業務脈已是這個體系、關懷脈還沒填」的人
+        // ——guidance_chain 必為 null，systemOf(guidance_chain) 也必為
+        // null，與任何 system 字面值都不可能相等，故這個分類 MUST NOT
+        // 用 systemOf(guidance_chain) 判斷體系範圍，改用 business_chain
+        // 字面值（見 supabaseRepository.ts 的同一處說明）。
+        if (category === 'MISSING_CHAIN') {
+          if (s.business_chain !== system) return false
+        } else if (systemOf(s.guidance_chain) !== system) {
+          return false
+        }
         if (category === 'MISSING_GROUP' && s.group_leader != null) return false
         if (category === 'MISSING_COUNSELOR' && s.senior_counselor != null) return false
         if (category === 'MISSING_CHAIN' && s.guidance_chain != null) return false
