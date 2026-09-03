@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
+import { useDownlineLookup } from '@/hooks/useDownlineLookup'
 import type { CounselorGroup } from '@/lib/supabase/types'
 
 export function useGroupManagement() {
   const { groups, mutate: mutateGroups } = useCounselorGroups()
+  const { students: allStudents } = useDownlineLookup()
   const [newName, setNewName] = useState('')
   const [newRoots, setNewRoots] = useState('')
   const [editId, setEditId] = useState<string | null>(null)
@@ -16,6 +18,22 @@ export function useGroupManagement() {
   const parseRoots = useCallback((s: string): number[] =>
     s.split(/[,\s]+/).map(v => parseInt(v)).filter(n => !isNaN(n) && n > 0),
   [])
+
+  const nameById = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const s of allStudents) map.set(s.id, s.name)
+    return map
+  }, [allStudents])
+
+  /** 依「根節點學員 ID」輸入框的原始字串，回傳「ID = 姓名」的查詢結果字串（查不到則標示「查無此 ID」），供輸入框下方提示使用 */
+  const lookupRootNames = useCallback((rootsInput: string): string => {
+    const ids = parseRoots(rootsInput)
+    if (ids.length === 0) return ''
+    return ids.map((id) => `${id} = ${nameById.get(id) ?? '查無此 ID'}`).join('　')
+  }, [parseRoots, nameById])
+
+  const newRootNames = useMemo(() => lookupRootNames(newRoots), [lookupRootNames, newRoots])
+  const editRootNames = useMemo(() => lookupRootNames(editRoots), [lookupRootNames, editRoots])
 
   const handleCreateGroup = useCallback(async () => {
     if (!newName.trim()) return
@@ -101,12 +119,14 @@ export function useGroupManagement() {
     setNewName,
     newRoots,
     setNewRoots,
+    newRootNames,
     editId,
     setEditId,
     editName,
     setEditName,
     editRoots,
     setEditRoots,
+    editRootNames,
     saving,
     handleCreateGroup,
     handleDeleteGroup,

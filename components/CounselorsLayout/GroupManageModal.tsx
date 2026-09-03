@@ -84,6 +84,9 @@ export default function GroupManageModal({ onClose }: Props) {
                             className="w-full border border-slate-300 rounded px-2 py-1 text-xs font-mono text-slate-800 placeholder:text-slate-400"
                             placeholder="根節點學員 ID（逗號分隔，例：3034, 2888）"
                           />
+                          {groupMgmt.editRootNames && (
+                            <p className="text-[10px] text-slate-400 px-0.5">{groupMgmt.editRootNames}</p>
+                          )}
                         </div>
                         <button onClick={groupMgmt.handleUpdate} disabled={groupMgmt.saving} className="px-2 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-bold shadow-sm">儲存</button>
                         <button onClick={() => groupMgmt.setEditId(null)} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800 font-medium">取消</button>
@@ -162,12 +165,17 @@ export default function GroupManageModal({ onClose }: Props) {
                   placeholder="分組名稱（其餘同李雨珊）"
                   className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/30"
                 />
-                <input
-                  value={groupMgmt.newRoots}
-                  onChange={e => groupMgmt.setNewRoots(e.target.value)}
-                  placeholder="根節點學員 ID（例如：3034）"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/30"
-                />
+                <div>
+                  <input
+                    value={groupMgmt.newRoots}
+                    onChange={e => groupMgmt.setNewRoots(e.target.value)}
+                    placeholder="根節點學員 ID（例如：3034）"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/30"
+                  />
+                  {groupMgmt.newRootNames && (
+                    <p className="text-[10px] text-slate-400 px-1 mt-1">{groupMgmt.newRootNames}</p>
+                  )}
+                </div>
                 <button
                   onClick={groupMgmt.handleCreateGroup}
                   disabled={groupMgmt.saving || !groupMgmt.newName.trim()}
