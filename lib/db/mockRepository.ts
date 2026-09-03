@@ -65,13 +65,13 @@ export class MockStudentRepository implements StudentRepository {
   /** 同名統計母體＝該體系全體（與正式查詢層一致，不跨體系） */
   private duplicatesFor(system: SheetSystem, filters: StudentFilters): Set<string> | undefined {
     if (filters.view !== 'duplicate_name') return undefined
-    return buildDuplicateNameSet(this.data.filter((s) => systemOf(s.business_chain) === system))
+    return buildDuplicateNameSet(this.data.filter((s) => systemOf(s.guidance_chain) === system))
   }
 
   async findBySystem(system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents> {
     const duplicates = this.duplicatesFor(system, filters)
     const filtered = this.data
-      .filter((s) => systemOf(s.business_chain) === system && matchesFilters(s, filters, duplicates))
+      .filter((s) => systemOf(s.guidance_chain) === system && matchesFilters(s, filters, duplicates))
     const rows = filters.view === 'duplicate_name'
       ? sortByNameGroup(filtered)
       : applySort(filtered.sort((a, b) => a.id - b.id), sort)
@@ -81,7 +81,7 @@ export class MockStudentRepository implements StudentRepository {
   async findByGroupLeader(groupLeader: string, system: SheetSystem, filters: StudentFilters, range: PageRange, sort?: SortState | null): Promise<PagedStudents> {
     const duplicates = this.duplicatesFor(system, filters)
     const filtered = this.data
-      .filter((s) => s.group_leader === groupLeader && systemOf(s.business_chain) === system && matchesFilters(s, filters, duplicates))
+      .filter((s) => s.group_leader === groupLeader && systemOf(s.guidance_chain) === system && matchesFilters(s, filters, duplicates))
     const rows = filters.view === 'duplicate_name'
       ? sortByNameGroup(filtered)
       : applySort(filtered.sort((a, b) => a.id - b.id), sort)
@@ -92,7 +92,7 @@ export class MockStudentRepository implements StudentRepository {
     const duplicates = this.duplicatesFor(system, filters)
     const rows = this.data
       .filter((s) => {
-        if (systemOf(s.business_chain) !== system) return false
+        if (systemOf(s.guidance_chain) !== system) return false
         if (category === 'MISSING_GROUP' && s.group_leader != null) return false
         if (category === 'MISSING_COUNSELOR' && s.senior_counselor != null) return false
         if (category === 'MISSING_CHAIN' && s.guidance_chain != null) return false
@@ -116,7 +116,7 @@ export class MockStudentRepository implements StudentRepository {
 
     const values = new Set<string>()
     for (const s of this.data) {
-      if (systemOf(s.business_chain) !== system) continue
+      if (systemOf(s.guidance_chain) !== system) continue
       if (scope?.groupLeader && s.group_leader !== scope.groupLeader) continue
       if (!matchesFilters(s, scopedFilters, duplicates)) continue
       const raw = (s as unknown as Record<string, unknown>)[field]

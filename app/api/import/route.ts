@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // 覆寫/建立另一體系的學員資料（跨體系寫入）
     if (user.role !== 'superadmin') {
       const effectiveSystem = await getEffectiveSystem(user)
-      const offSystem = importRows.some((r) => systemOf(r.business_chain) !== effectiveSystem)
+      const offSystem = importRows.some((r) => systemOf(r.guidance_chain) !== effectiveSystem)
       if (offSystem) {
         return NextResponse.json(
           { error: `檔案中含有非「${effectiveSystem}」體系的資料，請確認匯入檔案內容` },

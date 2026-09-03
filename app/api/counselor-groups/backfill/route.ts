@@ -37,15 +37,15 @@ export async function POST(request: NextRequest) {
     overrideMap[o.student_id] = o.override_parent_id
   })
 
-  // 3. 取得所有學員（id、counselor、introducer、business_chain）—— 分頁避開 Supabase 1000 筆上限
+  // 3. 取得所有學員（id、counselor、introducer、guidance_chain）—— 分頁避開 Supabase 1000 筆上限
   const PAGE = 1000
-  type SEntry = { id: number; counselor: string | null; introducer: string | null; business_chain: string | null }
+  type SEntry = { id: number; counselor: string | null; introducer: string | null; guidance_chain: string | null }
   const students: SEntry[] = []
   let from = 0
   while (true) {
     const { data, error: sErr } = await supabase
       .from('students')
-      .select('id, counselor, introducer, business_chain')
+      .select('id, counselor, introducer, guidance_chain')
       .range(from, from + PAGE - 1)
     if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
     if (!data || data.length === 0) break
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   const scopedAssignments = new Map(
     [...assignments].filter(([id]) => {
       const s = studentMap.get(id)
-      return s ? systemOf(s.business_chain) === effectiveSystem : false
+      return s ? systemOf(s.guidance_chain) === effectiveSystem : false
     })
   )
 
@@ -88,5 +88,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ updated: scopedAssignments.size, total: students.filter(s => systemOf(s.business_chain) === effectiveSystem).length })
+  return NextResponse.json({ updated: scopedAssignments.size, total: students.filter(s => systemOf(s.guidance_chain) === effectiveSystem).length })
 }

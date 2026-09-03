@@ -7,8 +7,9 @@ import { systemOf } from '@/lib/utils/system'
 
 /**
  * 查出分組所屬體系（規則同 GET /api/counselor-groups：以其 root_student_ids
- * 中第一個能判定體系的根節點學員的 business_chain 決定；查無根節點資料則
- * 預設星光）。寫入操作前用來比對呼叫者體系，避免跨體系竄改。
+ * 中第一個根節點學員的 guidance_chain 決定；查無根節點資料、或根節點的
+ * guidance_chain 不屬於星光/太陽，皆預設星光）。寫入操作前用來比對呼叫者
+ * 體系，避免跨體系竄改。
  */
 async function resolveGroupSystem(
   supabase: ReturnType<typeof createServiceClient>,
@@ -17,10 +18,10 @@ async function resolveGroupSystem(
   if (rootStudentIds.length === 0) return '星光'
   const { data: roots } = await supabase
     .from('students')
-    .select('id, business_chain')
+    .select('id, guidance_chain')
     .in('id', rootStudentIds)
   const first = roots?.[0]
-  return first ? systemOf(first.business_chain) : '星光'
+  return first ? (systemOf(first.guidance_chain) ?? '星光') : '星光'
 }
 
 const ALLOWED_FIELDS = ['name', 'display_order', 'root_student_ids'] as const

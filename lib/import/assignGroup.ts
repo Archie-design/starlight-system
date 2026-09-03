@@ -1,5 +1,6 @@
 import { parseNameWithId } from '@/lib/utils/nameUtils'
 import { systemOf } from '@/lib/utils/system'
+import type { SheetSystem } from '@/lib/supabase/types'
 
 interface GroupDef {
   name: string
@@ -10,8 +11,8 @@ interface StudentEntry {
   id: number
   counselor: string | null
   introducer: string | null
-  /** 學員所屬體系來源欄位（業務脈），用於跨體系隔離 */
-  business_chain?: string | null
+  /** 學員所屬體系來源欄位（關懷脈/輔導體系），用於跨體系隔離 */
+  guidance_chain?: string | null
 }
 
 /**
@@ -88,13 +89,16 @@ export function buildGroupAssignments(
     return resolved
   }
 
-  // 各分組根節點的體系（用於跨體系隔離）：取該組第一個能判定體系的根節點
-  const groupSystem = new Map<string, ReturnType<typeof systemOf>>()
+  // 各分組根節點的體系（用於跨體系隔離）：取該組第一個能判定體系的根節點。
+  // 根節點的 guidance_chain 不屬於星光/太陽時（systemOf 回傳 null），與
+  // /api/counselor-groups 的既有處理一致，預設歸類星光——否則該分組的
+  // 跨體系隔離會直接失效（任何學員都能被歸入）。
+  const groupSystem = new Map<string, SheetSystem>()
   for (const g of groups) {
     for (const rid of g.root_student_ids) {
       const root = studentMap.get(rid)
       if (root) {
-        groupSystem.set(g.name, systemOf(root.business_chain))
+        groupSystem.set(g.name, systemOf(root.guidance_chain) ?? '星光')
         break
       }
     }
@@ -109,7 +113,7 @@ export function buildGroupAssignments(
 
     // 跨體系隔離：學員體系須與分組根節點體系一致，避免太陽學員被歸到星光分組（反之亦然）
     const gSys = groupSystem.get(group)
-    if (gSys && systemOf(entry.business_chain) !== gSys) continue
+    if (gSys && systemOf(entry.guidance_chain) !== gSys) continue
 
     result.set(id, group)
   }

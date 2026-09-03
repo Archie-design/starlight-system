@@ -81,13 +81,20 @@ export async function POST(req: NextRequest) {
 
   const { data: student } = await supabase
     .from('students')
-    .select('id, name, role, phone, business_chain')
+    .select('id, name, role, phone, guidance_chain')
     .eq('id', studentId)
     .maybeSingle()
 
   if (!student || !LEADER_ROLES.includes(student.role ?? '') || lastFour(student.phone) !== password) {
     return fail()
   }
+
+  // 體系綁定依 guidance_chain（關懷脈）判定；本人不屬於星光/太陽任一體系時
+  // MUST NOT 建立帳號——admin 角色必須綁定明確體系，system: null 在 users
+  // 表另有語意（代表 superadmin 跨體系），不能拿來表示「體系不明」。與其他
+  // 失敗情形一致，不額外洩漏「因體系不明」這個具體原因。
+  const studentSystem = systemOf(student.guidance_chain)
+  if (!studentSystem) return fail()
 
   // 通過 → 建帳號（首次強制改密碼）。體系長 → system_admin（有管理權）；關懷長 → admin
   const role = SYSTEM_ADMIN_STUDENT_ROLES.includes(student.role ?? '') ? 'system_admin' : 'admin'
@@ -98,7 +105,7 @@ export async function POST(req: NextRequest) {
       username,
       password_hash,
       role,
-      system: systemOf(student.business_chain),
+      system: studentSystem,
       display_name: student.name ?? null,
       active: true,
       must_change_password: true,

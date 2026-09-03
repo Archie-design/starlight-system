@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   if (error) return serverErrorResponse('edit-logs', error)
 
   // 依 student_id 反查所屬體系，非 superadmin 只能看自己體系的稽核紀錄
-  // （P2 #22 剩餘部分：edit_logs 本身沒有體系欄位，須反查 students.business_chain）
+  // （P2 #22 剩餘部分：edit_logs 本身沒有體系欄位，須反查 students.guidance_chain）
   let logs = (data ?? []) as Array<{ student_id: number | null }>
   if (user.role !== 'superadmin' && logs.length > 0) {
     const effectiveSystem = await getEffectiveSystem(user)
@@ -38,12 +38,13 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
       .from('students')
-      .select('id, business_chain')
+      .select('id, guidance_chain')
       .in('id', studentIds.length > 0 ? studentIds : [-1])
-    const systemById = new Map<number, string>(
-      (students ?? []).map((s: { id: number; business_chain: string | null }) => [s.id, systemOf(s.business_chain)])
+    const systemById = new Map<number, string | null>(
+      (students ?? []).map((s: { id: number; guidance_chain: string | null }) => [s.id, systemOf(s.guidance_chain)])
     )
-    // 反查不到體系的（例如學員已被刪除）保守排除，不預設放行
+    // 反查不到體系的（例如學員已被刪除、或 guidance_chain 不屬於星光/太陽）
+    // 一律保守排除，不預設放行
     logs = logs.filter((l) => l.student_id !== null && systemById.get(l.student_id) === effectiveSystem)
   }
 

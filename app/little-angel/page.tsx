@@ -16,13 +16,16 @@ type Row = {
   id: number
   name: string
   little_angel: string | null
-  business_chain: string | null
   county: string | null
   gender: string | null
+  /** 僅為滿足 LittleAngelClient 的 `students: Student[]` prop 型別要求
+   *  （下游只用來轉成 OrgStudent 給搜尋框用，不讀這個欄位的值），
+   *  本頁面的體系判定完全不使用它——見 lib/utils/system.ts 的 systemOf() */
+  business_chain: string | null
 }
 
 /** 跨體系比對用的最小欄位——不需要 county/gender，只為了解析對方姓名與體系 */
-type MinimalRow = { id: number; name: string; business_chain: string | null }
+type MinimalRow = { id: number; name: string; guidance_chain: string | null }
 
 const UNSPECIFIED_COUNTY = '未填寫'
 const UNSPECIFIED_GENDER = '未填寫'
@@ -44,7 +47,7 @@ export default async function LittleAngelPage() {
     const { data, error } = await applySystemFilter(
       service
         .from('students')
-        .select('id, name, little_angel, business_chain, county, gender'),
+        .select('id, name, little_angel, county, gender, business_chain'),
       system,
     ).range(from, from + 999)
     if (error) throw error
@@ -60,7 +63,7 @@ export default async function LittleAngelPage() {
   for (let from = 0; ; from += 1000) {
     const { data, error } = await service
       .from('students')
-      .select('id, name, business_chain')
+      .select('id, name, guidance_chain')
       .range(from, from + 999)
     if (error) throw error
     if (!data || data.length === 0) break
@@ -178,7 +181,10 @@ export default async function LittleAngelPage() {
       name: d.student.name,
       pointsTo: d.pointsTo,
       targetName: d.targetName,
-      targetSystem: d.targetSystem,
+      // targetSystem 可能為 null（對方 guidance_chain 不屬於星光/太陽任一
+      // 體系）——這裡仍是有意義的「跨體系/不明體系」提示，只是顯示文字
+      // fallback 成「未知」，不是程式錯誤。
+      targetSystem: d.targetSystem ?? '未知',
     })),
   }
 

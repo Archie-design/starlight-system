@@ -19,15 +19,17 @@ export async function GET(request: NextRequest) {
     .order('display_order', { ascending: true })
   if (error) return serverErrorResponse('counselor-groups', error)
 
-  // 以各分組根節點的 business_chain 判定其體系，只回有效體系相符的分組
+  // 以各分組根節點的 guidance_chain 判定其體系，只回有效體系相符的分組。
+  // 根節點的 guidance_chain 不屬於星光/太陽時（systemOf 回傳 null），視同
+  // 「查無可判定體系的根節點」，與下方「無根節點資料」同樣預設歸類星光。
   const rootIds = [...new Set((groups ?? []).flatMap((g: { root_student_ids: number[] }) => g.root_student_ids))]
   const rootSystem = new Map<number, '星光' | '太陽'>()
   if (rootIds.length > 0) {
     const { data: roots } = await supabase
       .from('students')
-      .select('id, business_chain')
+      .select('id, guidance_chain')
       .in('id', rootIds as number[])
-    for (const r of roots ?? []) rootSystem.set(r.id, systemOf(r.business_chain))
+    for (const r of roots ?? []) rootSystem.set(r.id, systemOf(r.guidance_chain) ?? '星光')
   }
 
   // 分組體系 = 第一個能判定體系的根節點；無根節點資料則預設星光
@@ -57,9 +59,9 @@ export async function POST(request: NextRequest) {
     const effectiveSystem = await getEffectiveSystem(user)
     const { data: roots } = await supabase
       .from('students')
-      .select('id, business_chain')
+      .select('id, guidance_chain')
       .in('id', rootIds)
-    const mismatched = (roots ?? []).some((r) => systemOf(r.business_chain) !== effectiveSystem)
+    const mismatched = (roots ?? []).some((r) => systemOf(r.guidance_chain) !== effectiveSystem)
     if (mismatched) return NextResponse.json({ error: '根節點學員須屬於你的體系' }, { status: 400 })
   }
 

@@ -14,13 +14,13 @@ const PAGE_SIZE = 50
 type SessionSummaryRow = {
   id: string
   applied_at: string | null
-  // PostgREST JSONB path 運算子 `->0->>business_chain`：只取 diff_snapshot
-  // 陣列第一筆的 business_chain 當快速判斷（多數 session 只含單一體系，
+  // PostgREST JSONB path 運算子 `->0->>guidance_chain`：只取 diff_snapshot
+  // 陣列第一筆的 guidance_chain 當快速判斷（多數 session 只含單一體系，
   // 這樣不用把整個 diff_snapshot 傳輸到應用層）。原本 select 整個
   // diff_snapshot 陣列，在 session 數量增加、資料量變大後單次查詢曾實測
   // 需要近 10 秒，超過 Supabase statement timeout 直接查詢失敗；改成只取
   // 單一純量欄位後同一批查詢實測降到約 1 秒。
-  business_chain: string | null
+  guidance_chain: string | null
 }
 
 /**
@@ -45,7 +45,7 @@ async function sessionContainsSystem(
     .single() as { data: { diff_snapshot: StudentInsert[] | null } | null; error: unknown }
 
   if (error || !data?.diff_snapshot) return false
-  return data.diff_snapshot.some((row) => systemOf(row.business_chain) === targetSystem)
+  return data.diff_snapshot.some((row) => systemOf(row.guidance_chain) === targetSystem)
 }
 
 /**
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('import_sessions')
-      .select('id, applied_at, diff_snapshot->0->>business_chain')
+      .select('id, applied_at, diff_snapshot->0->>guidance_chain')
       .eq('applied', true)
       .order('applied_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1) as { data: SessionSummaryRow[] | null; error: unknown }
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     for (const session of data) {
       // 快速路徑：第一筆學員就吻合，直接命中，不需要掃整份快照
-      if (session.business_chain != null && systemOf(session.business_chain) === effectiveSystem) {
+      if (session.guidance_chain != null && systemOf(session.guidance_chain) === effectiveSystem) {
         return NextResponse.json({ lastImportAt: session.applied_at ?? null })
       }
       // 第一筆不吻合（或空快照）不代表這個 session 完全不含目標體系

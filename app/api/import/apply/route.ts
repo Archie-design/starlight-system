@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     // 只能套用自己有效體系的資料，避免跨體系寫入
     if (user.role !== 'superadmin') {
       const effectiveSystem = await getEffectiveSystem(user)
-      const offSystem = importRows.some((r) => systemOf(r.business_chain) !== effectiveSystem)
+      const offSystem = importRows.some((r) => systemOf(r.guidance_chain) !== effectiveSystem)
       if (offSystem) {
         return NextResponse.json(
           { error: `此匯入記錄含有非「${effectiveSystem}」體系的資料，你沒有權限套用` },
@@ -105,15 +105,15 @@ export async function POST(request: NextRequest) {
 
     let groupAssignments = new Map<number, string>()
     if (groups && groups.length > 0) {
-      // 建立 id→{counselor,introducer,business_chain} Map（含已存在 DB 的學員，讓追溯更完整）
-      const studentMap = new Map<number, { id: number; counselor: string | null; introducer: string | null; business_chain: string | null }>()
+      // 建立 id→{counselor,introducer,guidance_chain} Map（含已存在 DB 的學員，讓追溯更完整）
+      const studentMap = new Map<number, { id: number; counselor: string | null; introducer: string | null; guidance_chain: string | null }>()
       // 先放 DB 現有學員
       for (const s of existingStudents) {
-        studentMap.set(s.id, { id: s.id, counselor: s.counselor ?? null, introducer: s.introducer, business_chain: s.business_chain ?? null })
+        studentMap.set(s.id, { id: s.id, counselor: s.counselor ?? null, introducer: s.introducer, guidance_chain: s.guidance_chain ?? null })
       }
       // 再用匯入資料覆蓋（更新的值優先）
       for (const r of importRows) {
-        studentMap.set(r.id, { id: r.id, counselor: r.counselor ?? null, introducer: r.introducer ?? null, business_chain: r.business_chain ?? null })
+        studentMap.set(r.id, { id: r.id, counselor: r.counselor ?? null, introducer: r.introducer ?? null, guidance_chain: r.guidance_chain ?? null })
       }
       groupAssignments = buildGroupAssignments(studentMap, groups)
     }

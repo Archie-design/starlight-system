@@ -35,10 +35,10 @@ export async function GET(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
       .from('students')
-      .select('id, business_chain')
+      .select('id, guidance_chain')
       .in('id', studentIds.length > 0 ? studentIds : [-1])
-    const systemById = new Map<number, string>(
-      (students ?? []).map((s: { id: number; business_chain: string | null }) => [s.id, systemOf(s.business_chain)])
+    const systemById = new Map<number, string | null>(
+      (students ?? []).map((s: { id: number; guidance_chain: string | null }) => [s.id, systemOf(s.guidance_chain)])
     )
     logs = logs.filter((l) => l.student_id !== null && systemById.get(l.student_id) === effectiveSystem)
   }

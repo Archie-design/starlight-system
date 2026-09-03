@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   // import_sessions 本身沒有體系欄位；非 superadmin 時額外取 diff_snapshot
   // 用來推斷該 session 屬於哪個體系（P2 #22 剩餘部分）。#2 已限制匯入不能
   // 跨體系，故同一個 session 的 diff_snapshot 內所有列理論上同屬一個體系，
-  // 取第一筆的 business_chain 即可代表整個 session。
+  // 取第一筆的 guidance_chain 即可代表整個 session。
   const selectCols = 'id, imported_at, filename, source_rows, rows_updated, rows_inserted, rows_unchanged, applied, applied_at'
   const needSystemCheck = user.role !== 'superadmin'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         const firstRow = s.diff_snapshot?.[0]
         // 無法判斷體系的 session（例如空快照）保守排除，不預設放行
         if (!firstRow) return false
-        return systemOf(firstRow.business_chain) === effectiveSystem
+        return systemOf(firstRow.guidance_chain) === effectiveSystem
       })
       .map(({ diff_snapshot: _diffSnapshot, ...rest }) => rest) // 不把完整快照回傳給前端
   }

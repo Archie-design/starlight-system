@@ -41,12 +41,12 @@ export interface CrossSystemPointer<T extends LittleAngelStudent> {
   pointsTo: string
   /** 解析出的小天使在全域資料中的實際姓名（供顯示，比只顯示 ID 更有用） */
   targetName: string
-  /** 該小天使實際所屬的體系（例如 '太陽'），與 student 自己的體系不同 */
-  targetSystem: string
+  /** 該小天使實際所屬的體系（例如 '太陽'）；若其 guidance_chain 不屬於星光/太陽任一體系則為 null，與 student 自己的體系不同 */
+  targetSystem: string | null
 }
 
-/** 跨體系比對表只需要 id/name/business_chain，不要求 little_angel（它是查找表，不是被掃描對象） */
-type MinimalCrossSystemLookup = { id: number; name: string; business_chain?: string | null }
+/** 跨體系比對表只需要 id/name/guidance_chain，不要求 little_angel（它是查找表，不是被掃描對象） */
+type MinimalCrossSystemLookup = { id: number; name: string; guidance_chain?: string | null }
 
 /**
  * 偵測「懸空指標」與「跨體系指派」，兩者過去被合併判定為同一種「懸空指標」
@@ -67,12 +67,14 @@ type MinimalCrossSystemLookup = { id: number; name: string; business_chain?: str
  *                 用來把「目前體系找不到」的案例進一步區分成懸空指標或
  *                 跨體系指派。未提供時等同於只看 students（不區分兩者，
  *                 全部歸類為懸空指標）。
- * @param systemOfFn 給定學員判斷其所屬體系的函式（例如既有的 systemOf()）
+ * @param systemOfFn 給定學員判斷其所屬體系的函式（例如既有的 systemOf()）；
+ *                 可能回傳 null（該學員不屬於任何體系），此時 targetSystem
+ *                 也會是 null，呼叫端顯示時需自行處理
  */
-export function findDanglingAndCrossSystemPointers<T extends LittleAngelStudent & { business_chain?: string | null }>(
+export function findDanglingAndCrossSystemPointers<T extends LittleAngelStudent & { guidance_chain?: string | null }>(
   students: T[],
   allStudentsById: Map<number, MinimalCrossSystemLookup> | undefined,
-  systemOfFn: (businessChain: string | null | undefined) => string,
+  systemOfFn: (guidanceChain: string | null | undefined) => string | null,
 ): { dangling: DanglingPointer<T>[]; crossSystem: CrossSystemPointer<T>[] } {
   const byId = new Map<number, T>()
   const byName = new Map<string, T>()
@@ -105,7 +107,7 @@ export function findDanglingAndCrossSystemPointers<T extends LittleAngelStudent 
         student: s,
         pointsTo: s.little_angel,
         targetName: globalMatch.name,
-        targetSystem: systemOfFn(globalMatch.business_chain),
+        targetSystem: systemOfFn(globalMatch.guidance_chain),
       })
     } else {
       dangling.push({ student: s, pointsTo: s.little_angel })
