@@ -41,7 +41,7 @@
 - [x] 4b.8 Extend `app/courses/page.tsx`: compute per-stage makeup-class completion (denominator = students who've taken that stage's main course), per-class attendance/absence rosters, and club registration stats (joined/not-joined counts, group distribution)
 - [x] 4b.9 Extend `app/courses/CourseClient.tsx`: render a "課後課完課狀況" card per stage (progress bar + attended/absent counts per class, clickable to open roster modals) and a "聯誼會報名" card (joined/not-joined counts, group distribution, clickable roster)
 - [x] 4b.10 Run `npx tsc --noEmit` and confirm no errors
-- [ ] 4b.11 End-to-end verification against the live database (blocked on migration 018 being applied — user will run it separately): confirm completion-rate numerators/denominators match raw column values, confirm club stats are internally consistent
+- [x] 4b.11 End-to-end verification against the live database — migration 018 applied by user. Confirmed all 20 new columns exist and are queryable; confirmed attendance+absence sums equal enrollment counts for all 5 stages × both systems (10 combinations, all consistent) against current (currently-null, pre-reimport) data; additionally simulated the post-reimport numbers using the real sample file (in-memory parse only, not written to DB) to sanity-check completion rates look reasonable (11%–39% per-class attendance, 5階's single-class rate exactly matches its "fully attended" count as expected) and club stats (510/2096 joined, group distribution sensible) — actual live numbers will populate on the next real xlsx import
 - [x] 4b.12 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition (done retroactively, per the fluid-workflow model established earlier in this session)
 
 ## 5. Verification
