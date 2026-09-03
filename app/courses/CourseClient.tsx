@@ -8,7 +8,7 @@ import {
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
-import type { StageSummary, RosterStudent } from './page'
+import type { StageSummary, RosterStudent, ClubSummary } from './page'
 
 interface WuyunSummary { totalEnrolled: number; completedCount: number; owedCount: number; owedAmount: number }
 
@@ -17,6 +17,7 @@ interface Props {
   system: SheetSystem
   stages: StageSummary[]
   wuyunSummary: WuyunSummary
+  clubSummary: ClubSummary
   roster: Record<string, RosterStudent[]>
 }
 
@@ -46,11 +47,13 @@ function formatMoney(n: number): string {
   return n.toLocaleString('zh-Hant-TW')
 }
 
-export default function CourseClient({ role, system, stages, wuyunSummary, roster }: Props) {
+export default function CourseClient({ role, system, stages, wuyunSummary, clubSummary, roster }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [selectedLevel, setSelectedLevel] = useState<number>(1)
-  // rosterKey: 'level' 或 'level-batch'；null 表示未開啟名單 modal
+  // rosterKey 格式："level"｜"level-batch"｜"wuyun"｜"makeup-{level}-{idx}"
+  // （出席）｜"makeup-{level}-{idx}-absent"（缺席）｜"club-joined"；
+  // null 表示未開啟名單 modal
   const [rosterKey, setRosterKey] = useState<string | null>(null)
 
   const switchSystem = (s: SheetSystem) => {
@@ -69,6 +72,15 @@ export default function CourseClient({ role, system, stages, wuyunSummary, roste
   const rosterTitle = useMemo(() => {
     if (!rosterKey) return ''
     if (rosterKey === 'wuyun') return '五運班'
+    if (rosterKey === 'club-joined') return '聯誼會已報名'
+    if (rosterKey.startsWith('makeup-')) {
+      const isAbsent = rosterKey.endsWith('-absent')
+      const body = isAbsent ? rosterKey.slice(0, -'-absent'.length) : rosterKey
+      const [, levelStr, idxStr] = body.split('-')
+      const stage = stages.find((s) => String(s.level) === levelStr)
+      const cls = stage?.makeupClasses[Number(idxStr)]
+      return `${stage?.label ?? `${levelStr}階`}・${cls?.label ?? ''}・${isAbsent ? '缺席' : '出席'}`
+    }
     if (rosterKey.includes('-')) {
       const [level, batch] = rosterKey.split('-')
       return `${currentStage?.label ?? `${level}階`}・第${batch}梯`
@@ -180,6 +192,43 @@ export default function CourseClient({ role, system, stages, wuyunSummary, roste
                 </div>
               </Card>
             </div>
+
+            {/* 課後課完課狀況 */}
+            {currentStage.makeupClasses.length > 0 && (
+              <Card>
+                <CardHeader
+                  title={`${currentStage.label}課後課完課狀況`}
+                  subtitle={`統計母體：已上${currentStage.label}主課者共 ${currentStage.completedMainCourseCount} 人・全部堂數皆已出席 ${currentStage.fullyAttendedMakeupCount} 人`}
+                />
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {currentStage.makeupClasses.map((cls) => {
+                    const rate = currentStage.completedMainCourseCount > 0
+                      ? Math.round((cls.attendedCount / currentStage.completedMainCourseCount) * 100)
+                      : 0
+                    return (
+                      <div key={cls.rosterKey} className="border border-slate-200 rounded-lg p-3">
+                        <div className="text-xs font-semibold text-slate-700 mb-1.5">{cls.label}</div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500" style={{ width: `${rate}%` }} />
+                          </div>
+                          <span className="text-xs font-medium text-slate-600 tabular-nums">{rate}%</span>
+                        </div>
+                        <div className="flex gap-2 text-[11px]">
+                          <button onClick={() => setRosterKey(cls.rosterKey)} className="text-emerald-600 hover:underline">
+                            出席 {cls.attendedCount} 人
+                          </button>
+                          <span className="text-slate-300">・</span>
+                          <button onClick={() => setRosterKey(`${cls.rosterKey}-absent`)} className="text-slate-500 hover:underline">
+                            缺席 {currentStage.completedMainCourseCount - cls.attendedCount} 人
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            )}
           </>
         )}
 
@@ -202,6 +251,37 @@ export default function CourseClient({ role, system, stages, wuyunSummary, roste
             <div>
               <div className="text-xs text-slate-500 font-medium">欠款金額</div>
               <div className={`mt-1 font-bold text-2xl ${wuyunSummary.owedAmount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>${formatMoney(wuyunSummary.owedAmount)}</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* 聯誼會報名 */}
+        <Card>
+          <CardHeader title="聯誼會報名" subtitle="加入日有值即代表已報名，與課程階別各自獨立統計" />
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <button onClick={() => setRosterKey('club-joined')} className="text-left mb-3 block">
+                <div className="text-xs text-slate-500 font-medium">已報名人數</div>
+                <div className="mt-1 font-bold text-2xl text-slate-800 hover:text-emerald-600 transition-colors">{clubSummary.joinedCount}</div>
+              </button>
+              <div className="text-xs text-slate-500">
+                <p>未報名：{clubSummary.notJoinedCount} 人</p>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-600 mb-1.5">組別分布</div>
+              {clubSummary.groupDist.length === 0 ? (
+                <p className="text-xs text-slate-400">無</p>
+              ) : (
+                <ul className="text-xs text-slate-600 space-y-0.5 max-h-32 overflow-auto">
+                  {clubSummary.groupDist.map((g) => (
+                    <li key={g.group} className="flex justify-between">
+                      <span>{g.group}</span>
+                      <span className="tabular-nums text-slate-400">{g.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </Card>

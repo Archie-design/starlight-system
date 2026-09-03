@@ -74,6 +74,29 @@ export interface Student {
   love_giving_start_date: string | null
   spirit_ambassador_group: string | null
   cumulative_seniority: string | null
+  // 課後課出席（值為上課日期時間文字，有值=已上課，比照 course_N 語意）
+  l1_makeup_1: string | null
+  l1_makeup_2: string | null
+  l1_makeup_3: string | null
+  l1_makeup_4: string | null
+  l1_makeup_5: string | null
+  l1_makeup_6: string | null
+  l2_makeup_1: string | null
+  l2_makeup_2: string | null
+  l2_makeup_3: string | null
+  l2_makeup_4: string | null
+  l2_makeup_5: string | null
+  l3_makeup_1: string | null
+  l3_makeup_2: string | null
+  l3_makeup_3: string | null
+  l4_makeup_1: string | null
+  l4_makeup_2: string | null
+  l4_makeup_3: string | null
+  l5_makeup_1: string | null
+  // 聯誼會報名（club_join_date 有值即代表已報名，與 membership_expiry
+  // 「會籍到期日」是不同概念）
+  club_join_date: string | null
+  club_group: string | null
   created_at: string
   updated_at: string
   last_synced_at: string | null

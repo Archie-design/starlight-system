@@ -54,6 +54,17 @@ export const DEFAULT_COL = {
   LOVE_GIVING_START_DATE: 47,
   SPIRIT_AMBASSADOR_GROUP: 48,
   CUMULATIVE_SENIORITY: 49,
+  // 課後課出席、聯誼會報名——索引對應 20260826 樣本檔案的實際位置，僅作
+  // 動態標題偵測失敗時的後備值（見 HEADER_TO_COL_KEY 的逐字標題比對）。
+  L1_MAKEUP_1: 101, L1_MAKEUP_2: 102, L1_MAKEUP_3: 103,
+  L1_MAKEUP_4: 104, L1_MAKEUP_5: 105, L1_MAKEUP_6: 106,
+  L2_MAKEUP_1: 107, L2_MAKEUP_2: 108, L2_MAKEUP_3: 109,
+  L2_MAKEUP_4: 110, L2_MAKEUP_5: 111,
+  L3_MAKEUP_1: 112, L3_MAKEUP_2: 113, L3_MAKEUP_3: 114,
+  L4_MAKEUP_1: 115, L4_MAKEUP_2: 116, L4_MAKEUP_3: 117,
+  L5_MAKEUP_1: 118,
+  CLUB_JOIN_DATE: 45,
+  CLUB_GROUP: 47,
 } as const
 
 export type ColMap = Record<keyof typeof DEFAULT_COL, number>
@@ -105,6 +116,31 @@ export const HEADER_TO_COL_KEY: Record<string, keyof ColMap> = {
   "生命數字實戰班 出席狀態": "LIFE_NUMBERS_ADV",
   "生命蛻變 出席狀態": "LIFE_TRANSFORM",
   "生生世世告別負債": "DEBT_RELEASE",
+  // 課後課出席（值為上課日期時間文字）。標題文字需逐字精確比對——樣本
+  // 檔案裡各階「同學會」等標題的措辭並不統一（有的是「一階課程 - X」，
+  // 有的是「三階 - X」），trim 後仍要完全一致才會命中，故逐一列出。
+  "一階課程 - 同學會": "L1_MAKEUP_1",
+  "一階課程 - 我喜歡/討厭自己的原因": "L1_MAKEUP_2",
+  "一階課程 - 上平下緣傳愛道": "L1_MAKEUP_3",
+  "一階課程 - 對好心沒好報的誤解": "L1_MAKEUP_4",
+  "一階課程 - 上級貴人成功學": "L1_MAKEUP_5",
+  "一階 - 金錢的助流": "L1_MAKEUP_6",
+  "二階課程 - 同學會": "L2_MAKEUP_1",
+  "二階 - 解脫痛苦之道": "L2_MAKEUP_2",
+  "二階 - 道命之路成功秘訣": "L2_MAKEUP_3",
+  "二階課程 - 動中之靜煉金術(修靜)": "L2_MAKEUP_4",
+  "二階課程 - 痛的參解": "L2_MAKEUP_5",
+  "三階 - 同學會": "L3_MAKEUP_1",
+  "三階 - 平衡力開運法": "L3_MAKEUP_2",
+  "三階 - 懺悔寬恕寶藏圖": "L3_MAKEUP_3",
+  "四階課程 - 同學會": "L4_MAKEUP_1",
+  "四階課程 - 突破陰暗面": "L4_MAKEUP_2",
+  "四階課程 - 陰陽智慧的奇蹟(批評、欣賞)": "L4_MAKEUP_3",
+  "五階 - 同學會": "L5_MAKEUP_1",
+  // 聯誼會報名（加入日有值即代表已報名，與 CLUB_MEMBERSHIP「會籍到期日」
+  // 是不同概念，不可混用）
+  "聯誼會加入日": "CLUB_JOIN_DATE",
+  "聯誼會組別": "CLUB_GROUP",
   // 心之使者
   "心之使者加入日": "SPIRIT_AMBASSADOR_JOIN_DATE",
   "大愛付出起始日": "LOVE_GIVING_START_DATE",
@@ -197,6 +233,33 @@ export function transformSourceRow(row: RawRow, colMap: ColMap = DEFAULT_COL as 
     })(),
     spirit_ambassador_group: get(colMap.SPIRIT_AMBASSADOR_GROUP) ? String(get(colMap.SPIRIT_AMBASSADOR_GROUP)) : null,
     cumulative_seniority: get(colMap.CUMULATIVE_SENIORITY) ? String(get(colMap.CUMULATIVE_SENIORITY)) : null,
+    // 課後課出席：值為「上課日期時間」複合文字（例：2026/08/19 (三) 19:00），
+    // 比照 wuyun_a~f 直接存字串，不做日期正規化（格式非標準日期）
+    l1_makeup_1: get(colMap.L1_MAKEUP_1) ? String(get(colMap.L1_MAKEUP_1)) : null,
+    l1_makeup_2: get(colMap.L1_MAKEUP_2) ? String(get(colMap.L1_MAKEUP_2)) : null,
+    l1_makeup_3: get(colMap.L1_MAKEUP_3) ? String(get(colMap.L1_MAKEUP_3)) : null,
+    l1_makeup_4: get(colMap.L1_MAKEUP_4) ? String(get(colMap.L1_MAKEUP_4)) : null,
+    l1_makeup_5: get(colMap.L1_MAKEUP_5) ? String(get(colMap.L1_MAKEUP_5)) : null,
+    l1_makeup_6: get(colMap.L1_MAKEUP_6) ? String(get(colMap.L1_MAKEUP_6)) : null,
+    l2_makeup_1: get(colMap.L2_MAKEUP_1) ? String(get(colMap.L2_MAKEUP_1)) : null,
+    l2_makeup_2: get(colMap.L2_MAKEUP_2) ? String(get(colMap.L2_MAKEUP_2)) : null,
+    l2_makeup_3: get(colMap.L2_MAKEUP_3) ? String(get(colMap.L2_MAKEUP_3)) : null,
+    l2_makeup_4: get(colMap.L2_MAKEUP_4) ? String(get(colMap.L2_MAKEUP_4)) : null,
+    l2_makeup_5: get(colMap.L2_MAKEUP_5) ? String(get(colMap.L2_MAKEUP_5)) : null,
+    l3_makeup_1: get(colMap.L3_MAKEUP_1) ? String(get(colMap.L3_MAKEUP_1)) : null,
+    l3_makeup_2: get(colMap.L3_MAKEUP_2) ? String(get(colMap.L3_MAKEUP_2)) : null,
+    l3_makeup_3: get(colMap.L3_MAKEUP_3) ? String(get(colMap.L3_MAKEUP_3)) : null,
+    l4_makeup_1: get(colMap.L4_MAKEUP_1) ? String(get(colMap.L4_MAKEUP_1)) : null,
+    l4_makeup_2: get(colMap.L4_MAKEUP_2) ? String(get(colMap.L4_MAKEUP_2)) : null,
+    l4_makeup_3: get(colMap.L4_MAKEUP_3) ? String(get(colMap.L4_MAKEUP_3)) : null,
+    l5_makeup_1: get(colMap.L5_MAKEUP_1) ? String(get(colMap.L5_MAKEUP_1)) : null,
+    // 聯誼會報名：加入日正規化為日期（比照 spirit_ambassador_join_date），
+    // 組別為自由文字
+    club_join_date: (() => {
+      const d = normalizeDate(get(colMap.CLUB_JOIN_DATE) as Date | string | null)
+      return d ? formatDateLocal(d) : null
+    })(),
+    club_group: get(colMap.CLUB_GROUP) ? String(get(colMap.CLUB_GROUP)) : null,
     last_synced_at: new Date().toISOString(),
     system_id: get(colMap.SYSTEM_ID) ? Number(get(colMap.SYSTEM_ID)) : null,
   }

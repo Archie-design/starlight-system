@@ -23,7 +23,20 @@ Verified data shape for scope decisions:
 - Not touching `/dashboard`'s existing course-related charts (course funnel, payment distribution) — those stay as the system-wide summary view; this hub is an additional, deeper view, not a replacement.
 - Not including the four special courses (`life_numbers`/`life_numbers_advanced`/`life_transform`/`debt_release`) — explicitly descoped by the user; their data shape (flag-only, no payment pairing) doesn't fit this hub's "enrollment + payment" theme anyway.
 - Not building a "待確認梯次" (unscheduled) tracking/alert feature — the user explicitly did not select this option when scoping the hub; those students still count toward each stage's total enrollment count, but get no dedicated attention section (unlike, say, `spirit-ambassador-hub`'s data-quality alerts, which *were* explicitly requested there).
-- Not adding new database columns, migrations, or changes to the import/export pipeline — this is a pure read-only aggregation view over existing `course_N`/`payment_N`/`course_wuyun`/`payment_wuyun` columns.
+- **Superseded during implementation**: this originally read "Not adding new database columns, migrations, or changes to the import/export pipeline." The user requested makeup-class completion tracking and club (聯誼會) registration stats after seeing the first rendered version — both required source data (18 makeup-class attendance columns, 2 club columns) that had never been imported at all. Kept here as a record of the original scope boundary; see the new "Makeup-class and club data" section below for what was actually added and why the boundary moved.
+
+### Makeup-class and club data (added post-implementation, per user feedback)
+
+**Why this wasn't pure aggregation after all**: verified against the sample file that `students` had zero columns for the 18 "一階課程 - 同學會" etc. headers, and zero for "聯誼會加入日"/"聯誼會組別" (the existing `membership_expiry` column maps to "聯誼會籍", i.e. membership expiry date, not registration status — a different concept). Showing this data in the hub required extending the import pipeline first, not just aggregating what was already there.
+
+**Decisions**:
+- New columns named `l{level}_makeup_{seq}` (e.g. `l1_makeup_1`..`l1_makeup_6`) rather than a name derived from each class's Chinese title — titles are free text that could plausibly be edited in a future source file revision, while the position-based sequence within a stage is stable. Each column's corresponding Chinese class title is kept in application code (`MAKEUP_CLASSES` in `page.tsx`) instead of being baked into the column name.
+- Column values are stored as the raw "class date/time" text (e.g. `"2026/08/19 (三) 19:00"`), matching the existing `course_N`/`wuyun_a`..`wuyun_f` convention where "has a value" means "attended" — not normalized to a date type, since the source format includes a Chinese weekday and isn't a clean parseable date.
+- `club_join_date` (DATE column) determines "registered" the same way `spirit_ambassador_join_date` already determines "is a 心之使者" — presence of a value means yes. `club_group` is free text, stored but not required to be non-null.
+- Completion rate per class is computed against a stage-specific denominator: "已上該階主課者" (`course_N` is non-null), not the full student population — a student who hasn't taken the main course yet can't meaningfully be "behind" on that stage's makeup classes.
+- Attendance and absence rosters for each makeup class are pre-built server-side (`roster[\`makeup-${level}-${idx}\`]` and the `-absent` suffix variant) rather than computed client-side from a larger payload, consistent with how batch/stage rosters were already being built in this same file.
+
+**Verified**: import parsing tested against the real sample file (`學員資料庫 20260826 (1).xlsx`) — all 2096 rows parsed successfully, spot-checked makeup-class and club values against the source spreadsheet. End-to-end verification of the computed completion rates against the live database is pending — it requires migration 018 to be applied first (user will run it separately).
 
 ## Decisions
 

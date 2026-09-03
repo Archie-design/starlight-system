@@ -18,6 +18,12 @@ const COMPARABLE_FIELDS: (keyof StudentInsert)[] = [
   'course_wuyun', 'payment_wuyun',
   'wuyun_a', 'wuyun_b', 'wuyun_c', 'wuyun_d', 'wuyun_f',
   'life_numbers', 'life_numbers_advanced', 'life_transform', 'debt_release',
+  'l1_makeup_1', 'l1_makeup_2', 'l1_makeup_3', 'l1_makeup_4', 'l1_makeup_5', 'l1_makeup_6',
+  'l2_makeup_1', 'l2_makeup_2', 'l2_makeup_3', 'l2_makeup_4', 'l2_makeup_5',
+  'l3_makeup_1', 'l3_makeup_2', 'l3_makeup_3',
+  'l4_makeup_1', 'l4_makeup_2', 'l4_makeup_3',
+  'l5_makeup_1',
+  'club_join_date', 'club_group',
   'system_id',
 ]
 

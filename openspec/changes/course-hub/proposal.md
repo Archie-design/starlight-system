@@ -10,6 +10,8 @@
   - **梯次層級分析**：選定某一階後，顯示該階底下各梯次的人數分布（現有 dashboard 完全沒有這個粒度）。
   - **付款金額細節**：不只顯示欠款人數，也顯示具體欠款金額總和（依階別、可選依梯次）。
   - **選定階別/梯次後檢視學員名單**：比照心之使者專區、小天使專區的既有互動模式，點選某階或某梯次後可看到對應學員名單，並可連結到 `/students` 進一步操作。
+  - **課後課完課狀況**（實作過程中經使用者確認後追加）：一至五階的課後課出席資料（xlsx 裡的「一階課程 - 同學會」等 18 個欄位）原本完全沒有被匯入過，`students` 表沒有對應欄位。本次一併新增這些欄位、更新匯入邏輯，並在課程專區顯示每階的完課率（依主課報名者為統計母體），可展開查看各堂課的出席/缺席名單。
+  - **聯誼會報名統計**（同上追加）：「聯誼會加入日」「聯誼會組別」原本也沒有被匯入（既有的 `membership_expiry` 是會籍到期日，不是報名狀態）。本次新增這兩個欄位，在課程專區顯示報名人數、未報名人數、組別分布。
 - 沿用既有的體系隔離規則（`getEffectiveSystem`），所有統計與圖表僅限使用者有效體系內的資料。
 
 ## Capabilities
@@ -23,6 +25,8 @@
 ## Impact
 
 - **新頁面**：`app/courses/page.tsx`（Server Component，比照 `app/spirit/page.tsx`／`app/little-angel/page.tsx` 的資料撈取＋體系過濾模式）、`app/courses/CourseClient.tsx`（Client Component，比照既有 hub 頁面的 recharts 圖表呈現模式）。
-- **共用工具**：重用既有的 `lib/utils/courseUtils.ts`（`parseCourseValue`、`buildCourseValue`）解析梯次與狀態；重用付款欄位的既有數字判定邏輯（`owesPayment` 所用的 `NUMERIC` 正規表達式模式）。
+- **共用工具**：重用既有的 `lib/utils/courseUtils.ts`（`parseCourseValue`、`buildCourseValue`）解析梯次與狀態；重用付款欄位的既有數字判定邏輯（原為 `lib/utils/studentStatus.ts` 內私有的 `NUMERIC` 正規表達式，本次改為 export 供本專區重用）。
 - **導覽**：既有 5 個 hub 風格頁面（dashboard、students、maintenance、counselors、spirit、little-angel）新增「課程」連結；新頁面本身也含返回這些頁面的連結。
-- **不影響**：`/dashboard` 既有的課程相關圖表與其資料來源、`students` 表結構、匯入/匯出邏輯、既有課程欄位的顯示與篩選行為。
+- **資料庫**（實作過程中追加，見上方 What Changes）：新 migration `018_course_makeup_and_club.sql`，新增 18 個課後課出席欄位（`l1_makeup_1`~`l5_makeup_1`）與 2 個聯誼會欄位（`club_join_date`、`club_group`）。
+- **匯入邏輯**：`lib/import/transform.ts`（`DEFAULT_COL`、`HEADER_TO_COL_KEY`、`transformSourceRow()`）、`lib/import/diff.ts`（`COMPARABLE_FIELDS`）、`lib/supabase/types.ts`（`Student`/`StudentInsert`）、`supabase/seed/migrate.ts`（一次性種子腳本，新欄位填 `null`，來源舊總表無對應資料）同步更新，已用真實樣本檔案（`reference/學員資料庫 20260826 (1).xlsx`）驗證匯入正確。
+- **不影響**：`/dashboard` 既有的課程相關圖表與其資料來源、既有課程欄位的顯示與篩選行為、既有的 `students` 表欄位。

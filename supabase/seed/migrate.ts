@@ -83,11 +83,20 @@ function parseStudentRow(
     senior_counselor: str(12),
     region: str(13),
     guidance_chain: str(14),
-    // 舊版總表無此三欄可對應（見 lib/import/transform.ts 的匯入流程才有），
+    // 舊版總表無此欄位可對應（見 lib/import/transform.ts 的匯入流程才有），
     // 比照 birthday: null 的既有模式填 null，只為滿足 StudentInsert 型別完整性
     county: null,
     district: null,
     address: null,
+    l1_makeup_1: null, l1_makeup_2: null, l1_makeup_3: null,
+    l1_makeup_4: null, l1_makeup_5: null, l1_makeup_6: null,
+    l2_makeup_1: null, l2_makeup_2: null, l2_makeup_3: null,
+    l2_makeup_4: null, l2_makeup_5: null,
+    l3_makeup_1: null, l3_makeup_2: null, l3_makeup_3: null,
+    l4_makeup_1: null, l4_makeup_2: null, l4_makeup_3: null,
+    l5_makeup_1: null,
+    club_join_date: null,
+    club_group: null,
     membership_expiry: membershipExpiry,
     course_1: str(16),
     payment_1: str(17),

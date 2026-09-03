@@ -29,6 +29,21 @@
 - [x] 4.5 Add a `NavButton` linking to `/courses` in `app/spirit/SpiritClient.tsx`
 - [x] 4.6 Add a `NavButton` linking to `/courses` in `app/little-angel/LittleAngelClient.tsx`
 
+## 4b. Makeup-class attendance and club registration (added post-implementation, per user feedback after seeing the first rendered version)
+
+- [x] 4b.1 Create `supabase/migrations/018_course_makeup_and_club.sql` adding 18 makeup-class columns (`l1_makeup_1`..`l1_makeup_6`, `l2_makeup_1`..`l2_makeup_5`, `l3_makeup_1`..`l3_makeup_3`, `l4_makeup_1`..`l4_makeup_3`, `l5_makeup_1`) and 2 club columns (`club_join_date DATE`, `club_group TEXT`), all nullable
+- [x] 4b.2 Add the 20 new fields to the `Student` interface in `lib/supabase/types.ts`
+- [x] 4b.3 Update `lib/import/transform.ts`: add `DEFAULT_COL` fallback indices, `HEADER_TO_COL_KEY` exact-text mappings for all 18 makeup-class headers plus "聯誼會加入日"/"聯誼會組別" (verified the actual header text against the sample file — wording is inconsistent across stages, e.g. "一階課程 - X" vs "三階 - X", so each had to be matched exactly), and extraction logic in `transformSourceRow()`
+- [x] 4b.4 Update `lib/import/diff.ts`'s `COMPARABLE_FIELDS` to include the 20 new fields (lesson learned from the address-fields change earlier in this session — this must be done immediately, not left for a later bug report)
+- [x] 4b.5 Update `supabase/seed/migrate.ts` to fill the 20 new fields with `null` (source spreadsheet for that one-time seed script has no corresponding data)
+- [x] 4b.6 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4b.7 Verify import parsing against the real sample file (`reference/學員資料庫 20260826 (1).xlsx`): confirm all rows parse successfully, spot-check several students' makeup-class values and club join dates against expectations, confirm existing fields (course_1, address, etc.) are unaffected
+- [x] 4b.8 Extend `app/courses/page.tsx`: compute per-stage makeup-class completion (denominator = students who've taken that stage's main course), per-class attendance/absence rosters, and club registration stats (joined/not-joined counts, group distribution)
+- [x] 4b.9 Extend `app/courses/CourseClient.tsx`: render a "課後課完課狀況" card per stage (progress bar + attended/absent counts per class, clickable to open roster modals) and a "聯誼會報名" card (joined/not-joined counts, group distribution, clickable roster)
+- [x] 4b.10 Run `npx tsc --noEmit` and confirm no errors
+- [ ] 4b.11 End-to-end verification against the live database (blocked on migration 018 being applied — user will run it separately): confirm completion-rate numerators/denominators match raw column values, confirm club stats are internally consistent
+- [x] 4b.12 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition (done retroactively, per the fluid-workflow model established earlier in this session)
+
 ## 5. Verification
 
 - [x] 5.1 Run `npx tsc --noEmit` and confirm no errors

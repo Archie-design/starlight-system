@@ -27,6 +27,26 @@ type Row = {
   payment_5: string | null
   course_wuyun: string | null
   payment_wuyun: string | null
+  l1_makeup_1: string | null
+  l1_makeup_2: string | null
+  l1_makeup_3: string | null
+  l1_makeup_4: string | null
+  l1_makeup_5: string | null
+  l1_makeup_6: string | null
+  l2_makeup_1: string | null
+  l2_makeup_2: string | null
+  l2_makeup_3: string | null
+  l2_makeup_4: string | null
+  l2_makeup_5: string | null
+  l3_makeup_1: string | null
+  l3_makeup_2: string | null
+  l3_makeup_3: string | null
+  l4_makeup_1: string | null
+  l4_makeup_2: string | null
+  l4_makeup_3: string | null
+  l5_makeup_1: string | null
+  club_join_date: string | null
+  club_group: string | null
 }
 
 /** 主課程階別（一至五階）；五運班資料無梯次概念，獨立處理，不在此清單內 */
@@ -38,6 +58,38 @@ const MAIN_STAGES = [
   { level: 5, courseField: 'course_5', paymentField: 'payment_5' },
 ] as const
 
+/** 各階課後課欄位定義（field 名 + 顯示用堂名），堂數不對稱依實際來源檔案而定 */
+const MAKEUP_CLASSES: Record<number, { field: keyof Row; label: string }[]> = {
+  1: [
+    { field: 'l1_makeup_1', label: '同學會' },
+    { field: 'l1_makeup_2', label: '我喜歡/討厭自己的原因' },
+    { field: 'l1_makeup_3', label: '上平下緣傳愛道' },
+    { field: 'l1_makeup_4', label: '對好心沒好報的誤解' },
+    { field: 'l1_makeup_5', label: '上級貴人成功學' },
+    { field: 'l1_makeup_6', label: '金錢的助流' },
+  ],
+  2: [
+    { field: 'l2_makeup_1', label: '同學會' },
+    { field: 'l2_makeup_2', label: '解脫痛苦之道' },
+    { field: 'l2_makeup_3', label: '道命之路成功秘訣' },
+    { field: 'l2_makeup_4', label: '動中之靜煉金術(修靜)' },
+    { field: 'l2_makeup_5', label: '痛的參解' },
+  ],
+  3: [
+    { field: 'l3_makeup_1', label: '同學會' },
+    { field: 'l3_makeup_2', label: '平衡力開運法' },
+    { field: 'l3_makeup_3', label: '懺悔寬恕寶藏圖' },
+  ],
+  4: [
+    { field: 'l4_makeup_1', label: '同學會' },
+    { field: 'l4_makeup_2', label: '突破陰暗面' },
+    { field: 'l4_makeup_3', label: '陰陽智慧的奇蹟(批評、欣賞)' },
+  ],
+  5: [
+    { field: 'l5_makeup_1', label: '同學會' },
+  ],
+}
+
 /** 未排定具體梯次的狀態（例如「待確認梯次」）——計入階別總人數，但不進梯次分布圖 */
 function owedAmount(paymentValue: string | null): number {
   if (!paymentValue) return 0
@@ -46,6 +98,12 @@ function owedAmount(paymentValue: string | null): number {
 }
 
 export interface BatchRow { batchKey: string; batch: number; count: number }
+export interface MakeupClassSummary {
+  /** 名單查詢 key，格式 "makeup-{level}-{index}" */
+  rosterKey: string
+  label: string
+  attendedCount: number
+}
 export interface StageSummary {
   level: number
   label: string
@@ -53,6 +111,10 @@ export interface StageSummary {
   batches: BatchRow[]
   owedCount: number
   owedAmount: number
+  /** 完課率統計母體：已上主課者（course_N 有值）當中，已上「全部」課後課的人數 */
+  completedMainCourseCount: number
+  fullyAttendedMakeupCount: number
+  makeupClasses: MakeupClassSummary[]
 }
 export interface RosterStudent {
   id: number
@@ -60,6 +122,11 @@ export interface RosterStudent {
   statusLabel: string
   paymentLabel: string
   owes: boolean
+}
+export interface ClubSummary {
+  joinedCount: number
+  notJoinedCount: number
+  groupDist: { group: string; count: number }[]
 }
 
 const STAGE_LABELS: Record<number, string> = { 1: '一階', 2: '二階', 3: '三階', 4: '四階', 5: '五階' }
@@ -79,7 +146,7 @@ export default async function CoursesPage() {
     const { data, error } = await applySystemFilter(
       service
         .from('students')
-        .select('id, name, business_chain, course_1, payment_1, course_2, payment_2, course_3, payment_3, course_4, payment_4, course_5, payment_5, course_wuyun, payment_wuyun'),
+        .select('id, name, business_chain, course_1, payment_1, course_2, payment_2, course_3, payment_3, course_4, payment_4, course_5, payment_5, course_wuyun, payment_wuyun, l1_makeup_1, l1_makeup_2, l1_makeup_3, l1_makeup_4, l1_makeup_5, l1_makeup_6, l2_makeup_1, l2_makeup_2, l2_makeup_3, l2_makeup_4, l2_makeup_5, l3_makeup_1, l3_makeup_2, l3_makeup_3, l4_makeup_1, l4_makeup_2, l4_makeup_3, l5_makeup_1, club_join_date, club_group'),
       system,
     ).range(from, from + 999)
     if (error) throw error
@@ -134,6 +201,35 @@ export default async function CoursesPage() {
       .map(([batchKey, { batch, count }]) => ({ batchKey, batch, count }))
       .sort((a, b) => a.batch - b.batch)
 
+    // 完課率：統計母體是「已上主課者」（enrolled），對每堂課後課分別統計
+    // 出席（有值）與缺席（無值）名單；「已上全部堂數」則是每堂都出席的人數。
+    const classes = MAKEUP_CLASSES[level] ?? []
+    const makeupClasses: MakeupClassSummary[] = []
+    let fullyAttendedCount = 0
+
+    for (let i = 0; i < classes.length; i++) {
+      const { field, label } = classes[i]
+      const rosterKey = `makeup-${level}-${i}`
+      const attendedRoster: RosterStudent[] = []
+      const absentRoster: RosterStudent[] = []
+      for (const s of enrolled) {
+        const value = s[field] as string | null
+        const entry: RosterStudent = { id: s.id, name: s.name, statusLabel: value ?? '未出席', paymentLabel: '', owes: false }
+        if (value) attendedRoster.push(entry)
+        else absentRoster.push(entry)
+      }
+      roster[rosterKey] = attendedRoster
+      roster[`${rosterKey}-absent`] = absentRoster
+      makeupClasses.push({ rosterKey, label, attendedCount: attendedRoster.length })
+    }
+
+    if (classes.length > 0) {
+      for (const s of enrolled) {
+        const allAttended = classes.every(({ field }) => !!s[field])
+        if (allAttended) fullyAttendedCount++
+      }
+    }
+
     stages.push({
       level,
       label: STAGE_LABELS[level],
@@ -141,6 +237,9 @@ export default async function CoursesPage() {
       batches,
       owedCount,
       owedAmount: owedTotal,
+      completedMainCourseCount: enrolled.length,
+      fullyAttendedMakeupCount: fullyAttendedCount,
+      makeupClasses,
     })
   }
 
@@ -175,12 +274,29 @@ export default async function CoursesPage() {
     owedAmount: wuyunOwedTotal,
   }
 
+  // 聯誼會報名統計：join date 有值即代表已報名（比照 spirit_ambassador_join_date
+  // 判斷「是否為心之使者」的既有模式）。統計母體為本體系全量學員，非僅
+  // 某一階報名者——聯誼會報名與課程階別是各自獨立的維度。
+  const clubJoined = all.filter((s) => s.club_join_date)
+  const clubGroupMap = new Map<string, number>()
+  for (const s of clubJoined) {
+    const g = (s.club_group ?? '').trim() || '未分組'
+    clubGroupMap.set(g, (clubGroupMap.get(g) ?? 0) + 1)
+  }
+  roster['club-joined'] = clubJoined.map((s) => ({ id: s.id, name: s.name, statusLabel: s.club_join_date ?? '', paymentLabel: s.club_group ?? '未分組', owes: false }))
+  const clubSummary: ClubSummary = {
+    joinedCount: clubJoined.length,
+    notJoinedCount: all.length - clubJoined.length,
+    groupDist: Array.from(clubGroupMap.entries()).map(([group, count]) => ({ group, count })).sort((a, b) => b.count - a.count),
+  }
+
   return (
     <CourseClient
       role={user!.role}
       system={system}
       stages={stages}
       wuyunSummary={wuyunSummary}
+      clubSummary={clubSummary}
       roster={roster}
     />
   )
