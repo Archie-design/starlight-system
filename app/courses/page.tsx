@@ -115,6 +115,10 @@ export interface StageSummary {
   completedMainCourseCount: number
   fullyAttendedMakeupCount: number
   makeupClasses: MakeupClassSummary[]
+  /** 未全部完課人數（completedMainCourseCount - fullyAttendedMakeupCount），
+   *  名單 key 為 `roster["incomplete-makeup-{level}"]`；只有本階有課後課
+   *  （makeupClasses.length > 0）時才有意義 */
+  incompleteMakeupCount: number
 }
 export interface RosterStudent {
   id: number
@@ -127,6 +131,10 @@ export interface ClubSummary {
   joinedCount: number
   notJoinedCount: number
   groupDist: { group: string; count: number }[]
+}
+export interface L2ClubGap {
+  l2CompletedCount: number
+  notJoinedCount: number
 }
 
 const STAGE_LABELS: Record<number, string> = { 1: '一階', 2: '二階', 3: '三階', 4: '四階', 5: '五階' }
@@ -223,11 +231,27 @@ export default async function CoursesPage() {
       makeupClasses.push({ rosterKey, label, attendedCount: attendedRoster.length })
     }
 
+    // 未全部完課名單：已上主課、但至少一堂課後課還沒上——與各別單堂緣缺
+    // 名單不同，這是「整體視角」，方便一次找出需要逐一鼓勵的對象。
+    // statusLabel 帶出「已上 X / 總堂數」方便排優先順序（缺越多堂的越優先）。
+    const incompleteRoster: RosterStudent[] = []
     if (classes.length > 0) {
       for (const s of enrolled) {
-        const allAttended = classes.every(({ field }) => !!s[field])
-        if (allAttended) fullyAttendedCount++
+        const attendedCount = classes.filter(({ field }) => !!s[field]).length
+        const allAttended = attendedCount === classes.length
+        if (allAttended) {
+          fullyAttendedCount++
+        } else {
+          incompleteRoster.push({
+            id: s.id,
+            name: s.name,
+            statusLabel: `已上 ${attendedCount} / ${classes.length} 堂`,
+            paymentLabel: '',
+            owes: false,
+          })
+        }
       }
+      roster[`incomplete-makeup-${level}`] = incompleteRoster
     }
 
     stages.push({
@@ -240,6 +264,7 @@ export default async function CoursesPage() {
       completedMainCourseCount: enrolled.length,
       fullyAttendedMakeupCount: fullyAttendedCount,
       makeupClasses,
+      incompleteMakeupCount: incompleteRoster.length,
     })
   }
 
@@ -290,6 +315,27 @@ export default async function CoursesPage() {
     groupDist: Array.from(clubGroupMap.entries()).map(([group, count]) => ({ group, count })).sort((a, b) => b.count - a.count),
   }
 
+  // 二階已完課（course_2 狀態精確為「已上課」，排除正取/候補/待確認梯次等
+  // 尚未實際上課的狀態）但尚未報名聯誼會（club_join_date 為空）的交集名單。
+  // 「完課」用 parseCourseValue().status === '已上課' 判斷，比「course_2
+  // 有值」更精確——見與使用者的確認：報名/候補中的人不該被當成已完課。
+  const l2Completed = all.filter((s) => {
+    const parsed = parseCourseValue(s.course_2)
+    return parsed?.status === '已上課'
+  })
+  const l2CompletedNotJoinedClub = l2Completed.filter((s) => !s.club_join_date)
+  roster['club-not-joined-l2'] = l2CompletedNotJoinedClub.map((s) => ({
+    id: s.id,
+    name: s.name,
+    statusLabel: '二階已完課',
+    paymentLabel: '未報名聯誼會',
+    owes: false,
+  }))
+  const l2ClubGap = {
+    l2CompletedCount: l2Completed.length,
+    notJoinedCount: l2CompletedNotJoinedClub.length,
+  }
+
   return (
     <CourseClient
       role={user!.role}
@@ -297,6 +343,7 @@ export default async function CoursesPage() {
       stages={stages}
       wuyunSummary={wuyunSummary}
       clubSummary={clubSummary}
+      l2ClubGap={l2ClubGap}
       roster={roster}
     />
   )

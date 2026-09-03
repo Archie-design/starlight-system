@@ -44,6 +44,18 @@
 - [x] 4b.11 End-to-end verification against the live database — migration 018 applied by user. Confirmed all 20 new columns exist and are queryable; confirmed attendance+absence sums equal enrollment counts for all 5 stages × both systems (10 combinations, all consistent) against current (currently-null, pre-reimport) data; additionally simulated the post-reimport numbers using the real sample file (in-memory parse only, not written to DB) to sanity-check completion rates look reasonable (11%–39% per-class attendance, 5階's single-class rate exactly matches its "fully attended" count as expected) and club stats (510/2096 joined, group distribution sensible) — actual live numbers will populate on the next real xlsx import
 - [x] 4b.12 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition (done retroactively, per the fluid-workflow model established earlier in this session)
 
+## 4c. Aggregate incomplete roster, l2/club gap roster, and CSV export (added post-implementation, per user feedback after seeing real data on the live page)
+
+- [x] 4c.1 Extend `app/courses/page.tsx`: add `incompleteMakeupCount` to `StageSummary` and build `roster[\`incomplete-makeup-${level}\`]` (students who've taken the stage's main course but haven't attended every makeup class, `statusLabel` = "已上 X / Y 堂") in the same per-stage loop that builds the per-class attendance/absence rosters
+- [x] 4c.2 Extend `app/courses/page.tsx`: add `L2ClubGap` interface and computation — `course_2` students whose `parseCourseValue().status === '已上課'` (confirmed with user: strict status match, not just "course_2 has a value") filtered further by `!club_join_date`, stored as `roster['club-not-joined-l2']`
+- [x] 4c.3 Extend `app/courses/CourseClient.tsx`: import `L2ClubGap` type, add `l2ClubGap` to `Props`, add UI button in the existing "課後課完課狀況" card linking to the incomplete roster, add a new "二階已完課未報聯誼會" card linking to the l2-club-gap roster, extend `rosterTitle`'s `useMemo` with branches for both new roster key formats
+- [x] 4c.4 Add `csvEscape()` and `downloadRosterCsv(title, rows)` helper functions to `app/courses/CourseClient.tsx` — client-side only (`Blob` + `URL.createObjectURL` + synthetic `<a download>` click), UTF-8 BOM prefix, 3-column (姓名/狀態/備註) CSV shape reusing `RosterStudent`'s existing fields, no new server API route
+- [x] 4c.5 Wire a "匯出 CSV" button into the shared roster Modal header (not per-roster-type) so it covers every roster type at once per user's explicit requirement ("所有名單 Modal 都加上匯出按鈕") — disabled when the open roster list is empty
+- [x] 4c.6 Run `npx tsc --noEmit` and confirm no errors
+- [x] 4c.7 Verify against the live database (real data present post-migration-018): confirmed `fullyAttendedMakeupCount + incompleteMakeupCount === completedMainCourseCount` for all 5 stages; confirmed `course_2` status distribution (已上課=1242, 待確認梯次=293, 正取=278, 候補=49, 中離=3) shows the strict "已上課" filter meaningfully excludes non-attended statuses; sampled several l2-club-gap roster entries against raw `course_2`/`club_join_date` values
+- [x] 4c.8 Verify CSV escaping (comma/quote/newline handling) and BOM prefix in isolation with representative Chinese-text and special-character inputs
+- [x] 4c.9 Update `proposal.md`, `design.md`, and `specs/course-hub/spec.md` to document this addition (done retroactively, per the fluid-workflow model established earlier for this same change and for `little-angel-hub`)
+
 ## 5. Verification
 
 - [x] 5.1 Run `npx tsc --noEmit` and confirm no errors

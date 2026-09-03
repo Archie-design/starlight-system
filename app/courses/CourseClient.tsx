@@ -8,7 +8,7 @@ import {
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
-import type { StageSummary, RosterStudent, ClubSummary } from './page'
+import type { StageSummary, RosterStudent, ClubSummary, L2ClubGap } from './page'
 
 interface WuyunSummary { totalEnrolled: number; completedCount: number; owedCount: number; owedAmount: number }
 
@@ -18,7 +18,38 @@ interface Props {
   stages: StageSummary[]
   wuyunSummary: WuyunSummary
   clubSummary: ClubSummary
+  l2ClubGap: L2ClubGap
   roster: Record<string, RosterStudent[]>
+}
+
+/** CSV 欄位值跳脫：含逗號/雙引號/換行者用雙引號包起來，內部雙引號重複兩次 */
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  return value
+}
+
+/**
+ * 把名單資料轉成 CSV 文字並觸發瀏覽器下載。純前端處理，不經過伺服器
+ * ——這是名單 modal 裡的小規模資料（幾十到幾百筆），不需要動用伺服器端
+ * 的 exceljs 匯出管線（那是給 /api/export 的完整學員資料庫匯出用的）。
+ * 加 BOM 前綴確保 Excel 開啟中文不亂碼。
+ */
+function downloadRosterCsv(title: string, rows: RosterStudent[]) {
+  const header = ['姓名', '狀態', '備註']
+  const lines = [header.map(csvEscape).join(',')]
+  for (const r of rows) {
+    lines.push([r.name, r.statusLabel, r.paymentLabel].map(csvEscape).join(','))
+  }
+  const csvContent = '﻿' + lines.join('\r\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title}_${new Date().toISOString().split('T')[0]}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 const ALL_SYSTEMS: SheetSystem[] = ['星光', '太陽']
@@ -47,13 +78,14 @@ function formatMoney(n: number): string {
   return n.toLocaleString('zh-Hant-TW')
 }
 
-export default function CourseClient({ role, system, stages, wuyunSummary, clubSummary, roster }: Props) {
+export default function CourseClient({ role, system, stages, wuyunSummary, clubSummary, l2ClubGap, roster }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [selectedLevel, setSelectedLevel] = useState<number>(1)
   // rosterKey 格式："level"｜"level-batch"｜"wuyun"｜"makeup-{level}-{idx}"
-  // （出席）｜"makeup-{level}-{idx}-absent"（缺席）｜"club-joined"；
-  // null 表示未開啟名單 modal
+  // （出席）｜"makeup-{level}-{idx}-absent"（缺席）｜"club-joined"｜
+  // "incomplete-makeup-{level}"（未全部完課）｜"club-not-joined-l2"
+  // （二階已完課未報聯誼會）；null 表示未開啟名單 modal
   const [rosterKey, setRosterKey] = useState<string | null>(null)
 
   const switchSystem = (s: SheetSystem) => {
@@ -73,6 +105,12 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
     if (!rosterKey) return ''
     if (rosterKey === 'wuyun') return '五運班'
     if (rosterKey === 'club-joined') return '聯誼會已報名'
+    if (rosterKey === 'club-not-joined-l2') return '二階已完課未報聯誼會'
+    if (rosterKey.startsWith('incomplete-makeup-')) {
+      const levelStr = rosterKey.slice('incomplete-makeup-'.length)
+      const stage = stages.find((s) => String(s.level) === levelStr)
+      return `${stage?.label ?? `${levelStr}階`}・未全部完課`
+    }
     if (rosterKey.startsWith('makeup-')) {
       const isAbsent = rosterKey.endsWith('-absent')
       const body = isAbsent ? rosterKey.slice(0, -'-absent'.length) : rosterKey
@@ -200,6 +238,15 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
                   title={`${currentStage.label}課後課完課狀況`}
                   subtitle={`統計母體：已上${currentStage.label}主課者共 ${currentStage.completedMainCourseCount} 人・全部堂數皆已出席 ${currentStage.fullyAttendedMakeupCount} 人`}
                 />
+                <div className="px-4 pt-4">
+                  <button
+                    onClick={() => setRosterKey(`incomplete-makeup-${currentStage.level}`)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors text-xs border border-amber-200"
+                  >
+                    <span className="font-semibold text-amber-800">查看未全部完課名單（需鼓勵補課）</span>
+                    <span className="font-bold text-amber-700">{currentStage.incompleteMakeupCount} 人</span>
+                  </button>
+                </div>
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {currentStage.makeupClasses.map((cls) => {
                     const rate = currentStage.completedMainCourseCount > 0
@@ -285,6 +332,22 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
             </div>
           </div>
         </Card>
+
+        {/* 二階已完課但未報聯誼會（交集查詢，供招募聯誼會用） */}
+        <Card>
+          <CardHeader title="二階已完課未報聯誼會" subtitle="二階已完課（course_2 為「已上課」）但尚未報名聯誼會的名單，供邀請招募用" />
+          <div className="p-4">
+            <button
+              onClick={() => setRosterKey('club-not-joined-l2')}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors text-xs border border-amber-200"
+            >
+              <span className="font-semibold text-amber-800">
+                查看名單（二階已完課 {l2ClubGap.l2CompletedCount} 人中，尚未報名聯誼會）
+              </span>
+              <span className="font-bold text-amber-700">{l2ClubGap.notJoinedCount} 人</span>
+            </button>
+          </div>
+        </Card>
       </div>
 
       {/* 學員名單 Modal */}
@@ -300,7 +363,16 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
               <h2 className="text-sm font-bold text-slate-800">
                 {rosterTitle} <span className="text-slate-400 font-normal">（{rosterList.length} 人）</span>
               </h2>
-              <button onClick={() => setRosterKey(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => downloadRosterCsv(rosterTitle, rosterList)}
+                  disabled={rosterList.length === 0}
+                  className="text-xs text-emerald-600 hover:text-emerald-800 font-medium disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  匯出 CSV
+                </button>
+                <button onClick={() => setRosterKey(null)} aria-label="關閉" className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+              </div>
             </div>
             <div className="overflow-auto p-2">
               {rosterList.length === 0 ? (
