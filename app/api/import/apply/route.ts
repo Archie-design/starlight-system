@@ -139,6 +139,14 @@ export async function POST(request: NextRequest) {
           return {
             ...row,
             group_leader: autoGroup ?? existingGroup ?? null,
+            // 來源 xlsx 目前沒有「心之使者補課狀態」欄位，transformSourceRow()
+            // 固定填 null——upsert 是整列覆蓋語意，若不在這裡保留既有值，
+            // 下次匯入會把手動維護的補課狀態（見 spirit-ambassador-master-
+            // roster 變更）洗回 null，抹除關懷長的紀錄。比照 group_leader
+            // 的既有保留模式：沿用資料庫既有值，不被匯入覆蓋。
+            spirit_ambassador_makeup_completed: dbMap.get(row.id)?.spirit_ambassador_makeup_completed ?? null,
+            // 同上：小隊長標記來源 xlsx 也沒有，同樣保留既有值不被覆蓋。
+            spirit_ambassador_is_leader: dbMap.get(row.id)?.spirit_ambassador_is_leader ?? null,
           }
         })
 

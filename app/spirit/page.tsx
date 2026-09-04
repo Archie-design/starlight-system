@@ -15,7 +15,27 @@ type Row = {
   name: string
   spirit_ambassador_join_date: string | null
   spirit_ambassador_group: string | null
+  spirit_ambassador_makeup_completed: boolean | null
+  spirit_ambassador_is_leader: boolean | null
   cumulative_seniority: string | null
+}
+
+/**
+ * 分組總表的欄位排序：「星光N」/「太陽N」格式依數字由小到大排在前，
+ * 其餘命名（例如「小兔組」）依字串排序接續在後。不寫死組別清單，完全
+ * 依資料庫實際出現的組名動態排序，未來新增/移除分組不需要改程式碼。
+ */
+function sortGroups(names: string[]): string[] {
+  const numbered: { name: string; n: number }[] = []
+  const others: string[] = []
+  for (const name of names) {
+    const m = name.match(/^(?:星光|太陽)(\d+)$/)
+    if (m) numbered.push({ name, n: Number(m[1]) })
+    else others.push(name)
+  }
+  numbered.sort((a, b) => a.n - b.n)
+  others.sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+  return [...numbered.map((x) => x.name), ...others]
 }
 
 export default async function SpiritPage() {
@@ -32,7 +52,7 @@ export default async function SpiritPage() {
     const { data, error } = await applySystemFilter(
       service
         .from('students')
-        .select('id, name, spirit_ambassador_join_date, spirit_ambassador_group, cumulative_seniority, business_chain'),
+        .select('id, name, spirit_ambassador_join_date, spirit_ambassador_group, spirit_ambassador_makeup_completed, spirit_ambassador_is_leader, cumulative_seniority, business_chain'),
       system,
     ).range(from, from + 999)
     if (error) throw error
@@ -85,6 +105,51 @@ export default async function SpiritPage() {
     })
     .sort((a, b) => b.avgMonths - a.avgMonths)
 
+  // 分組總表：統計母體是「全體學員中已分組者」（all，不限 join_date），
+  // 涵蓋正式心之使者與「已分組但尚未完成補課」兩種人——與上方 groupMap
+  // （母體限定 spirits，僅供既有 KPI/圖表使用）是刻意分開的兩份資料結構，
+  // 互不影響既有統計。未分組者不進入總表網格（畫面上不呈現未分組名單，
+  // 見使用者回饋）。組內排序沿用既有「年資高到低」慣例，第一位即視覺
+  // 上的組長位置。
+  const rosterGroupMap = new Map<string, Row[]>()
+  for (const s of all) {
+    const g = (s.spirit_ambassador_group ?? '').trim()
+    if (!g) continue
+    if (!rosterGroupMap.has(g)) rosterGroupMap.set(g, [])
+    rosterGroupMap.get(g)!.push(s)
+  }
+  const rosterGroupOrder = sortGroups(Array.from(rosterGroupMap.keys()))
+  const rosterGroups = rosterGroupOrder.map((name) => ({
+    name,
+    members: rosterGroupMap.get(name)!
+      .map((s) => {
+        // 「尚未是正式心之使者」（join_date 為空）是補課狀態這個過渡追蹤
+        // 有意義的前提；一旦已轉正，makeup_completed 無論是什麼值都不該
+        // 再顯示綠底或任何編輯入口——那屬於既有「有加入日但無組別」以外
+        // 的資料完整性問題，不是這次要標示/操作的過渡狀態。
+        const notYetSpirit = !s.spirit_ambassador_join_date
+        return {
+          id: s.id,
+          name: s.name,
+          seniority: s.cumulative_seniority,
+          pendingMakeup: notYetSpirit && s.spirit_ambassador_makeup_completed !== true,
+          // 是否顯示補課狀態的編輯入口（標記完成/取消標記皆算），與
+          // pendingMakeup 分開判斷——避免誤觸標記完成後，因 pendingMakeup
+          // 變 false 而連編輯入口一起消失，導致無法改回來（見使用者回報
+          // 「點錯了無法恢復」）。
+          canToggleMakeup: notYetSpirit,
+          isLeader: s.spirit_ambassador_is_leader === true,
+        }
+      })
+      // 小隊長優先置頂（任命制，與年資無關）；其餘依年資高到低排序。
+      // 若某組沒有人被標記小隊長，isLeader 全為 false，排序退回既有的
+      // 「年資最長者置頂」慣例（fallback，不需要特別分支處理）。
+      .sort((a, b) => {
+        if (a.isLeader !== b.isLeader) return a.isLeader ? -1 : 1
+        return (parseSeniorityMonths(b.seniority) ?? 0) - (parseSeniorityMonths(a.seniority) ?? 0)
+      }),
+  }))
+
   // 資料品質提醒
   const noGroup = spirits.filter((s) => !(s.spirit_ambassador_group ?? '').trim()).map((s) => ({ id: s.id, name: s.name }))
   const noSeniority = spirits.filter((s) => parseSeniorityMonths(s.cumulative_seniority) == null).map((s) => ({ id: s.id, name: s.name }))
@@ -107,6 +172,7 @@ export default async function SpiritPage() {
       seniorityDist={seniorityDist}
       groupAvgSeniority={groupAvgSeniority}
       alerts={{ noGroup, noSeniority, singletonGroups }}
+      rosterGroups={rosterGroups}
     />
   )
 }

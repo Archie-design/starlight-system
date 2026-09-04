@@ -232,6 +232,14 @@ export function transformSourceRow(row: RawRow, colMap: ColMap = DEFAULT_COL as 
       return d ? formatDateLocal(d) : null
     })(),
     spirit_ambassador_group: get(colMap.SPIRIT_AMBASSADOR_GROUP) ? String(get(colMap.SPIRIT_AMBASSADOR_GROUP)) : null,
+    // 來源 xlsx 目前無此欄位，固定填 null 只為滿足 StudentInsert 型別——
+    // 實際寫入值由 app/api/import/apply/route.ts 保留資料庫既有值覆蓋
+    // （比照 group_leader 的既有保留模式），這裡的 null 不會真的覆蓋既有
+    // 補課狀態。見 spirit-ambassador-master-roster 變更。
+    spirit_ambassador_makeup_completed: null,
+    // 同上：來源 xlsx 無此欄位，固定填 null，由 apply/route.ts 保留既有
+    // 小隊長標記，不被匯入覆蓋。
+    spirit_ambassador_is_leader: null,
     cumulative_seniority: get(colMap.CUMULATIVE_SENIORITY) ? String(get(colMap.CUMULATIVE_SENIORITY)) : null,
     // 課後課出席：值為「上課日期時間」複合文字（例：2026/08/19 (三) 19:00），
     // 比照 wuyun_a~f 直接存字串，不做日期正規化（格式非標準日期）

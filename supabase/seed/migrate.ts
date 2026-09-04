@@ -123,6 +123,8 @@ function parseStudentRow(
     spirit_ambassador_join_date: null,
     love_giving_start_date: null,
     spirit_ambassador_group: null,
+    spirit_ambassador_makeup_completed: null,
+    spirit_ambassador_is_leader: null,
     cumulative_seniority: null,
     last_synced_at: null,
     system_id: null,

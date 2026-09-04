@@ -73,6 +73,14 @@ export interface Student {
   spirit_ambassador_join_date: string | null
   love_giving_start_date: string | null
   spirit_ambassador_group: string | null
+  /** 是否已完成心之使者補課；true=已完成，false/null=已分組但尚未完成
+   *  補課（分組總表顯示為淺綠底）。與 spirit_ambassador_join_date 完全
+   *  獨立判定，見 openspec/changes/spirit-ambassador-master-roster */
+  spirit_ambassador_makeup_completed: boolean | null
+  /** 是否為該組心之使者小隊長；任命制，與年資無關，不由系統推斷。
+   *  true=小隊長，其餘=一般組員。見 openspec/changes/
+   *  spirit-ambassador-master-roster */
+  spirit_ambassador_is_leader: boolean | null
   cumulative_seniority: string | null
   // 課後課出席（值為上課日期時間文字，有值=已上課，比照 course_N 語意）
   l1_makeup_1: string | null
