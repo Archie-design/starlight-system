@@ -4,6 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import LogoutButton from '@/components/LogoutButton'
 import { csrfFetch } from '@/lib/utils/csrf'
+import { toast } from '@/lib/toast'
 import type { AppUser, SheetSystem, UserRole } from '@/lib/supabase/types'
 
 const fetcher = (url: string) => csrfFetch(url).then(r => r.json())
@@ -87,11 +88,11 @@ export default function UsersClient({
       body: JSON.stringify({ newPassword: np }),
     })
     if (res.ok) {
-      alert(`已重設「${u.username}」的密碼，對方下次登入須再次修改。`)
+      toast.success(`已重設「${u.username}」的密碼，對方下次登入須再次修改。`)
       mutate()
     } else {
       const d = await res.json()
-      alert(d.error ?? '重設失敗')
+      toast.error(d.error ?? '重設失敗')
     }
   }
 
@@ -107,7 +108,7 @@ export default function UsersClient({
       mutate()
     } else {
       const d = await res.json()
-      alert(d.error ?? '更新失敗')
+      toast.error(d.error ?? '更新失敗')
     }
   }
 

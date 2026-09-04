@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
 } from 'recharts'
 import NavButton from '@/components/NavButton'
 import LogoutButton from '@/components/LogoutButton'
+import { useModalDismiss } from '@/lib/hooks/useModalDismiss'
 import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 import type { StageSummary, RosterStudent, ClubSummary, L2ClubGap, L1DreamProgram } from './page'
 
@@ -117,6 +118,8 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
   // （二階已完課未報聯誼會）｜"l1-dream-program"（一階解圓夢計劃資格）；
   // null 表示未開啟名單 modal
   const [rosterKey, setRosterKey] = useState<string | null>(null)
+  // ESC 關閉 + focus trap，與 GroupManageModal 等既有 modal 一致的無障礙行為
+  const rosterModalRef = useModalDismiss<HTMLDivElement>(() => setRosterKey(null))
 
   const switchSystem = (s: SheetSystem) => {
     document.cookie = `sl_view_system=${encodeURIComponent(s)}; path=/; max-age=${30 * 60}; samesite=lax`
@@ -159,8 +162,14 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
     return m ? Number(m[1]) : null
   }
 
+  // 輸入框本身用 rosterSearch 立即反映（不卡頓打字體驗），實際參與篩選
+  // 運算的用 deferredRosterSearch——大名單（例如「未全部完課」近2000人）
+  // 每次按鍵都重新 filter+sort 在較舊裝置上可能有感知延遲，useDeferredValue
+  // 讓 React 把這次重運算標記為低優先權，跟按鍵輸入本身不搶執行緒。
+  const deferredRosterSearch = useDeferredValue(rosterSearch)
+
   const rosterList = useMemo(() => {
-    const kw = rosterSearch.trim().toLowerCase()
+    const kw = deferredRosterSearch.trim().toLowerCase()
     let list = rosterListRaw
     if (kw) {
       list = list.filter((m) =>
@@ -183,7 +192,7 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
       return dir === 'asc' ? cmp : -cmp
     })
     return sorted
-  }, [rosterListRaw, rosterSearch, rosterStatusFilter, rosterSort])
+  }, [rosterListRaw, deferredRosterSearch, rosterStatusFilter, rosterSort])
 
   const toggleRosterSort = (key: RosterSortKey) => {
     setRosterSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
@@ -262,9 +271,10 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
         {currentStage && (
           <>
             {/* KPI 摘要卡 */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <KpiCard label={`${currentStage.label}報名人數`} value={currentStage.totalEnrolled} />
               <KpiCard label="已排梯次數" value={currentStage.batches.length} />
+              <KpiCard label="已排梯次人數" value={currentStage.batches.reduce((a, b) => a + b.count, 0)} />
               <KpiCard label="欠款人數" value={currentStage.owedCount} accent={currentStage.owedCount > 0} />
               <KpiCard label="欠款金額" value={`$${formatMoney(currentStage.owedAmount)}`} accent={currentStage.owedAmount > 0} />
             </div>
@@ -367,26 +377,24 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
           </>
         )}
 
-        {/* 五運班 */}
+        {/* 一階解圓夢計劃資格：一階已完課者，額外上完 3 堂以上一階課後課
+            （不含同學會）即符合資格。與課後課完課狀況分開呈現，這是資格
+            門檻查詢，不是完課率查詢。 */}
         <Card>
-          <CardHeader title="五運班" subtitle="無梯次概念，僅付款統計" />
-          <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onClick={() => openRoster('wuyun')} className="text-left">
-              <div className="text-xs text-slate-500 font-medium">報名人數</div>
-              <div className="mt-1 font-bold text-2xl text-slate-800 hover:text-emerald-600 transition-colors">{wuyunSummary.totalEnrolled}</div>
+          <CardHeader
+            title="一階解圓夢計劃資格"
+            subtitle={`一階已完課者，另上完 ${l1DreamProgram.threshold} 堂以上一階課後課（不含同學會）即符合資格`}
+          />
+          <div className="p-4">
+            <button
+              onClick={() => openRoster('l1-dream-program')}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors text-xs border border-emerald-200"
+            >
+              <span className="font-semibold text-emerald-800">
+                查看名單（一階已完課 {l1DreamProgram.l1CompletedCount} 人中，符合資格）
+              </span>
+              <span className="font-bold text-emerald-700">{l1DreamProgram.qualifiedCount} 人</span>
             </button>
-            <div>
-              <div className="text-xs text-slate-500 font-medium">完款人數</div>
-              <div className="mt-1 font-bold text-2xl text-slate-800">{wuyunSummary.completedCount}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 font-medium">欠款人數</div>
-              <div className={`mt-1 font-bold text-2xl ${wuyunSummary.owedCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{wuyunSummary.owedCount}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 font-medium">欠款金額</div>
-              <div className={`mt-1 font-bold text-2xl ${wuyunSummary.owedAmount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>${formatMoney(wuyunSummary.owedAmount)}</div>
-            </div>
           </div>
         </Card>
 
@@ -395,12 +403,24 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
           <CardHeader title="聯誼會報名" subtitle="加入日有值即代表已報名，與課程階別各自獨立統計" />
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <button onClick={() => openRoster('club-joined')} className="text-left mb-3 block">
+              <button onClick={() => openRoster('club-joined')} className="text-left mb-1 block">
                 <div className="text-xs text-slate-500 font-medium">已報名人數</div>
                 <div className="mt-1 font-bold text-2xl text-slate-800 hover:text-emerald-600 transition-colors">{clubSummary.joinedCount}</div>
               </button>
-              <div className="text-xs text-slate-500">
-                <p>未報名：{clubSummary.notJoinedCount} 人</p>
+              {/* 說明已報名人數與下方「二階已完課」母體的交集，避免兩個數字
+                  各自呈現時讓人搞不清楚彼此關係（例如誤以為要拿未報名人數
+                  跟二階已完課人數相加對照）。 */}
+              <p className="text-[11px] text-slate-400 mb-3">其中 {l2ClubGap.joinedCount} 人為二階已完課</p>
+              {/* 未報名拆成「已具資格（二階已完課）」與「尚未具資格」——聯誼會
+                  報名需先上完二階，混在一起的「未報名」數字容易讓人誤以為
+                  這麼多人都該報名卻沒報，但實際上多數是還沒達到門檻。
+                  二者加總 = 未報名人數：已具資格 + 尚未具資格 = 未報名。 */}
+              <div className="text-xs text-slate-500 space-y-1">
+                <button onClick={() => openRoster('club-not-joined-l2')} className="text-left block hover:text-amber-700 transition-colors">
+                  <span className="text-amber-600 font-medium">未報名・已具資格：{l2ClubGap.notJoinedCount} 人</span>
+                  <span className="text-slate-400">（二階已完課）</span>
+                </button>
+                <p>未報名・尚未具資格：{clubSummary.notJoinedCount - l2ClubGap.notJoinedCount} 人（二階未完課）</p>
               </div>
             </div>
             <div>
@@ -424,7 +444,10 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
         {/* 二階已完課但未報聯誼會（交集查詢，供招募聯誼會用） */}
         <Card>
           <CardHeader title="二階已完課未報聯誼會" subtitle="二階已完課（course_2 為「已上課」）但尚未報名聯誼會的名單，供邀請招募用" />
-          <div className="p-4">
+          <div className="p-4 space-y-2">
+            <p className="text-[11px] text-slate-400">
+              二階已完課共 {l2ClubGap.l2CompletedCount} 人 = 已報名 {l2ClubGap.joinedCount} 人 + 未報名 {l2ClubGap.notJoinedCount} 人
+            </p>
             <button
               onClick={() => openRoster('club-not-joined-l2')}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors text-xs border border-amber-200"
@@ -437,24 +460,26 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
           </div>
         </Card>
 
-        {/* 一階解圓夢計劃資格：一階已完課者，額外上完 3 堂以上一階課後課
-            （不含同學會）即符合資格。與課後課完課狀況分開呈現，這是資格
-            門檻查詢，不是完課率查詢。 */}
+        {/* 五運班 */}
         <Card>
-          <CardHeader
-            title="一階解圓夢計劃資格"
-            subtitle={`一階已完課者，另上完 ${l1DreamProgram.threshold} 堂以上一階課後課（不含同學會）即符合資格`}
-          />
-          <div className="p-4">
-            <button
-              onClick={() => openRoster('l1-dream-program')}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors text-xs border border-emerald-200"
-            >
-              <span className="font-semibold text-emerald-800">
-                查看名單（一階已完課 {l1DreamProgram.l1CompletedCount} 人中，符合資格）
-              </span>
-              <span className="font-bold text-emerald-700">{l1DreamProgram.qualifiedCount} 人</span>
+          <CardHeader title="五運班" subtitle="無梯次概念，僅付款統計" />
+          <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <button onClick={() => openRoster('wuyun')} className="text-left">
+              <div className="text-xs text-slate-500 font-medium">報名人數</div>
+              <div className="mt-1 font-bold text-2xl text-slate-800 hover:text-emerald-600 transition-colors">{wuyunSummary.totalEnrolled}</div>
             </button>
+            <div>
+              <div className="text-xs text-slate-500 font-medium">完款人數</div>
+              <div className="mt-1 font-bold text-2xl text-slate-800">{wuyunSummary.completedCount}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-medium">欠款人數</div>
+              <div className={`mt-1 font-bold text-2xl ${wuyunSummary.owedCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{wuyunSummary.owedCount}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 font-medium">欠款金額</div>
+              <div className={`mt-1 font-bold text-2xl ${wuyunSummary.owedAmount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>${formatMoney(wuyunSummary.owedAmount)}</div>
+            </div>
           </div>
         </Card>
       </div>
@@ -463,13 +488,15 @@ export default function CourseClient({ role, system, stages, wuyunSummary, clubS
       {rosterKey !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setRosterKey(null)}>
           <div
+            ref={rosterModalRef}
             role="dialog"
             aria-modal="true"
+            aria-labelledby="roster-modal-title"
             className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 flex-wrap gap-2">
-              <h2 className="text-sm font-bold text-slate-800">
+              <h2 id="roster-modal-title" className="text-sm font-bold text-slate-800">
                 {rosterTitle}{' '}
                 <span className="text-slate-400 font-normal">
                   （{rosterList.length} / {rosterListRaw.length} 人）

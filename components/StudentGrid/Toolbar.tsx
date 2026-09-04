@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useStudents } from '@/hooks/useStudents'
 import { csrfFetch } from '@/lib/utils/csrf'
+import { toast } from '@/lib/toast'
 import { COLUMN_GROUPS } from '@/lib/constants'
 import type { SheetSystem } from '@/lib/supabase/types'
 import { encodeColumnFiltersToParams, encodeSortToParams } from '@/lib/utils/columnFilterUrl'
@@ -59,7 +60,7 @@ export default function Toolbar() {
     encodeColumnFiltersToParams(params, filters.columnFilters)
     encodeSortToParams(params, sort)
     const res = await csrfFetch(`/api/export?${params}`)
-    if (!res.ok) return alert('匯出失敗')
+    if (!res.ok) return toast.error('匯出失敗')
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

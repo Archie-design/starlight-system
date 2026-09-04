@@ -72,13 +72,17 @@ export default function GroupManageModal({ onClose }: Props) {
                     {groupMgmt.editId === g.id ? (
                       <>
                         <div className="flex-1 space-y-1">
+                          <label htmlFor={`edit-group-name-${g.id}`} className="sr-only">分組名稱</label>
                           <input
+                            id={`edit-group-name-${g.id}`}
                             value={groupMgmt.editName}
                             onChange={e => groupMgmt.setEditName(e.target.value)}
                             className="w-full border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 placeholder:text-slate-400"
                             placeholder="分組名稱"
                           />
+                          <label htmlFor={`edit-group-roots-${g.id}`} className="sr-only">根節點學員 ID（逗號分隔）</label>
                           <input
+                            id={`edit-group-roots-${g.id}`}
                             value={groupMgmt.editRoots}
                             onChange={e => groupMgmt.setEditRoots(e.target.value)}
                             className="w-full border border-slate-300 rounded px-2 py-1 text-xs font-mono text-slate-800 placeholder:text-slate-400"
@@ -88,8 +92,10 @@ export default function GroupManageModal({ onClose }: Props) {
                             <p className="text-[10px] text-slate-400 px-0.5">{groupMgmt.editRootNames}</p>
                           )}
                         </div>
-                        <button onClick={groupMgmt.handleUpdate} disabled={groupMgmt.saving} className="px-2 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-bold shadow-sm">儲存</button>
-                        <button onClick={() => groupMgmt.setEditId(null)} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800 font-medium">取消</button>
+                        <button onClick={groupMgmt.handleUpdate} disabled={groupMgmt.saving} className="px-2 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-bold shadow-sm">
+                          {groupMgmt.saving ? '儲存中...' : '儲存'}
+                        </button>
+                        <button onClick={() => groupMgmt.setEditId(null)} disabled={groupMgmt.saving} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800 font-medium disabled:opacity-40">取消</button>
                       </>
                     ) : (
                       <>
@@ -159,14 +165,18 @@ export default function GroupManageModal({ onClose }: Props) {
               {/* 新增分組表單 */}
               <div className="border border-slate-200 rounded-xl p-4 space-y-3 mt-6">
                 <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">新增分組</p>
+                <label htmlFor="new-group-name" className="sr-only">分組名稱</label>
                 <input
+                  id="new-group-name"
                   value={groupMgmt.newName}
                   onChange={e => groupMgmt.setNewName(e.target.value)}
                   placeholder="分組名稱（其餘同李雨珊）"
                   className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/30"
                 />
                 <div>
+                  <label htmlFor="new-group-roots" className="sr-only">根節點學員 ID</label>
                   <input
+                    id="new-group-roots"
                     value={groupMgmt.newRoots}
                     onChange={e => groupMgmt.setNewRoots(e.target.value)}
                     placeholder="根節點學員 ID（例如：3034）"

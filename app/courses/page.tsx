@@ -153,6 +153,10 @@ export interface ClubSummary {
 export interface L2ClubGap {
   l2CompletedCount: number
   notJoinedCount: number
+  /** 二階已完課且已報名聯誼會的人數（l2CompletedCount - notJoinedCount），
+   *  供 UI 說明「已報名人數」與「二階已完課人數」的交集，避免兩個數字
+   *  各自呈現時看起來對不起來 */
+  joinedCount: number
 }
 export interface L1DreamProgram {
   l1CompletedCount: number
@@ -352,6 +356,10 @@ export default async function CoursesPage() {
     return parsed?.status === '已上課'
   })
   const l2CompletedNotJoinedClub = l2Completed.filter((s) => !s.club_join_date)
+  // 二階已完課且已報名的人數——單獨算出來是為了在「聯誼會報名」卡片上
+  // 把「已報名 281 人」與「二階已完課 500 人」的關係講清楚（281 人中有
+  // 多少人屬於這 500 人），避免兩個各自獨立呈現的數字看起來對不起來。
+  const l2CompletedJoinedCount = l2Completed.length - l2CompletedNotJoinedClub.length
   roster['club-not-joined-l2'] = l2CompletedNotJoinedClub.map((s) => ({
     id: s.id,
     name: s.name,
@@ -364,6 +372,7 @@ export default async function CoursesPage() {
   const l2ClubGap = {
     l2CompletedCount: l2Completed.length,
     notJoinedCount: l2CompletedNotJoinedClub.length,
+    joinedCount: l2CompletedJoinedCount,
   }
 
   // 解圓夢計劃資格：一階已完課（course_1 精確為「已上課」，判定標準與

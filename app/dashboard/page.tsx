@@ -165,6 +165,8 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
+      role={user!.role}
+      system={system}
       totalStudents={totalStudents}
       courseFunnel={courseFunnel}
       groupStudents={groupStudents}

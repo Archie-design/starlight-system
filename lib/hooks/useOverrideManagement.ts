@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import useSWR from 'swr'
 import { useDownlineLookup } from '@/hooks/useDownlineLookup'
 import { csrfFetch } from '@/lib/utils/csrf'
+import { toast } from '@/lib/toast'
 
 interface OverrideRecord {
   id: string
@@ -60,7 +61,7 @@ export function useOverrideManagement() {
         body: JSON.stringify({ student_ids: selectedStudents, override_parent_id: pId, note: overrideNote }),
       })
       if (!res.ok) {
-        alert('新增換線特例失敗，請重新整理頁面後再試一次。')
+        toast.error('新增換線特例失敗，請重新整理頁面後再試一次。')
         return
       }
       await mutateOverrides()
@@ -77,7 +78,7 @@ export function useOverrideManagement() {
     if (!confirm('確定取消此特定學員的強制換線設定？')) return
     const res = await csrfFetch(`/api/student-overrides/${id}`, { method: 'DELETE' })
     if (!res.ok) {
-      alert('取消換線特例失敗，請重新整理頁面後再試一次。')
+      toast.error('取消換線特例失敗，請重新整理頁面後再試一次。')
       return
     }
     await mutateOverrides()
@@ -90,7 +91,7 @@ export function useOverrideManagement() {
       body: JSON.stringify({ note: editingNoteValue }),
     })
     if (!res.ok) {
-      alert('更新備註失敗，請重新整理頁面後再試一次。')
+      toast.error('更新備註失敗，請重新整理頁面後再試一次。')
       return
     }
     await mutateOverrides()

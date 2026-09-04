@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import useSWR from 'swr'
 import { csrfFetch } from '@/lib/utils/csrf'
+import { toast } from '@/lib/toast'
 
 interface AliasRecord {
   id: string
@@ -34,7 +35,7 @@ export function useAliasManagement() {
         body: JSON.stringify({ original_parent_id: oId, proxy_parent_id: pId, note: aliasNote }),
       })
       if (!res.ok) {
-        alert('新增代管失敗，請重新整理頁面後再試一次。')
+        toast.error('新增代管失敗，請重新整理頁面後再試一次。')
         return
       }
       await mutateAliases()
@@ -50,7 +51,7 @@ export function useAliasManagement() {
     if (!confirm('確定刪除此代管關係？相關組織鏈將回歸原始介紹人。')) return
     const res = await csrfFetch(`/api/parent-aliases/${id}`, { method: 'DELETE' })
     if (!res.ok) {
-      alert('刪除代管失敗，請重新整理頁面後再試一次。')
+      toast.error('刪除代管失敗，請重新整理頁面後再試一次。')
       return
     }
     await mutateAliases()

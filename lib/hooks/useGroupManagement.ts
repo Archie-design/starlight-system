@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useCounselorGroups } from '@/hooks/useCounselorGroups'
 import { useDownlineLookup } from '@/hooks/useDownlineLookup'
 import { csrfFetch } from '@/lib/utils/csrf'
+import { toast } from '@/lib/toast'
 import type { CounselorGroup } from '@/lib/supabase/types'
 
 export function useGroupManagement() {
@@ -63,7 +64,7 @@ export function useGroupManagement() {
         }),
       })
       if (!res.ok) {
-        alert('新增分組失敗，請重新整理頁面後再試一次。')
+        toast.error('新增分組失敗，請重新整理頁面後再試一次。')
         return
       }
       await mutateGroups()
@@ -78,7 +79,7 @@ export function useGroupManagement() {
     if (!confirm(`確定刪除「${name}」分組？已指派的學員不會被刪除，但 group_leader 欄位將失效。`)) return
     const res = await csrfFetch(`/api/counselor-groups/${id}`, { method: 'DELETE' })
     if (!res.ok) {
-      alert('刪除分組失敗，請重新整理頁面後再試一次。')
+      toast.error('刪除分組失敗，請重新整理頁面後再試一次。')
       return
     }
     await mutateGroups()
@@ -100,7 +101,7 @@ export function useGroupManagement() {
         body: JSON.stringify({ name: editName.trim(), root_student_ids: parseRoots(editRoots) }),
       })
       if (!res.ok) {
-        alert('儲存分組失敗，請重新整理頁面後再試一次。')
+        toast.error('儲存分組失敗，請重新整理頁面後再試一次。')
         return
       }
       await mutateGroups()
@@ -134,7 +135,7 @@ export function useGroupManagement() {
         })
       ])
       if (results.some((r) => !r.ok)) {
-        alert('調整順序失敗，請重新整理頁面後再試一次。')
+        toast.error('調整順序失敗，請重新整理頁面後再試一次。')
         return
       }
       await mutateGroups()

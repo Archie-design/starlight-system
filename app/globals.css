@@ -34,3 +34,21 @@ body {
     scrollbar-width: none;
   }
 }
+
+/*
+ * 動暈症/前庭功能敏感使用者的降級規則。刻意不用 `display:none` 隱藏
+ * animate-spin/animate-pulse 這類「狀態指示」動畫（那樣會讓使用者失去
+ * 「正在載入」的視覺回饋，等於製造新的可用性問題）——改用把所有動畫/
+ * 轉場時長壓到近乎瞬時，這是 MDN/W3C 建議的標準做法：保留狀態語意，
+ * 只移除連續動態視覺本身。!important 用於覆蓋 Tailwind 產生的內聯
+ * duration/transition utility（如 duration-200、animate-spin 的
+ * keyframe timing），單純降低優先權寫法蓋不掉。
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

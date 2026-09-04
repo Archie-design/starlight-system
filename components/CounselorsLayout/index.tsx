@@ -27,9 +27,10 @@ const MEMBERSHIP_OPTIONS: { value: string; label: string }[] = [
   { value: 'expired', label: '已過期' }, { value: 'in30', label: '30 天內到期' },
   { value: 'in90', label: '90 天內到期' }, { value: 'valid', label: '有效' }, { value: 'none', label: '無資料' },
 ]
-const QUICK_VIEWS: { value: StudentView; label: string }[] = [
-  { value: 'resubscribe', label: '續報潛力' }, { value: 'owing', label: '待催欠款' },
-  { value: 'newbie', label: '本月新生' },
+const QUICK_VIEWS: { value: StudentView; label: string; title: string }[] = [
+  { value: 'resubscribe', label: '續報潛力', title: '已報過至少一階課程，但一/二/三/四/五階＋五運班六者尚未全部報滿' },
+  { value: 'owing', label: '待催欠款', title: '任一階已排定具體梯次（非「待確認梯次」），但該階付款欄為純數字金額（尚未完款）' },
+  { value: 'newbie', label: '本月新生', title: '建檔日期在近 30 天內' },
 ]
 
 /** 「會籍快到期」快捷鍵勾選的會籍狀態組合，與會籍下拉共用同一套邏輯 */
@@ -259,7 +260,7 @@ export default function CounselorsLayout() {
         </label>
         <span className="text-slate-300 mx-0.5 select-none">|</span>
         {QUICK_VIEWS.slice(0, 2).map(v => (
-          <button key={v.value} onClick={() => toggleQuickView(v.value)}
+          <button key={v.value} onClick={() => toggleQuickView(v.value)} title={v.title}
             className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
               filters.view === v.value ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm' : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
             }`}>
@@ -275,7 +276,7 @@ export default function CounselorsLayout() {
           會籍快到期
         </button>
         {QUICK_VIEWS.slice(2).map(v => (
-          <button key={v.value} onClick={() => toggleQuickView(v.value)}
+          <button key={v.value} onClick={() => toggleQuickView(v.value)} title={v.title}
             className={`text-xs px-2 py-1 rounded border transition-colors select-none ${
               filters.view === v.value ? 'bg-amber-500 border-amber-500 text-white font-medium shadow-sm' : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
             }`}>

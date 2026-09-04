@@ -12,8 +12,11 @@ import {
   LabelList,
 } from 'recharts'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useDashboardStats } from '@/lib/hooks/useDashboardStats'
 import { usePaymentDistribution } from '@/lib/hooks/usePaymentDistribution'
+import SystemSwitcher from '@/components/SystemSwitcher'
+import type { SheetSystem, UserRole } from '@/lib/supabase/types'
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -36,6 +39,8 @@ function CardHeader({ title, subtitle, action }: { title: string; subtitle?: str
 }
 
 type DashboardProps = {
+  role: UserRole
+  system: SheetSystem
   totalStudents: number
   courseFunnel: { stage: string; count: number }[]
   groupStudents: { group_leader: string }[]
@@ -46,6 +51,8 @@ type DashboardProps = {
 }
 
 export default function DashboardClient({
+  role,
+  system,
   totalStudents,
   courseFunnel,
   groupStudents,
@@ -54,6 +61,7 @@ export default function DashboardClient({
   distributionDetail,
   unpaidAlerts,
 }: DashboardProps) {
+  const router = useRouter()
   const { groupStats, membershipAlerts } = useDashboardStats(groupStudents, membershipData)
   const { selectedSegment, setSelectedSegment, sortedStatuses, selectedStudents } = usePaymentDistribution(paymentDistribution, distributionDetail)
 
@@ -149,7 +157,10 @@ export default function DashboardClient({
           <span className="text-yellow-400 text-lg">📊</span>
           <h1 className="text-lg font-bold text-slate-800 tracking-wide">系統儀表板</h1>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
+          {role === 'superadmin' && (
+            <SystemSwitcher value={system} onChange={() => router.refresh()} />
+          )}
           <Link href="/spirit" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
             心之使者 →
           </Link>

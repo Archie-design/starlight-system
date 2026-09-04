@@ -139,13 +139,15 @@ export default function TextFilterPopover({
         type="button"
         onClick={() => setOpen((o) => !o)}
         title={active ? `「${label}」已套用${isExclude ? '排除' : ''}篩選，點擊調整` : title}
+        aria-label={active ? `「${label}」已套用${isExclude ? '排除' : ''}篩選，點擊調整` : (title ?? `篩選「${label}」`)}
+        aria-expanded={open}
         className={`flex items-center justify-center w-4 h-4 rounded transition-colors ${
           active
             ? isExclude ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm'
             : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
         }`}
       >
-        <span className="text-[10px]">🔍</span>
+        <span className="text-[10px]" aria-hidden="true">🔍</span>
       </button>
 
       {open && (
