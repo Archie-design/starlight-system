@@ -31,8 +31,20 @@ interface RosterMember {
   pendingMakeup: boolean
   canToggleMakeup: boolean
   isLeader: boolean
+  /** 是否有待處理的分組匯入衝突——顯示 ⚠ 警示，格子仍顯示現有值（拖曳結果），不顯示 xlsx 候選值 */
+  hasConflict: boolean
 }
 interface RosterGroup { name: string; members: RosterMember[] }
+
+/** 待處理的分組匯入衝突（見 openspec/changes/spirit-group-import-conflict） */
+interface PendingConflict {
+  id: string
+  studentId: number
+  studentName: string
+  systemValue: string | null
+  importValue: string
+  updatedAt: string
+}
 
 interface Props {
   role: UserRole
@@ -46,9 +58,13 @@ interface Props {
     noGroup: { id: number; name: string }[]
     noSeniority: { id: number; name: string }[]
     singletonGroups: { name: string; member: string }[]
+    /** 有分組值但該值不存在於 spirit_ambassador_groups 的孤兒學員（例如衝突解決時選了系統未知的 xlsx 組名） */
+    orphanGroup: { id: number; name: string }[]
   }
   /** 分組總表：依資料庫實際分組動態產生，母體含「已分組但未完課」者，與上方 groupMembers（母體限心之使者）分開 */
   rosterGroups: RosterGroup[]
+  /** 目前有效體系內所有待處理的分組匯入衝突 */
+  pendingConflicts: PendingConflict[]
 }
 
 const ALL_SYSTEMS: SheetSystem[] = ['星光', '太陽']
@@ -71,7 +87,7 @@ function CardHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   )
 }
 
-export default function SpiritClient({ role, system, kpi, groupCounts, groupMembers, seniorityDist, groupAvgSeniority, alerts, rosterGroups }: Props) {
+export default function SpiritClient({ role, system, kpi, groupCounts, groupMembers, seniorityDist, groupAvgSeniority, alerts, rosterGroups, pendingConflicts }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
@@ -325,6 +341,37 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
     URL.revokeObjectURL(url)
   }
 
+  /**
+   * 處理一筆待處理的分組匯入衝突：保留本系統現有值，或改採 xlsx 候選值。
+   * 見 openspec/changes/spirit-group-import-conflict。權限與確認模式
+   * 比照既有的補課/小隊長編輯——二次確認、失敗回饋、router.refresh()。
+   */
+  const resolveConflict = async (conflict: PendingConflict, resolution: 'kept_system' | 'kept_import') => {
+    if (!canEditMakeup || groupActionPending) return
+    const confirmMsg = resolution === 'kept_system'
+      ? `確認「${conflict.studentName}」保留目前系統現有值「${conflict.systemValue ?? '（無）'}」？`
+      : `確認將「${conflict.studentName}」改採匯入的候選值「${conflict.importValue}」？`
+    if (!confirm(confirmMsg)) return
+    setGroupActionPending(true)
+    try {
+      const res = await csrfFetch(`/api/spirit-group-conflicts/${conflict.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution }),
+      })
+      if (!res.ok) {
+        toast.error('處理分組衝突失敗，請重新整理頁面後再試一次。')
+        return
+      }
+      toast.success(resolution === 'kept_system'
+        ? `已將「${conflict.studentName}」的分組衝突標記為保留現有值`
+        : `已將「${conflict.studentName}」的分組更新為「${conflict.importValue}」`)
+      router.refresh()
+    } finally {
+      setGroupActionPending(false)
+    }
+  }
+
   // 各組人數圖高度依組數（每列 22px），上限避免過長
   const groupChartHeight = Math.min(Math.max(groupCounts.length * 22, 120), 900)
   const avgChartHeight = Math.min(Math.max(groupAvgSeniority.length * 22, 120), 900)
@@ -367,8 +414,8 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
               <h3 className="text-sm font-bold text-slate-800">分組總表</h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {canEditMakeup
-                  ? `共 ${rosterGroups.length} 組・★＝小隊長・淺綠底＝已分組但尚未完成補課・可拖曳姓名搬移分組`
-                  : `共 ${rosterGroups.length} 組・★＝小隊長・淺綠底＝已分組但尚未完成補課`}
+                  ? `共 ${rosterGroups.length} 組・★＝小隊長・淺綠底＝已分組但尚未完成補課・⚠＝待處理分組衝突・可拖曳姓名搬移分組`
+                  : `共 ${rosterGroups.length} 組・★＝小隊長・淺綠底＝已分組但尚未完成補課・⚠＝待處理分組衝突`}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -451,6 +498,61 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
           </div>
         </Card>
 
+        {/* 待處理分組匯入衝突：緊接在分組總表下方——衝突圖示 ⚠ 出現在
+            總表格子上，處理清單理當就近呈現，不應隔著 KPI 摘要卡、圖表
+            等區塊才出現（見使用者回饋：「衝突清單應該直接出現在分組圖
+            下方」）。管理者拖曳搬移調整分組後，還沒回原官網手動同步就
+            匯入了新一批 xlsx，若 xlsx 分組值與目前系統值不同，系統不再
+            無聲覆蓋，改為記錄在這裡讓管理者擇一保留。仍獨立成卡片，不
+            與總表混排——總表呈現「目前分組現況」，這裡是「需要人工決策
+            的佇列」，性質不同。見 openspec/changes/
+            spirit-group-import-conflict。 */}
+        {pendingConflicts.length > 0 && (
+          <Card>
+            <CardHeader
+              title="待處理分組衝突"
+              subtitle={`共 ${pendingConflicts.length} 筆・拖曳調整後又匯入了不同的分組值，請擇一保留`}
+            />
+            <div className="divide-y divide-slate-100">
+              {pendingConflicts.map((c) => (
+                <div key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+                  <a
+                    href={`/students?search=${encodeURIComponent(c.studentName)}`}
+                    className="font-medium text-slate-800 hover:underline shrink-0"
+                  >
+                    {c.studentName}
+                  </a>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>系統現有值：<span className="font-medium text-slate-700">{c.systemValue ?? '（無）'}</span></span>
+                    <span className="text-slate-300">|</span>
+                    <span>匯入候選值：<span className="font-medium text-amber-700">{c.importValue}</span></span>
+                  </div>
+                  {canEditMakeup && (
+                    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => resolveConflict(c, 'kept_system')}
+                        disabled={groupActionPending}
+                        className="text-xs font-medium px-2 py-1 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                      >
+                        保留現有值
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => resolveConflict(c, 'kept_import')}
+                        disabled={groupActionPending}
+                        className="text-xs font-medium px-2 py-1 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+                      >
+                        改採匯入值
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* KPI 摘要卡 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard label="心之使者總數" value={kpi.total} />
@@ -529,6 +631,7 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <AlertBlock title="有加入日但無組別" people={alerts.noGroup} />
             <AlertBlock title="無累積年資" people={alerts.noSeniority} />
+            <AlertBlock title="分組值不存在於系統分組清單" people={alerts.orphanGroup} />
             <div>
               <div className="font-semibold text-slate-700 mb-1">單人小組 <span className="text-slate-400">({alerts.singletonGroups.length})</span></div>
               {alerts.singletonGroups.length === 0 ? (
@@ -711,11 +814,13 @@ function MemberRowContent({ member: m, canEdit, updatingId, isMoving, onToggleLe
         title={
           isMoving
             ? `${m.name}（搬移中…）`
-            : m.isLeader
-              ? `${m.name}（小隊長）`
-              : m.pendingMakeup
-                ? `${m.name}（已分組，尚未完成補課）`
-                : m.name
+            : m.hasConflict
+              ? `${m.name}（有待處理的分組衝突，見下方清單）`
+              : m.isLeader
+                ? `${m.name}（小隊長）`
+                : m.pendingMakeup
+                  ? `${m.name}（已分組，尚未完成補課）`
+                  : m.name
         }
         className={`flex-1 min-w-0 text-[11px] truncate hover:underline ${
           m.isLeader ? 'font-bold text-rose-900' : m.pendingMakeup ? 'text-green-900' : 'text-slate-700 hover:bg-slate-50'
@@ -723,6 +828,9 @@ function MemberRowContent({ member: m, canEdit, updatingId, isMoving, onToggleLe
       >
         {m.name}
       </a>
+      {m.hasConflict && !isMoving && (
+        <span className="shrink-0 text-[11px] leading-none" aria-hidden="true" title="有待處理的分組衝突">⚠</span>
+      )}
       {m.canToggleMakeup && canEdit && !isMoving && (
         <button
           type="button"

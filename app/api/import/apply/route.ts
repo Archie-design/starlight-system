@@ -6,7 +6,7 @@ import { systemOf } from '@/lib/utils/system'
 import { logAdminAction } from '@/lib/auth/audit'
 import { computeDiff } from '@/lib/import/diff'
 import { buildGroupAssignments } from '@/lib/import/assignGroup'
-import type { Student, StudentInsert, CounselorGroup } from '@/lib/supabase/types'
+import type { Student, StudentInsert, CounselorGroup, SpiritGroupConflict } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
   // 套用匯入會直接寫入學員資料，僅限管理層級（superadmin / system_admin）操作
@@ -73,6 +73,22 @@ export async function POST(request: NextRequest) {
     }
     const dbMap = new Map(existingStudents.map(s => [s.id, s]))
 
+    // 這批學員中，目前已存在的待處理分組衝突（一次性查完，避免衝突偵測
+    // 迴圈內逐筆查詢造成 N+1）。見 openspec/changes/spirit-group-import-
+    // conflict：同一位學員最多同時存在一筆 pending 衝突，重複匯入不同的
+    // 候選值時更新既有記錄，而非新增第二筆。
+    const existingConflicts: SpiritGroupConflict[] = []
+    for (let i = 0; i < importIds.length; i += CHUNK) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('spirit_group_conflicts')
+        .select('*')
+        .eq('status', 'pending')
+        .in('student_id', importIds.slice(i, i + CHUNK)) as { data: SpiritGroupConflict[] | null }
+      if (data) existingConflicts.push(...data)
+    }
+    const conflictMap = new Map(existingConflicts.map(c => [c.student_id, c]))
+
     // 計算 diff 並寫入 import_logs
     const logRows = []
     for (const importRow of importRows) {
@@ -129,6 +145,9 @@ export async function POST(request: NextRequest) {
     //   applied 的 session 重跑（前面的幂等性檢查已擋下）
     let applied = 0
     const failedIds: number[] = []
+    // 分組匯入衝突：待 upsert 全部批次跑完（確認學員資料寫入成功）後，
+    // 才一併寫入/更新這些衝突記錄——見下方迴圈後的處理區塊。
+    const conflictUpserts: Array<{ student_id: number; student_name: string; system_value: string | null; import_value: string }> = []
 
     try {
       for (let i = 0; i < importRows.length; i += BATCH) {
@@ -136,6 +155,25 @@ export async function POST(request: NextRequest) {
           // 如果能自動判定，就覆蓋；否則保留既有 group_leader（不覆蓋手動設定）
           const autoGroup = groupAssignments.get(row.id)
           const existingGroup = dbMap.get(row.id)?.group_leader ?? null
+
+          // spirit_ambassador_group：MUST NOT 讓 xlsx 值直接覆蓋資料庫現有
+          // 值——管理者可能已透過分組總表的拖曳搬移調整過，還沒回「原官網
+          // 系統」手動同步。既有的 upsert 是整列覆蓋語意，若不在這裡保留，
+          // 拖曳成果會被本次匯入無聲洗掉（這是修正前的既有缺陷，見
+          // openspec/changes/spirit-group-import-conflict）。若 xlsx 帶了
+          // 不同於現有值的分組值，記錄一筆待處理衝突讓管理者事後擇一，
+          // 資料庫欄位本身這次維持現有值不變。
+          const existingSpiritGroup = dbMap.get(row.id)?.spirit_ambassador_group ?? null
+          const importSpiritGroup = row.spirit_ambassador_group ?? null
+          if (importSpiritGroup != null && importSpiritGroup !== existingSpiritGroup) {
+            conflictUpserts.push({
+              student_id: row.id,
+              student_name: row.name,
+              system_value: existingSpiritGroup,
+              import_value: importSpiritGroup,
+            })
+          }
+
           return {
             ...row,
             group_leader: autoGroup ?? existingGroup ?? null,
@@ -147,6 +185,8 @@ export async function POST(request: NextRequest) {
             spirit_ambassador_makeup_completed: dbMap.get(row.id)?.spirit_ambassador_makeup_completed ?? null,
             // 同上：小隊長標記來源 xlsx 也沒有，同樣保留既有值不被覆蓋。
             spirit_ambassador_is_leader: dbMap.get(row.id)?.spirit_ambassador_is_leader ?? null,
+            // 同上：分組欄位一律保留資料庫現有值，衝突另外記錄，不寫入這一列。
+            spirit_ambassador_group: existingSpiritGroup,
           }
         })
 
@@ -169,6 +209,55 @@ export async function POST(request: NextRequest) {
         { error: '批次操作失敗，可能導致部分數據不一致，請檢查日誌', applied, errors: importRows.length - applied, failedIds },
         { status: 500 }
       )
+    }
+
+    // 寫入/更新分組匯入衝突記錄——只對這批 upsert 確實成功的學員處理，
+    // 避免對寫入失敗（在 failedIds 中）的學員留下指向不完整資料的衝突。
+    const failedIdSet = new Set(failedIds)
+    const conflictsToWrite = conflictUpserts.filter((c) => !failedIdSet.has(c.student_id))
+    if (conflictsToWrite.length > 0) {
+      const now = new Date().toISOString()
+      const toInsert: Omit<SpiritGroupConflict, 'id'>[] = []
+      const toUpdateIds: string[] = []
+      for (const c of conflictsToWrite) {
+        const existing = conflictMap.get(c.student_id)
+        if (existing) {
+          // 已有一筆待處理衝突：更新候選值（取代舊的 import_value），
+          // system_value 維持衝突「原本」發生時的快照不變——不隨後續匯入
+          // 改變比較基準，避免使用者已經看過的衝突內容無故變動。
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from('spirit_group_conflicts')
+            .update({ import_value: c.import_value, student_name: c.student_name, updated_at: now })
+            .eq('id', existing.id)
+          toUpdateIds.push(existing.id)
+        } else {
+          toInsert.push({
+            student_id: c.student_id,
+            student_name: c.student_name,
+            system_value: c.system_value,
+            import_value: c.import_value,
+            status: 'pending',
+            resolution: null,
+            resolved_by: null,
+            resolved_at: null,
+            created_at: now,
+            updated_at: now,
+          })
+        }
+      }
+      if (toInsert.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: conflictInsertErr } = await (supabase as any)
+          .from('spirit_group_conflicts')
+          .insert(toInsert)
+        if (conflictInsertErr) {
+          // 衝突記錄寫入失敗不影響本次匯入的學員資料已成功套用這件事
+          // （最重要的保護——不覆蓋現有值——已經生效），只記錄供排查；
+          // 沒寫成的衝突下次匯入偵測到同樣的不一致時仍會再次嘗試記錄。
+          console.error('[apply] 分組衝突記錄寫入失敗', conflictInsertErr.message)
+        }
+      }
     }
 
     const transactionFailed = failedIds.length > 0

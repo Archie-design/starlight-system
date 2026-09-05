@@ -115,9 +115,12 @@ export default async function SpiritPage() {
   // 總表欄位來源改為 spirit_ambassador_groups（獨立資料表），不再只靠
   // 學員資料反推——這樣「新增一個目前無成員的空組別」才能在重新整理後
   // 仍然顯示。學員仍照 spirit_ambassador_group 分桶塞進對應組別；若某
-  // 學員的組別字串不在 spirit_ambassador_groups 裡（理論上不應發生，
-  // 但保留容錯），仍照既有方式併入總表，避免資料因表沒回填而消失。
-  // 見 openspec/changes/spirit-roster-drag-edit。
+  // 學員的組別字串不在 spirit_ambassador_groups 裡，MUST NOT 自動併入
+  // 總表當成一個看似合法的新欄位（先前版本曾這樣容錯，但這會讓「系統
+  // 未登記的孤兒分組」偽裝成正常組別，管理者無從察覺異常）——這種孤兒
+  // 學員改為完全不出現在總表中，只在下方「資料品質提醒」列出，見
+  // openspec/changes/spirit-group-import-conflict 的孤兒分組提醒。
+  // 見 openspec/changes/spirit-roster-drag-edit（分組總表資料來源獨立化）。
   const { data: groupRows, error: groupRowsErr } = await service
     .from('spirit_ambassador_groups')
     .select('name')
@@ -130,10 +133,30 @@ export default async function SpiritPage() {
   }
   for (const s of all) {
     const g = (s.spirit_ambassador_group ?? '').trim()
-    if (!g) continue
-    if (!rosterGroupMap.has(g)) rosterGroupMap.set(g, [])
+    if (!g || !rosterGroupMap.has(g)) continue
     rosterGroupMap.get(g)!.push(s)
   }
+  // 待處理分組匯入衝突（見 openspec/changes/spirit-group-import-conflict）
+  // ——只查目前有效體系內的學員相關衝突：先取這批 all 學員的 id 集合，
+  // 再篩選 conflicts 中 student_id 屬於這個集合者，避免跨體系洩漏。
+  const allIdSet = new Set(all.map((s) => s.id))
+  const { data: conflictRows, error: conflictErr } = await service
+    .from('spirit_group_conflicts')
+    .select('id, student_id, student_name, system_value, import_value, created_at, updated_at')
+    .eq('status', 'pending')
+  if (conflictErr) throw conflictErr
+  const pendingConflicts = (conflictRows ?? [])
+    .filter((c) => allIdSet.has(c.student_id))
+    .map((c) => ({
+      id: c.id as string,
+      studentId: c.student_id as number,
+      studentName: c.student_name as string,
+      systemValue: c.system_value as string | null,
+      importValue: c.import_value as string,
+      updatedAt: (c.updated_at ?? c.created_at) as string,
+    }))
+  const conflictedStudentIds = new Set(pendingConflicts.map((c) => c.studentId))
+
   const rosterGroupOrder = sortGroups(Array.from(rosterGroupMap.keys()))
   const rosterGroups = rosterGroupOrder.map((name) => ({
     name,
@@ -155,6 +178,9 @@ export default async function SpiritPage() {
           // 「點錯了無法恢復」）。
           canToggleMakeup: notYetSpirit,
           isLeader: s.spirit_ambassador_is_leader === true,
+          // 是否有待處理的分組匯入衝突——顯示警示標示，格子本身仍顯示
+          // 現有值（拖曳結果），不顯示 xlsx 候選值。
+          hasConflict: conflictedStudentIds.has(s.id),
         }
       })
       // 小隊長優先置頂（任命制，與年資無關）；其餘依年資高到低排序。
@@ -170,6 +196,18 @@ export default async function SpiritPage() {
   const noGroup = spirits.filter((s) => !(s.spirit_ambassador_group ?? '').trim()).map((s) => ({ id: s.id, name: s.name }))
   const noSeniority = spirits.filter((s) => parseSeniorityMonths(s.cumulative_seniority) == null).map((s) => ({ id: s.id, name: s.name }))
   const singletonGroups = groupCounts.filter((g) => g.count === 1).map((g) => ({ name: g.name, member: groupMap.get(g.name)![0].name }))
+  // 孤兒分組：有分組值，但該值不存在於 spirit_ambassador_groups（例如
+  // 透過衝突解決「改採 xlsx 值」寫入了系統未知的組名）——這種學員的分組
+  // 值仍在 students 表，但不會出現在依 spirit_ambassador_groups 驅動的
+  // 分組總表任何欄位中，需要另外提醒管理者發現並處理。見 design.md Risk
+  // 一節（openspec/changes/spirit-group-import-conflict）。
+  const knownGroupNames = new Set(rosterGroupMap.keys())
+  const orphanGroup = all
+    .filter((s) => {
+      const g = (s.spirit_ambassador_group ?? '').trim()
+      return g && !knownGroupNames.has(g)
+    })
+    .map((s) => ({ id: s.id, name: s.name }))
 
   const kpi = {
     total: spirits.length,
@@ -187,8 +225,9 @@ export default async function SpiritPage() {
       groupMembers={groupMembers}
       seniorityDist={seniorityDist}
       groupAvgSeniority={groupAvgSeniority}
-      alerts={{ noGroup, noSeniority, singletonGroups }}
+      alerts={{ noGroup, noSeniority, singletonGroups, orphanGroup }}
       rosterGroups={rosterGroups}
+      pendingConflicts={pendingConflicts}
     />
   )
 }

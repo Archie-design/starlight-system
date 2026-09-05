@@ -157,6 +157,26 @@ export interface SpiritAmbassadorGroup {
   created_at: string
 }
 
+/**
+ * 心之使者分組匯入衝突：拖曳搬移寫入的「本系統現有值」與 xlsx 匯入帶來
+ * 的「候選值」不一致時的待處理記錄。system_value 可為 null（理論上該
+ * 學員先前未分組、卻在 xlsx 匯入時被賦予分組值也算衝突，兩個候選值都
+ * 保留供人工決定）。見 openspec/changes/spirit-group-import-conflict
+ */
+export interface SpiritGroupConflict {
+  id: string
+  student_id: number
+  student_name: string
+  system_value: string | null
+  import_value: string
+  status: 'pending' | 'resolved'
+  resolution: 'kept_system' | 'kept_import' | null
+  resolved_by: string | null
+  resolved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface CounselorGroup {
   id: string
   name: string
