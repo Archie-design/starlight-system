@@ -26,9 +26,12 @@
 - [x] 5.1 `app/spirit/SpiritClient.tsx`：新增「新增組別」按鈕（`canEditMakeup` 時顯示），點擊後呼叫 `POST /api/spirit-groups`，成功後 `toast.success` + `router.refresh()`（待 migration 套用後於 7.1 於瀏覽器實測）
 - [x] 5.2 每個分組欄位新增「刪除組別」按鈕（`canEditMakeup` 時顯示），該組 `members.length > 0` 時停用並提示「請先移出組員」；點擊有效的刪除按鈕時 `confirm()` 二次確認後呼叫 `DELETE /api/spirit-groups/[name]`，成功後 `toast.success` + `router.refresh()`（待 migration 套用後於 7.1 於瀏覽器實測）
 
-## 6. 匯出分組總表（前端）
+## 6. 匯出分組異動對照表（前端）
 
-- [x] 6.1 `app/spirit/SpiritClient.tsx`：新增「匯出總表」按鈕，比照 `app/courses/CourseClient.tsx` 的 `downloadRosterCsv()` 模式實作 CSV 組裝（UTF-8 BOM + `Blob` + `URL.createObjectURL` + 合成 `<a download>`），欄位含組別、組內順序、姓名、是否小隊長、補課狀態（待於 7.1 用 Excel 開啟實測中文編碼）
+- [x] ~~6.1 舊版：匯出完整分組總表~~ — 已依 UI/UX 評估改為異動對照表，見下方 6.2-6.4（design.md Decision 6）
+- [x] 6.2 `app/spirit/SpiritClient.tsx`：新增 `originalGroupRef`（`useRef<Map<number, { name: string; originalGroup: string }>>`）與 `latestGroupMap`（`useState<Map<number, string>>`）追蹤本次工作階段的拖曳異動；`handleDragEnd` 成功後：若學員 id 尚未在 `originalGroupRef` 中則記錄其拖曳前分組為原始值，更新 `latestGroupMap` 為目標分組，若目標分組等於原始分組則從 `latestGroupMap` 移除該學員；執行 `npx tsc --noEmit` 確認型別正確
+- [x] 6.3 移除舊的完整總表匯出按鈕與 CSV 組裝邏輯，改為「匯出異動對照表」按鈕：`latestGroupMap` 為空時停用並可提示「尚無異動」，按鈕文案顯示目前異動筆數；點擊時比對 `latestGroupMap` 與 `originalGroupRef` 組出僅含姓名/原分組/目前分組三欄的 CSV（UTF-8 BOM + `Blob` + `URL.createObjectURL` + 合成 `<a download>`，比照 `downloadRosterCsv()` 模式）
+- [ ] 6.4 手動測試：拖曳兩位不同學員到不同分組後匯出，確認 CSV 僅含這兩筆且欄位正確；同一位學員連續拖兩次，確認匯出僅一筆且「原分組」為最初值、「目前分組」為最終值；把某學員拖回原分組，確認該學員不出現在匯出結果中；未進行任何拖曳時確認匯出入口停用
 
 ## 7. 整體驗證
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
@@ -77,10 +77,35 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [groupActionPending, setGroupActionPending] = useState(false)
+  // @dnd-kit 內部用一個模組級全域計數器產生 aria-describedby="DndDescribedBy-N"
+  // 等無障礙輔助 id（見 @dnd-kit/utilities 的 useUniqueId），這個計數器
+  // 在整個 server process 生命週期內持續累加、不會歸零，導致 SSR 算出的
+  // 編號與瀏覽器端從 0 重新算的編號對不上，產生 hydration mismatch（不是
+  // 我們邏輯錯誤，是這個套件在 SSR 環境下的已知限制）。解法：分組總表的
+  // 拖放容器（DndContext/useDraggable/useDroppable）只在 client mount
+  // 完成後才渲染，SSR 輸出完全不含這些屬性，自然不會有落差；mount 前
+  // 用不含 dnd-kit hooks 的純靜態版本渲染，使用者感知不到這個切換。
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   // 拖曳中的組員姓名——供 DragOverlay 顯示「正在拖誰」。原本只有被拖曳
   // 原位置變淡（opacity），游標位置沒有任何跟隨的視覺元素，使用者反映
   // 看不出拖的是誰，手感不佳；加上跟隨游標的浮動卡片解決這個問題。
   const [draggingMember, setDraggingMember] = useState<{ id: number; name: string } | null>(null)
+  // 搬移中的學員 id——放開拖曳後到 router.refresh() 真正拿到新資料之間，
+  // PATCH 請求／伺服器重新查詢都需要時間（實測近 1 秒），這段空窗如果
+  // 什麼提示都沒有，使用者會覺得「拖了但沒反應」。用這個旗標讓該學員在
+  // 原分組欄位裡維持「搬移中」的視覺狀態，直到新資料回來為止。
+  const [movingId, setMovingId] = useState<number | null>(null)
+  // 本次工作階段的拖曳異動追蹤——匯出只需要「這次操作中誰的分組動過」，
+  // 不是完整分組現況（管理者要拿去外部系統手動比對，完整現況會逼他自己
+  // 找出哪些人變了，才是最容易漏改/改錯的環節；見 design.md Decision 6）。
+  // originalGroupRef 存「進入本次工作階段時的原始分組」，只在該學員第一次
+  // 被拖曳時寫入一次，之後不再更新——用 useRef 是因為這個值不需要驅動
+  // 重渲染。latestGroupMap 存「目前最新分組」，用 useState 是因為它要
+  // 驅動匯出按鈕的可用狀態與異動筆數顯示；若學員最終被拖回原始分組，
+  // 從這個 map 移除即可讓他自然不出現在匯出結果中。
+  const originalGroupRef = useRef<Map<number, { name: string; originalGroup: string }>>(new Map())
+  const [latestGroupMap, setLatestGroupMap] = useState<Map<number, string>>(new Map())
   const canEditMakeup = role === 'superadmin' || role === 'system_admin'
   // 拖曳與新增/刪除組別共用同一把「操作中鎖」以外的獨立忙碌旗標——避免
   // 拖曳中同時觸發新增/刪除，或反之；不與 updatingId（補課/小隊長編輯）
@@ -178,6 +203,7 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
     if (!Number.isInteger(studentId) || currentGroup === targetGroup) return
 
     setGroupActionPending(true)
+    setMovingId(studentId)
     try {
       const res = await csrfFetch(`/api/students/${studentId}/spirit-group`, {
         method: 'PATCH',
@@ -186,10 +212,37 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
       })
       if (!res.ok) {
         toast.error('搬移分組失敗，請重新整理頁面後再試一次。')
+        setMovingId(null)
         return
       }
       toast.success(`已將「${studentName}」搬移到「${targetGroup}」`)
+
+      // 記錄本次工作階段的異動：只在該學員第一次被拖曳時記下「原始分組」
+      // （拖曳前所在的分組，即這次操作前的狀態），之後即使再被拖第二次、
+      // 第三次，原始分組維持不變，只更新「目前最新分組」。若最新分組繞
+      // 回原始分組，視為無異動，從 latestGroupMap 移除。
+      if (!originalGroupRef.current.has(studentId)) {
+        originalGroupRef.current.set(studentId, { name: studentName, originalGroup: currentGroup ?? '' })
+      }
+      const original = originalGroupRef.current.get(studentId)!.originalGroup
+      setLatestGroupMap((prev) => {
+        const next = new Map(prev)
+        if (targetGroup === original) {
+          next.delete(studentId)
+        } else {
+          next.set(studentId, targetGroup)
+        }
+        return next
+      })
+
       router.refresh()
+      // movingId 刻意不在這裡清除——router.refresh() 是非同步觸發伺服器
+      // 重新查詢＋整頁重渲染，這裡拿不到「新畫面已經渲染完成」的訊號。
+      // 讓「搬移中」樣式維持到 Server Component 帶著新的 rosterGroups
+      // 回來、這個學員從原分組的 members 陣列中消失為止（該學員所在的
+      // RosterGroupColumn 直接卸載重建，movingId 這個 state 本身雖然還
+      // 留著也不會再有對應的組員列可以套用樣式，等同自然歸零，不需要
+      // 額外的 setTimeout 或 useEffect 去猜測「完成」的時間點）。
     } finally {
       setGroupActionPending(false)
     }
@@ -242,32 +295,30 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
   }
 
   /**
-   * 匯出目前畫面上的分組總表為 CSV，比照 CourseClient.tsx 的
-   * downloadRosterCsv() 模式（UTF-8 BOM + Blob + 合成 <a download>）。
-   * 直接用目前已渲染的 rosterGroups（伺服器查詢後排序好的結果），不另外
-   * 呼叫 API——匯出當下畫面顯示的樣貌就是「目前最終分組結果」。
+   * 匯出「本次工作階段的分組異動對照表」（姓名、原分組、目前分組），
+   * 取代匯出完整分組總表現況——管理者要拿這份檔案去無法批次匯入、只能
+   * 手動逐筆編輯的原官網系統同步分組，只列出動過的人能省去他自己比對
+   * 完整名單找異動的步驟，也降低漏改/改錯的機會。見 openspec/changes/
+   * spirit-roster-drag-edit 的 design.md Decision 6。
    */
-  const exportRosterCsv = () => {
-    const header = ['組別', '組內順序', '姓名', '是否小隊長', '補課狀態']
+  const exportChangesCsv = () => {
+    if (latestGroupMap.size === 0) {
+      toast.error('尚無異動，無需匯出。')
+      return
+    }
+    const header = ['姓名', '原分組', '目前分組']
     const lines = [header.map(csvEscape).join(',')]
-    for (const g of rosterGroups) {
-      g.members.forEach((m, idx) => {
-        const makeupLabel = !m.canToggleMakeup ? '已是正式心之使者' : m.pendingMakeup ? '尚未完成補課' : '已完成補課'
-        lines.push([
-          g.name,
-          String(idx + 1),
-          m.name,
-          m.isLeader ? '是' : '否',
-          makeupLabel,
-        ].map(csvEscape).join(','))
-      })
+    for (const [studentId, newGroup] of latestGroupMap.entries()) {
+      const record = originalGroupRef.current.get(studentId)
+      if (!record) continue
+      lines.push([record.name, record.originalGroup, newGroup].map(csvEscape).join(','))
     }
     const csvContent = '﻿' + lines.join('\r\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `分組總表_${system}_${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `分組異動對照表_${system}_${new Date().toISOString().split('T')[0]}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -323,10 +374,12 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={exportRosterCsv}
-                className="text-xs font-medium px-2.5 py-1 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100"
+                onClick={exportChangesCsv}
+                disabled={latestGroupMap.size === 0}
+                title={latestGroupMap.size === 0 ? '尚無異動' : `匯出 ${latestGroupMap.size} 筆異動`}
+                className="text-xs font-medium px-2.5 py-1 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
               >
-                匯出總表
+                匯出異動對照表{latestGroupMap.size > 0 ? `（${latestGroupMap.size}）` : ''}
               </button>
               {canEditMakeup && (
                 <button
@@ -341,19 +394,52 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
             </div>
           </div>
           <div className="p-4">
-            <DndContext
-              sensors={sensors}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragCancel={() => setDraggingMember(null)}
-            >
+            {mounted ? (
+              <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragCancel={() => setDraggingMember(null)}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {rosterGroups.map((g) => (
+                    <RosterGroupColumn
+                      key={g.name}
+                      group={g}
+                      canEdit={canEditMakeup}
+                      dndEnabled
+                      updatingId={updatingId}
+                      movingId={movingId}
+                      onToggleLeader={toggleLeader}
+                      onToggleMakeup={toggleMakeupCompleted}
+                      onDeleteGroup={deleteGroup}
+                      deletePending={groupActionPending}
+                    />
+                  ))}
+                </div>
+                <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                  {draggingMember && (
+                    <div className="px-2 py-1 rounded-md bg-white border-2 border-indigo-400 shadow-lg text-[11px] font-medium text-indigo-900 cursor-grabbing">
+                      {draggingMember.name}
+                    </div>
+                  )}
+                </DragOverlay>
+              </DndContext>
+            ) : (
+              // SSR／client 尚未 mount 完成：不掛載 DndContext 與任何
+              // @dnd-kit hook，避免 aria-describedby 的 hydration mismatch
+              // （見 DraggableMember 上方註解）。這段渲染完成後 useEffect
+              // 立刻把 mounted 設為 true 換上可拖曳版本，使用者感知不到
+              // 這個切換（正常狀況下是同一個 tick 內就完成）。
               <div className="flex flex-wrap gap-2">
                 {rosterGroups.map((g) => (
                   <RosterGroupColumn
                     key={g.name}
                     group={g}
                     canEdit={canEditMakeup}
+                    dndEnabled={false}
                     updatingId={updatingId}
+                    movingId={movingId}
                     onToggleLeader={toggleLeader}
                     onToggleMakeup={toggleMakeupCompleted}
                     onDeleteGroup={deleteGroup}
@@ -361,14 +447,7 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
                   />
                 ))}
               </div>
-              <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
-                {draggingMember && (
-                  <div className="px-2 py-1 rounded-md bg-white border-2 border-indigo-400 shadow-lg text-[11px] font-medium text-indigo-900 cursor-grabbing">
-                    {draggingMember.name}
-                  </div>
-                )}
-              </DragOverlay>
-            </DndContext>
+            )}
           </div>
         </Card>
 
@@ -504,21 +583,84 @@ export default function SpiritClient({ role, system, kpi, groupCounts, groupMemb
  * 分組總表的單一分組欄位——同時是 droppable 容器（接收拖入的組員）與
  * 刪除組別的操作單位。拆成獨立元件是因為 useDroppable 是 hook，不能在
  * .map() 的 callback 內直接呼叫。
+ *
+ * dndEnabled 為 false 時（SSR／client 尚未 mount 完成）完全不呼叫
+ * useDroppable、改用純 <div> 容器，組員列也改用不含 dnd-kit hooks 的
+ * StaticMemberRow——見 DraggableMember 上方註解說明原因。
  */
 function RosterGroupColumn({
-  group, canEdit, updatingId, onToggleLeader, onToggleMakeup, onDeleteGroup, deletePending,
+  group, canEdit, dndEnabled, updatingId, movingId, onToggleLeader, onToggleMakeup, onDeleteGroup, deletePending,
 }: {
   group: RosterGroup
   canEdit: boolean
+  dndEnabled: boolean
   updatingId: number | null
+  movingId: number | null
   onToggleLeader: (id: number, name: string, next: boolean) => void
   onToggleMakeup: (id: number, name: string, next: boolean) => void
   onDeleteGroup: (name: string, memberCount: number) => void
   deletePending: boolean
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: group.name })
   const isEmpty = group.members.length === 0
+  const columnHeader = (
+    <div className="flex items-center justify-between gap-0.5 px-1.5 py-1 bg-rose-50 border-b border-rose-100">
+      <span className="text-[11px] font-bold text-rose-800 truncate" title={group.name}>{group.name}</span>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={() => onDeleteGroup(group.name, group.members.length)}
+          disabled={deletePending}
+          title={isEmpty ? '刪除此分組' : '此分組尚有組員，點擊查看說明'}
+          aria-label={`刪除分組「${group.name}」`}
+          className={`shrink-0 text-[11px] leading-none disabled:opacity-30 ${
+            isEmpty ? 'text-rose-400 hover:text-rose-700' : 'text-slate-300 hover:text-rose-500'
+          }`}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+  const memberRows = group.members.map((m) =>
+    dndEnabled ? (
+      <DraggableMember
+        key={m.id}
+        member={m}
+        groupName={group.name}
+        canEdit={canEdit}
+        updatingId={updatingId}
+        isMoving={movingId === m.id}
+        onToggleLeader={onToggleLeader}
+        onToggleMakeup={onToggleMakeup}
+      />
+    ) : (
+      <StaticMemberRow
+        key={m.id}
+        member={m}
+        canEdit={canEdit}
+        updatingId={updatingId}
+        isMoving={movingId === m.id}
+        onToggleLeader={onToggleLeader}
+        onToggleMakeup={onToggleMakeup}
+      />
+    )
+  )
 
+  if (!dndEnabled) {
+    return (
+      <div className="w-20 shrink-0 border border-slate-200 rounded-lg overflow-hidden">
+        {columnHeader}
+        <div className="divide-y divide-slate-100 min-h-[1.5rem]">{memberRows}</div>
+      </div>
+    )
+  }
+
+  return <DroppableGroupColumn groupName={group.name}>{columnHeader}{memberRows}</DroppableGroupColumn>
+}
+
+/** useDroppable 呼叫獨立成元件，讓 RosterGroupColumn 能在 dndEnabled=false 時完全不掛載這個 hook。 */
+function DroppableGroupColumn({ groupName, children }: { groupName: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: groupName })
   return (
     <div
       ref={setNodeRef}
@@ -526,66 +668,28 @@ function RosterGroupColumn({
         isOver ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-slate-200'
       }`}
     >
-      <div className="flex items-center justify-between gap-0.5 px-1.5 py-1 bg-rose-50 border-b border-rose-100">
-        <span className="text-[11px] font-bold text-rose-800 truncate" title={group.name}>{group.name}</span>
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => onDeleteGroup(group.name, group.members.length)}
-            disabled={deletePending}
-            title={isEmpty ? '刪除此分組' : '此分組尚有組員，點擊查看說明'}
-            aria-label={`刪除分組「${group.name}」`}
-            className={`shrink-0 text-[11px] leading-none disabled:opacity-30 ${
-              isEmpty ? 'text-rose-400 hover:text-rose-700' : 'text-slate-300 hover:text-rose-500'
-            }`}
-          >
-            ✕
-          </button>
-        )}
-      </div>
-      <div className="divide-y divide-slate-100 min-h-[1.5rem]">
-        {group.members.map((m) => (
-          <DraggableMember
-            key={m.id}
-            member={m}
-            groupName={group.name}
-            canEdit={canEdit}
-            updatingId={updatingId}
-            onToggleLeader={onToggleLeader}
-            onToggleMakeup={onToggleMakeup}
-          />
-        ))}
-      </div>
+      {children}
     </div>
   )
 }
 
-/** 分組總表的單一組員列，同時是 draggable 來源。canEdit 為 false 時不啟用拖曳（唯讀角色維持原本純顯示）。 */
-function DraggableMember({
-  member: m, groupName, canEdit, updatingId, onToggleLeader, onToggleMakeup,
-}: {
+interface MemberRowContentProps {
   member: RosterMember
-  groupName: string
   canEdit: boolean
   updatingId: number | null
+  isMoving: boolean
   onToggleLeader: (id: number, name: string, next: boolean) => void
   onToggleMakeup: (id: number, name: string, next: boolean) => void
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: m.id,
-    data: { group: groupName, name: m.name },
-    disabled: !canEdit,
-  })
+}
 
+/** 組員列的內容（姓名、★小隊長按鈕、補課狀態按鈕），不含任何拖曳相關的 ref/attributes——由外層的 DraggableMember 或 StaticMemberRow 決定是否要包上拖曳能力。 */
+function MemberRowContent({ member: m, canEdit, updatingId, isMoving, onToggleLeader, onToggleMakeup }: MemberRowContentProps) {
   return (
-    <div
-      ref={setNodeRef}
-      {...(canEdit ? { ...attributes, ...listeners } : {})}
-      className={`flex items-center gap-0.5 px-1.5 py-0.5 ${
-        m.isLeader ? 'bg-rose-50' : m.pendingMakeup ? 'bg-green-100' : ''
-      } ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''}`}
-    >
-      {canEdit && (
+    <>
+      {isMoving && (
+        <span className="shrink-0 text-[11px] leading-none text-indigo-500 animate-pulse" aria-hidden="true">⋯</span>
+      )}
+      {canEdit && !isMoving && (
         <button
           type="button"
           onClick={() => onToggleLeader(m.id, m.name, !m.isLeader)}
@@ -605,11 +709,13 @@ function DraggableMember({
       <a
         href={`/students?search=${encodeURIComponent(m.name)}`}
         title={
-          m.isLeader
-            ? `${m.name}（小隊長）`
-            : m.pendingMakeup
-              ? `${m.name}（已分組，尚未完成補課）`
-              : m.name
+          isMoving
+            ? `${m.name}（搬移中…）`
+            : m.isLeader
+              ? `${m.name}（小隊長）`
+              : m.pendingMakeup
+                ? `${m.name}（已分組，尚未完成補課）`
+                : m.name
         }
         className={`flex-1 min-w-0 text-[11px] truncate hover:underline ${
           m.isLeader ? 'font-bold text-rose-900' : m.pendingMakeup ? 'text-green-900' : 'text-slate-700 hover:bg-slate-50'
@@ -617,7 +723,7 @@ function DraggableMember({
       >
         {m.name}
       </a>
-      {m.canToggleMakeup && canEdit && (
+      {m.canToggleMakeup && canEdit && !isMoving && (
         <button
           type="button"
           onClick={() => onToggleMakeup(m.id, m.name, m.pendingMakeup)}
@@ -631,6 +737,55 @@ function DraggableMember({
           {updatingId === m.id ? '…' : m.pendingMakeup ? '✓' : '↺'}
         </button>
       )}
+    </>
+  )
+}
+
+/** 組員列的樣式外框（背景色、間距），與內容分開是因為 DraggableMember／StaticMemberRow 需要各自套用不同的 ref/事件屬性到這個外框上。 */
+function memberRowClassName(m: RosterMember, extra: string, isMoving: boolean, isDragging: boolean) {
+  return `flex items-center gap-0.5 px-1.5 py-0.5 ${
+    m.isLeader ? 'bg-rose-50' : m.pendingMakeup ? 'bg-green-100' : ''
+  } ${extra} ${isDragging || isMoving ? 'opacity-40' : ''}`
+}
+
+/**
+ * 分組總表的單一組員列（拖放已啟用版本），同時是 draggable 來源。
+ * canEdit 為 false 時不啟用拖曳（唯讀角色維持原本純顯示）。isMoving 為
+ * true 時（放開拖曳後、router.refresh() 帶回新資料前的空窗期）顯示
+ * 「搬移中」樣式並停用互動，填補 PATCH+重新查詢這段實測近 1 秒的視覺
+ * 空窗——見 openspec/changes/spirit-roster-drag-edit 的手感優化。
+ *
+ * 只在 client mount 完成後才會被渲染（見 SpiritClient 的 mounted 旗標）
+ * ——SSR 階段一律走 StaticMemberRow，避免 @dnd-kit 的 useUniqueId 全域
+ * 計數器在 SSR/CSR 之間算出不同的 aria-describedby 導致 hydration
+ * mismatch（該計數器是模組級全域狀態、跨 server process 生命週期持續
+ * 累加，SSR 與瀏覽器端的起始值天生對不齊，這是套件本身的已知限制，
+ * 不是我們的邏輯錯誤）。
+ */
+function DraggableMember(props: MemberRowContentProps & { groupName: string }) {
+  const { member: m, groupName, canEdit, isMoving } = props
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: m.id,
+    data: { group: groupName, name: m.name },
+    disabled: !canEdit || isMoving,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...(canEdit && !isMoving ? { ...attributes, ...listeners } : {})}
+      className={memberRowClassName(m, canEdit && !isMoving ? 'cursor-grab active:cursor-grabbing' : '', isMoving, isDragging)}
+    >
+      <MemberRowContent {...props} />
+    </div>
+  )
+}
+
+/** 組員列的純顯示版本（SSR／mount 完成前使用），不呼叫任何 @dnd-kit hook，也就不會產生會在 hydration 時對不齊的 aria 屬性。 */
+function StaticMemberRow(props: MemberRowContentProps) {
+  return (
+    <div className={memberRowClassName(props.member, '', props.isMoving, false)}>
+      <MemberRowContent {...props} />
     </div>
   )
 }
