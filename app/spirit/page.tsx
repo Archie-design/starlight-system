@@ -111,7 +111,23 @@ export default async function SpiritPage() {
   // 互不影響既有統計。未分組者不進入總表網格（畫面上不呈現未分組名單，
   // 見使用者回饋）。組內排序沿用既有「年資高到低」慣例，第一位即視覺
   // 上的組長位置。
+  //
+  // 總表欄位來源改為 spirit_ambassador_groups（獨立資料表），不再只靠
+  // 學員資料反推——這樣「新增一個目前無成員的空組別」才能在重新整理後
+  // 仍然顯示。學員仍照 spirit_ambassador_group 分桶塞進對應組別；若某
+  // 學員的組別字串不在 spirit_ambassador_groups 裡（理論上不應發生，
+  // 但保留容錯），仍照既有方式併入總表，避免資料因表沒回填而消失。
+  // 見 openspec/changes/spirit-roster-drag-edit。
+  const { data: groupRows, error: groupRowsErr } = await service
+    .from('spirit_ambassador_groups')
+    .select('name')
+    .eq('guidance_chain', system)
+  if (groupRowsErr) throw groupRowsErr
+
   const rosterGroupMap = new Map<string, Row[]>()
+  for (const row of groupRows ?? []) {
+    rosterGroupMap.set(row.name, [])
+  }
   for (const s of all) {
     const g = (s.spirit_ambassador_group ?? '').trim()
     if (!g) continue

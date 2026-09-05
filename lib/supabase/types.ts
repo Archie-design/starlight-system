@@ -149,6 +149,14 @@ export interface ImportLog {
 }
 
 
+/** 心之使者分組（獨立於學員而存在，支援空組別）。見 openspec/changes/spirit-roster-drag-edit */
+export interface SpiritAmbassadorGroup {
+  id: string
+  name: string
+  guidance_chain: string
+  created_at: string
+}
+
 export interface CounselorGroup {
   id: string
   name: string
